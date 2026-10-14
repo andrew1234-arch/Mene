@@ -1,43 +1,68 @@
-# Arkiv friction log
+# Friction report — Mene
+Format: **Surface · Version · Expected · Actual · Repro · Suggested fix**. Added throughout the build; smooth paths are documented with the same rigour.
 
-Format: what we expected · what happened · version · repro. Smooth paths are logged too.
+## 1. `predictEntityKeys` lives on the public client, not the wallet client
+- **Surface:** TypeScript SDK
+- **Version:** @arkiv-network/sdk 0.8.1, viem 2.x, TS 5.x
+- **Expected:** to call it on the wallet client that sends the batch. The JSDoc uses a generic `client.predictEntityKeys(...)` beside `client.executeBatch(...)`.
+- **Actual:** `TS2339: Property 'predictEntityKeys' does not exist` on the wallet client. It works on `createPublicClient(...)`. Confirmed in source: `clients/decorators/arkivWallet.ts` exposes only create/patch/delete/extend/changeOwnership/executeBatch.
+- **Repro:** `createWalletClient({ chain: tiramisu, transport: http(), account }).predictEntityKeys({ owner, count: 2 })`
+- **Fix:** expose it on the wallet client, or name the client type in the JSDoc.
 
-## 2026-10-14 — @arkiv-network/sdk 0.8.1, viem 2.57.5, Node 22
+## 2. "readonly" does not prevent deletion
+- **Surface:** SDK types/docs (`CreationFlags`)
+- **Version:** 0.8.1
+- **Expected (from the name):** immutable for the entity's lifetime.
+- **Actual (type docs, `entity/flags.ts`):** "The entity's attributes and payload can never be changed — only its expiry extended, its ownership transferred, and the entity deleted." Tamper-evident apps must handle deletion separately (we seal via ownership transfer; SPIKE S1).
+- **Fix:** state "readonly ≠ undeletable" prominently, and document whether transfer to an unspendable address is a supported sealing pattern.
 
-### ✅ SDK ships its TypeScript sources
-`node_modules/@arkiv-network/sdk/src` is published alongside `dist`, with doc comments on every action. We answered every API question (batch shape, `predictEntityKeys` tuple typing, `PatchEntityParameters` = `set`/`unset`, event payloads) by reading source, without docs round-trips. Our whole SDK layer typechecked first try under `strict` + `noUncheckedIndexedAccess`.
+## 3. ✅ Live node accepts every Mene query (read-only smoke test)
+- **Surface:** JSON-RPC `arkiv_query`, `eth_chainId`, `arkiv_getBlockTiming`, SDK query builder
+- **Version:** @arkiv-network/sdk 0.8.1, viem 2.57.5, Node 22, GitHub Actions ubuntu-latest; 2026-10-14 12:24 UTC ([run 38563462245](https://github.com/andrew1234-arch/Mene/actions/runs/38563462245))
+- **Expected:** the rendered query strings (`builder.toString()`) parse on the node; range predicates on `i32`/`u64` combine with `$creator`; an empty result has no cursor; `getEntity` on an unknown key throws `NoEntityFoundError`.
+- **Actual:** all as expected.
 
-### ✅ Query builder is inspectable
-`builder.toString()` returns the exact query text the node parses (e.g. `project = str('mene-v1') AND type = str('attestation') AND $creator = addr(0x…)`). We use it in `mene verify` and on the advisory page's "Verify it yourself" box. Viem's error message also prints the full `arkiv_query` request body, which gave us the raw-RPC equivalent for free.
+  | Call | Result | Latency |
+  |---|---|---|
+  | `eth_chainId` | `7738577` | 4142 ms (first request, includes TLS/DNS warm-up) |
+  | `eth_blockNumber` | `565449` | 151 ms |
+  | `arkiv_getBlockTiming` | `{ currentBlock: 565449, blockDuration: 2 }` | 155 ms |
+  | `project = str('mene-v1') AND type = str('attestation') AND $creator = addr(…)` | 0 rows, `cursor: null` | 172 ms |
+  | `… type = str('advisory') AND severity >= i32(3) AND publishedAt >= u64(1700000000) AND $creator = addr(…)` | 0 rows | 165 ms |
+  | `getEntity(0x…01)` (never existed) | `NoEntityFoundError` | 153 ms |
+- **Repro:** `npx tsx scripts/smoke.ts 0x<any address>` or run the `arkiv-smoke` workflow.
+- **Fix:** none needed. One naming note: `getBlockTiming()` returns camelCase (`currentBlock`, `currentBlockTime`, `blockDuration`) while `types/rpcSchema.ts` types the raw RPC as `current_block`, `current_block_time`, `duration`. Callers of raw `arkiv_getBlockTiming` should expect the snake_case form.
 
-### ℹ️ `ExpiryExtendedEvent.owner` is the owner, not the extender
-Expected: the event tells us who applied a permissionless Lifetime Extension. Actual: the doc comment says it carries the **owner**; the extender must be read from the transaction's `from`. For the "kept alive by 0x…" badge we fetch the tx. Not a bug, but a common need.
+## 4. ✅ Browser bundle needs no wasm plugin (SPIKE S7)
+- **Surface:** SDK in an Astro 7 / Vite browser build
+- **Version:** @arkiv-network/sdk 0.8.1, astro 7.3.8
+- **Expected:** `brotli-wasm` (a dependency) would need `vite-plugin-wasm` or a fallback to raw `fetch`.
+- **Actual:** `utils/compression.ts` (the only `brotli-wasm` importer) is not imported by any action in 0.8.1, and in Node it uses `node:zlib` first. A stock Astro build bundles the SDK; reads and browser-wallet writes work with no plugin. Verified in Chromium: the query builder runs, and an injected EIP-1193 wallet receives `wallet_addEthereumChain` for `0x7614d1` and then one `eth_sendTransaction` to the Arkiv contract carrying the whole batch.
+- **Repro:** `npm run site:build`, open any page; for writes see `site/src/scripts/wallet.ts` (`createWalletClient({ chain: tiramisu, transport: custom(window.ethereum), account })`).
+- **Fix:** none needed. If compression is intended for writes, it is currently dead code; if not, `brotli-wasm` could be dropped from `dependencies`.
 
-### ℹ️ Compression is Node-zlib first, brotli-wasm only as fallback
-`utils/compression.ts` uses `node:zlib` in Node and lazily imports `brotli-wasm` only in the browser/fallback path. So bundling the CLI/Action needs nothing special (our Action bundle runs from a bare directory with no node_modules). Relevant for SPIKE S7 (browser).
+## 5. ✅ Injected wallets need the chain switched first
+- **Surface:** SDK `executeBatch` via viem `writeContract` with a JSON-RPC account
+- **Version:** 0.8.1, viem 2.57.5
+- **Expected:** a browser wallet on another chain would be prompted to switch by the SDK.
+- **Actual:** viem's `assertCurrentChain` rejects the write (surfacing as `EntityMutationError: Transaction failed: Execution error without revert data`) when the wallet reports another chain. We call `wallet_switchEthereumChain`, then `wallet_addEthereumChain` on error 4902, before writing.
+- **Repro:** connect a wallet on mainnet and call `executeBatch` through `custom(window.ethereum)`.
+- **Fix:** surface viem's `ChainMismatchError` message instead of the generic "Execution error without revert data".
 
-### ✅ Browser writes need no wasm
-Expected (SPIKE S7): `brotli-wasm` would need special bundling for browser writes. Actual: in 0.8.1, `utils/compression.ts` (the only `brotli-wasm` importer) is not imported by any action, so payloads go out uncompressed and Vite bundles the SDK with no plugin. Our Astro site reads and writes (publish / attest / keepalive through an injected EIP-1193 wallet via viem `custom()`) with stock config. Verified in Chromium: the wallet receives `wallet_addEthereumChain` for chain `0x7614d1`, then one `eth_sendTransaction` to the Arkiv contract carrying the whole batch.
+## 6. `ExpiryExtendedEvent.owner` is not who paid for the extension
+- **Surface:** `watchEntityEvents` event types
+- **Version:** 0.8.1
+- **Expected:** to credit the wallet that applied a permissionless Lifetime Extension from the event.
+- **Actual:** the doc comment says `owner` is the entity's owner, not the extender; we read the transaction's `from` to show "Kept alive by 0x…".
+- **Repro:** extend a `permissionlessExtension` entity from a third wallet and watch `onExpiryExtended`.
+- **Fix:** add the sender to `ExpiryExtendedEvent`.
 
-### ✅ Injected wallets work unchanged
-`createWalletClient({ chain: tiramisu, transport: custom(window.ethereum), account: address })` is all it takes; `executeBatch` goes through viem `writeContract`, which uses `eth_sendTransaction` for JSON-RPC accounts. viem's `assertCurrentChain` rejects the write if the wallet is on another chain, so we call `wallet_switchEthereumChain` / `wallet_addEthereumChain` (4902) first.
+## 7. Mirrored OpenSSF records contain personal contact data
+- **Surface:** data hygiene (hackathon rule: no real personal data on Arkiv)
+- **Version:** ossf/malicious-packages `main`, record `osv/malicious/npm/debug/MAL-2025-46974.json` (schema_version 1.5.0)
+- **Expected:** OSV records to be safe to inscribe as-is.
+- **Actual:** `credits[].contact` holds a finder's email address. Because Arkiv entities are public and deletion is not erasure, `scripts/mirror.ts` drops `credits` before inscribing and links the source record instead.
+- **Repro:** `curl -s https://raw.githubusercontent.com/ossf/malicious-packages/main/osv/malicious/npm/debug/MAL-2025-46974.json | jq .credits`
+- **Fix (Arkiv docs):** a short "what never to put in a payload" checklist, since immutable public storage makes this mistake permanent.
 
-### ✅ Live node accepts every Mene query (read-only smoke test)
-Run 2026-10-14 12:24 UTC from a GitHub Actions runner (ubuntu-latest, Node 22), `@arkiv-network/sdk` 0.8.1, viem 2.57.5, script `scripts/smoke.ts`, workflow `arkiv-smoke` ([run 38563462245](https://github.com/andrew1234-arch/Mene/actions/runs/38563462245)).
-
-| Call | Result | Latency |
-|---|---|---|
-| `eth_chainId` | `7738577` | 4142 ms (first request, includes TLS/DNS warm-up) |
-| `eth_blockNumber` | `565449` | 151 ms |
-| `arkiv_getBlockTiming` | `{ currentBlock: 565449, blockDuration: 2 }` | 155 ms |
-| attestations query `project = str('mene-v1') AND type = str('attestation') AND $creator = addr(…)` | 0 rows, `cursor: null` | 172 ms |
-| issuer-lease query (`type = str('issuer')` + `createdBy`) | 0 rows | 153 ms |
-| range query `severity >= i32(3) AND publishedAt >= u64(1700000000)` + `createdBy` | 0 rows | 165 ms |
-| `getEntity` on a key that never existed | throws `NoEntityFoundError`, as documented | 153 ms |
-
-Expected: the rendered query strings (from `builder.toString()`) parse on the node, range predicates on `i32`/`u64` are accepted with `$creator`, and an empty result has no cursor. Actual: all as expected. Note: `getBlockTiming()` returns camelCase fields (`currentBlock`, `currentBlockTime`, `blockDuration`); the RPC schema type in `types/rpcSchema.ts` names them `current_block`, `current_block_time`, `duration` (the action maps them). Worth knowing if you call `arkiv_getBlockTiming` by raw JSON-RPC.
-
-Repro: `npx tsx scripts/smoke.ts 0x<any address>`.
-
-### ⏳ Pending on-chain spikes (S0–S6)
-`scripts/spike.ts` is ready; results will be recorded here with tx hashes.
+<!-- Spike results S0–S7 below -->

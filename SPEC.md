@@ -4,7 +4,7 @@
 Quorum-witnessed npm compromise advisories, written on Arkiv where no registry, company or hacked account can erase them, matched locally against your lockfile and enforced in CI.
 
 ## Tracks
-Primary **Security**, secondary **Censorship Resistance**. Optionally **Open Source** (OSV-format data contract). One prize max per team.
+Enter **three**: **Security**, **Censorship Resistance**, **Open Source**. Only "Why this pillar?" is scored per track; the other three criteria are shared. One prize max per team.
 
 ## Problem (verified)
 - On 8 Sep 2025, maintainer Josh Junon (npm `qix`) was phished via a fake `npmjs.help` 2FA email. Malicious versions of 18 packages (>2.6B combined weekly downloads) were published, including **chalk@5.6.1** and **debug@4.4.2**.
@@ -12,7 +12,7 @@ Primary **Security**, secondary **Censorship Resistance**. Optionally **Open Sou
 - Known-good downgrades: chalk 5.6.0, debug 4.4.1.
 - Today's warnings live on GitHub/npm/vendor sites that an operator, a takedown or a compromised account can edit or delete.
 
-## The name (for landing/about copy)
+## The name (for landing copy)
 In Daniel 5 a hand writes four words on the palace wall during a feast: *Mene* (numbered), *Tekel* (weighed), *Upharsin* (divided). Mene maps them to the product:
 - **Mene — numbered:** every advisory is written to Arkiv and counted.
 - **Tekel — weighed:** independent witnesses weigh it; 2 of 3 must confirm.
@@ -21,6 +21,7 @@ In Daniel 5 a hand writes four words on the palace wall during a feast: *Mene* (
 ## Pitch answers (draft for Devfolio)
 - **Why Security?** Teams whose CI trusts one advisory source can be misled: one compromised maintainer or platform account can fake a warning or delete a real one. Mene shows and filters advisories by on-chain `$creator` and requires 2-of-3 trusted issuers, so one hacked issuer can neither forge nor bury a warning.
 - **Why Censorship Resistance?** Anyone can read and verify advisories straight from Arkiv, via the CLI or the static site. There is no Mene backend to shut down.
+- **Why Open Source?** Anyone can build on the advisory dataset without asking permission. The data contract is the OpenSSF OSV format plus documented Arkiv attributes (arkiv/schema.md) and an MIT SDK. Records mirrored from OpenSSF malicious-packages keep their Apache-2.0 attribution.
 - **Why Arkiv / what breaks elsewhere?**
   - Postgres or our own API: the operator can edit or delete.
   - IPFS: no queries by issuer or status, no ownership, no Entity Expiration semantics.
@@ -33,12 +34,12 @@ npm workspaces, TypeScript strict, Node ≥ 20, vitest, tsup.
 ```
 packages/sdk     @mene/sdk  — OSV payload types, attributes, Arkiv read/write, quorum, lockfile, matcher
 packages/cli     @mene/cli  — bin: mene
-action/          GitHub Action (action.yml + bundled dist/, node24)
-site/            Astro + Starlight static site → GitHub Pages (see DESIGN.md)
+action/          GitHub Action (action.yml + bundled dist/, node20)
+site/            Astro static site → GitHub Pages (see DESIGN.md)
 examples/chalk-attack/package-lock.json   fixture, never installed
 examples/clean/package-lock.json          control fixture
 arkiv/           schema.md, friction.md, evidence.md
-scripts/         spike.ts, seed.ts
+scripts/         spike.ts, seed.ts, mirror.ts
 ```
 
 ## Advisory format: OSV-compatible
@@ -49,13 +50,11 @@ The advisory payload follows the OpenSSF **OSV schema** (the format used by osv.
 |---|---|---|---|
 | **advisory** | readonly, permissionlessExtension | 365 days | sealed to the burn address (SPIKE S1) |
 | **attestation** | readonly, permissionlessExtension | 365 days | `verdict: confirm \| withdraw`, points at an advisory key |
-| **issuer** profile | none | 30 days | lease extended on every publish/attest |
 
 **Publish is one atomic `executeBatch`:**
 1. create the advisory
 2. create the publisher's own `confirm` attestation
 3. (SPIKE S1) transfer advisory ownership to `0x000000000000000000000000000000000000dEaD`, so even the issuer's key can't delete it
-4. extend the issuer lease
 
 ### Arkiv features → what the user sees
 | Feature | Use | Visible as |
@@ -64,18 +63,23 @@ The advisory payload follows the OpenSSF **OSV schema** (the format used by osv.
 | `createdBy()` | Every query pinned to a trusted issuer | Untrusted forgeries never appear; witness badges show creator addresses |
 | readonly | An attestation commits to an advisory whose content can never change | "Inscribed — content frozen" badge |
 | permissionlessExtension | Anyone runs `mene keepalive` | Expiry countdown and "kept alive by 0x…" |
-| Entity Expiration per type | 365 d advisories/attestations, 30 d issuer lease | Lapsed issuers shown as silent |
-| Lifetime Extension as lease | Issuer lease renewed by activity | "Active witness" indicator |
+| Entity Expiration | 365 d, renewable by anyone (warnings must outlive their publisher) | Expiry countdown on every advisory |
 | Ownership transfer (SPIKE) | Sealed to the burn address | "Sealed — no one can erase it" badge |
 | Batch writes | Publish lands atomically | No half-published advisory ever exists |
-| WebSocket events | Live feed and deletion alarms | Wall updates without refresh |
+| WebSocket events | Live strip on the Wall plus deletion alarms | Wall updates without refresh |
+
+## Real data from day one: OpenSSF mirror
+- Source: `github.com/ossf/malicious-packages` (Apache-2.0, OSV format; npm records under `osv/malicious/npm/<package>/MAL-*.json`). Verified to contain `MAL-2025-46974` (debug 4.4.2, schema_version 1.5.0).
+- `scripts/mirror.ts` imports a **curated** set: npm **account-takeover** compromises of established packages, starting with every package from the Sept 2025 qix incident. Skip the bulk typosquat records: cost per entity, and they add volume, not value.
+- Records are inscribed **as-is**: original OSV JSON in the payload, plus `database_specific.mene.source = { repo, path, license: "Apache-2.0" }`. Then they are confirmed by a second witness.
+- Result: a judge runs `mene check` on their own project and is protected by real data today. This is the "what changes from day one" answer.
 
 ## Quorum algorithm (`resolveStatus`)
 Inputs: trusted issuers T, threshold k (default 2).
 1. For each t ∈ T, page `select("*").where(and(eq("project","mene-v1"), eq("type","attestation"))).createdBy(t)`.
 2. Group by `advisory` key. Keep each issuer's **latest** attestation per advisory (highest `createdAt`).
-3. confirmers = issuers whose latest verdict is `confirm`; withdrawers = those with `withdraw`. Replaying verdicts in chain order, the advisory is **activated** once k witnesses confirm at the same time.
-4. Status: `WITHDRAWN` if |withdrawers| ≥ k; else `ACTIVE` if activated; else `PENDING n/k` (n = |confirmers|). After activation only a withdrawal quorum undoes it, so one stolen key can't bury a live warning; before activation a witness can retract its own confirm.
+3. confirmers = distinct issuers whose latest verdict is `confirm`; withdrawers = those with `withdraw`.
+4. Status: `WITHDRAWN` if |withdrawers| ≥ k; else `ACTIVE` if |confirmers| ≥ k; else `PENDING n/k`.
 5. `getEntity(key)` for each advisory. Its creator need not be trusted: readonly plus key-pinned attestations make that safe. Reject it if not readonly or schema-invalid.
 6. **Anti-burial cache** (`~/.cache/mene/state.json`; `actions/cache` in CI):
    - Store every advisory and confirm ever seen.
@@ -111,7 +115,7 @@ mene keepalive [--all | <key>]      # permissionless Lifetime Extension; env MEN
    - Deleting A's attestation: Mene still counts it from the cache and the wall shows a deletion alarm.
    - A forged advisory from an untrusted wallet never appears.
 5. 25 s — false alarm (synthetic package) withdrawn by 2 witnesses → WITHDRAWN, history intact.
-6. 25 s — privacy: the browser lockfile check is local and queries carry no package names. A stranger's wallet keeps an advisory alive. Close.
+6. 25 s — real data: the Wall shows the mirrored OpenSSF records. Drop a real lockfile on `/check` (it stays local; queries carry no package names). A stranger's wallet keeps an advisory alive. Close.
 
 ## Honest limitations (README)
 - Demo witnesses are 3 team-controlled testnet wallets; in production they'd be independent organisations.
