@@ -1,0 +1,137 @@
+---
+interface Props { compact?: boolean }
+const { compact = false } = Astro.props
+---
+<section class:list={["checker", { compact }]} aria-labelledby="check-title">
+  <div id="check-input">
+    <label id="drop" class="drop" tabindex="0">
+      <input type="file" id="file" accept=".json,application/json" hidden />
+      <span class="drop-icon" aria-hidden="true">⇣</span>
+      <strong id="check-title">Drop your <code>package-lock.json</code></strong>
+      <span class="muted small">or click to choose a file. It never leaves this page.</span>
+    </label>
+    <div class="check-alt small">
+      <button type="button" class="linkish" id="paste-toggle">Paste instead</button>
+      <span class="muted">·</span>
+      <span class="muted">Try an example:</span>
+      <button type="button" class="linkish" data-fixture="chalk-attack">poisoned</button>
+      <button type="button" class="linkish" data-fixture="clean">clean</button>
+    </div>
+    <div id="paste" hidden>
+      <textarea id="paste-text" rows="6" placeholder='{"lockfileVersion": 3, "packages": { … }}' aria-label="Paste package-lock.json"></textarea>
+      <button type="button" class="btn primary" id="paste-go">Check</button>
+    </div>
+  </div>
+  <div id="check-out" aria-live="polite"></div>
+</section>
+
+<style>
+  .checker { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.25rem; box-shadow: 0 20px 60px -30px rgba(0,0,0,.5); }
+  .drop { display: grid; place-items: center; gap: .35rem; min-height: 190px; border: 1.5px dashed var(--line); border-radius: 12px; cursor: pointer; text-align: center; padding: 1rem; transition: border-color .15s, background .15s; }
+  .compact .drop { min-height: 150px; }
+  .drop:hover, .drop.over { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 7%, transparent); }
+  .drop-icon { font-size: 1.8rem; color: var(--gold); line-height: 1; }
+  .check-alt { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-top: .7rem; }
+  #paste { margin-top: .7rem; display: grid; gap: .5rem; }
+  #paste[hidden] { display: none; }
+  #paste textarea { width: 100%; font: .8rem var(--mono); }
+  #check-out:empty { display: none; }
+  #check-out { margin-top: 1rem; }
+</style>
+
+<script>
+  import { directDependencies, LockfileError, matchLockfile, parseLockfile, planFixes, type Match } from "@mene/sdk"
+  import { advisoryUrl, BASE, esc, loadWall, sevBadge, showError, chip, toast } from "../scripts/mene"
+
+  const out = document.getElementById("check-out")!
+  const input = document.getElementById("check-input")!
+  const drop = document.getElementById("drop")!
+  const file = document.getElementById("file") as HTMLInputElement
+
+  function reset() {
+    out.innerHTML = ""
+    input.hidden = false
+    file.value = ""
+  }
+
+  async function check(text: string, name: string) {
+    let installed
+    try {
+      installed = parseLockfile(text)
+    } catch (e) {
+      out.innerHTML = `<div class="result bad"><p><strong>That doesn't look like an npm lockfile.</strong></p><p class="small muted">${esc(e instanceof LockfileError ? e.message : "Could not parse the file")}. Mene reads <code>package-lock.json</code> (v1–v3).</p></div>`
+      return
+    }
+    input.hidden = true
+    out.innerHTML = `<div class="result"><p class="skeleton">Checking ${installed.length} packages from <code>${esc(name)}</code>…</p></div>`
+    let wall
+    try {
+      wall = await loadWall()
+    } catch (err) {
+      showError(out, err, () => void check(text, name))
+      input.hidden = false
+      return
+    }
+    const enforced = wall.statuses.filter((s) => s.enforced && s.advisory).map((s) => ({ key: s.key, status: s.label, advisory: s.advisory!.osv }))
+    const matches = matchLockfile(installed, enforced)
+    const plan = planFixes(matches, directDependencies(text))
+    const meta = `<p class="small muted">${installed.length} packages · ${enforced.length} enforced advisories · ${wall.trust.threshold}-of-${wall.trust.issuers.length} witness quorum · Arkiv block ${esc(wall.blockNumber)}</p>`
+    const actions = `<div class="row-actions"><button class="btn" id="again">Check another lockfile</button><button class="btn" id="report">Download report</button></div>`
+
+    if (!matches.length) {
+      out.innerHTML = `<div class="result good"><p class="result-head">✓ No poisoned packages</p><p>None of the ${installed.length} packages in <code>${esc(name)}</code> matches an active advisory.</p>${meta}${actions}<p class="small"><a href="${BASE}/docs/action">Keep it that way in CI →</a></p></div>`
+    } else {
+      const byPkg = new Map<string, Match[]>()
+      for (const m of matches) byPkg.set(`${m.package}@${m.installed}`, [...(byPkg.get(`${m.package}@${m.installed}`) ?? []), m])
+      const overridesJson = Object.keys(plan.overrides).length ? JSON.stringify({ overrides: plan.overrides }, null, 2) : ""
+      out.innerHTML = `<div class="result bad">
+        <p class="result-head">✗ ${byPkg.size} poisoned package${byPkg.size === 1 ? "" : "s"}</p>
+        <p>Don't ship or run this install. Fix it with the commands below, then check again.</p>
+        <ul class="hits">${[...byPkg.values()].map((ms) => {
+          const m = ms[0]!
+          return `<li>
+            <div class="hit-top"><code class="pkg">${esc(m.package)}</code> <code class="bad-v">${esc(m.installed)}</code>${m.safeVersion ? ` → <code class="good-v">${esc(m.safeVersion)}</code>` : ""} ${sevBadge(m.severity)}</div>
+            <div class="small">${esc(m.summary)}</div>
+            <div class="small muted"><a href="${advisoryUrl(m.advisoryKey)}">${esc(m.advisoryId)}</a> ${chip({ status: m.status.split(" ")[0] as "ACTIVE", label: m.status })} · ${ms.map((x) => `<code>${esc(x.path)}</code>`).join(", ")}</div>
+          </li>`
+        }).join("")}</ul>
+        <h3 class="fix-title">Fix it</h3>
+        ${plan.install ? `<p class="small muted">Pin your direct dependencies:</p><div class="cmd"><pre><code id="fix-install">${esc(plan.install)}</code></pre><button class="btn" data-copy-from="fix-install">Copy</button></div>` : ""}
+        ${overridesJson ? `<p class="small muted">Force the safe version for nested copies. Add this to <code>package.json</code>, then run <code>npm install</code>:</p><div class="cmd"><pre><code id="fix-overrides">${esc(overridesJson)}</code></pre><button class="btn" data-copy-from="fix-overrides">Copy</button></div>` : ""}
+        ${plan.unresolved.length ? `<p class="small">No known-safe version for ${plan.unresolved.map((p) => `<code>${esc(p)}</code>`).join(", ")}. Remove the package or pin it below the affected range.</p>` : ""}
+        ${meta}${actions}
+      </div>`
+    }
+    document.getElementById("again")!.addEventListener("click", reset)
+    document.getElementById("report")!.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify({ lockfile: name, checkedAt: new Date().toISOString(), arkivBlock: wall.blockNumber, quorum: `${wall.trust.threshold}/${wall.trust.issuers.length}`, witnesses: wall.trust.issuers, packages: installed.length, matches, fix: plan }, null, 2)], { type: "application/json" })
+      const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "mene-report.json" })
+      a.click()
+      URL.revokeObjectURL(a.href)
+      toast("Report downloaded")
+    })
+  }
+
+  const fromFile = async (f: File | undefined) => f && check(await f.text(), f.name)
+  file.addEventListener("change", () => void fromFile(file.files?.[0]))
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over") })
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"))
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault()
+    drop.classList.remove("over")
+    void fromFile(e.dataTransfer?.files?.[0])
+  })
+  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click() } })
+  document.getElementById("paste-toggle")!.addEventListener("click", () => {
+    const p = document.getElementById("paste")!
+    p.hidden = !p.hidden
+    if (!p.hidden) (document.getElementById("paste-text") as HTMLTextAreaElement).focus()
+  })
+  document.getElementById("paste-go")!.addEventListener("click", () => void check((document.getElementById("paste-text") as HTMLTextAreaElement).value, "pasted lockfile"))
+  for (const b of document.querySelectorAll<HTMLButtonElement>("[data-fixture]")) {
+    b.addEventListener("click", async () => {
+      const r = await fetch(`${BASE}/fixtures/${b.dataset.fixture}.package-lock.json`)
+      await check(await r.text(), `example: ${b.dataset.fixture}`)
+    })
+  }
+</script>

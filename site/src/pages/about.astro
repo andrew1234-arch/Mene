@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro"
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
 ---
 <Base title="About" active="/about">
-  <h1>The name & the trust model</h1>
+  <h1 style="padding-top:2rem">The name & the trust model</h1>
   <p class="triad">MENE · MENE · TEKEL · UPHARSIN</p>
   <p>In the book of Daniel, chapter 5, King Belshazzar holds a feast. A hand appears and writes four words on the palace wall, opposite the lampstand. No one at the feast can read them, and no one can wipe them away. Daniel reads them: <em>numbered, numbered, weighed, divided.</em></p>
   <p>A software supply-chain warning should work the same way. Everyone can read it, and no one can quietly erase it.</p>
@@ -31,6 +31,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
     </tbody>
   </table></div>
   <p class="small">Details: <a href={`${base}/docs/trust-model`}>Trust model & quorum</a> · <a href={`${base}/docs/data-contract`}>Data contract</a></p>
+
+  <h2>Why Arkiv</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Where else</th><th>What breaks</th></tr></thead>
+    <tbody>
+      <tr><td>Our own API or database</td><td>We, or whoever takes over our account, could edit or delete a warning.</td></tr>
+      <tr><td>IPFS</td><td>You can't query by issuer or status. There's no ownership and no expiry.</td></tr>
+      <tr><td>A subgraph</td><td>It needs a contract plus an indexer someone has to keep running.</td></tr>
+      <tr><td><strong>Arkiv</strong></td><td>Typed, queryable attributes; an immutable <code>$creator</code>; readonly entities; Lifetime Extension anyone can pay for; atomic batches. All in one layer.</td></tr>
+    </tbody>
+  </table></div>
 
   <h2>Honest limitations</h2>
   <ul>

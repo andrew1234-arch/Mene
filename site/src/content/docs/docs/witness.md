@@ -2,7 +2,15 @@
 title: Becoming a witness
 ---
 
-A witness is just a wallet that other people choose to trust. To act as one:
+A witness is just a wallet that other people choose to trust.
+
+## From the browser
+Connect any Ethereum wallet (MetaMask, Rabby…) with the button in the top bar. Mene adds the Arkiv Tiramisu testnet to your wallet if it isn't there yet.
+- **[Publish](../../publish)** — fill in the form; the OSV JSON preview is exactly what gets stored.
+- **Advisory page → Actions** — Confirm or Withdraw (only shown to your trusted witnesses), or Keep alive (anyone).
+- **[Witnesses](../../witnesses) → Act as a witness** — open or renew your 30-day lease.
+
+## From the CLI
 
 ```bash
 export MENE_ISSUER_KEY=0x…          # testnet key, never commit it

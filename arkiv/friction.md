@@ -16,5 +16,11 @@ Expected: the event tells us who applied a permissionless Lifetime Extension. Ac
 ### ℹ️ Compression is Node-zlib first, brotli-wasm only as fallback
 `utils/compression.ts` uses `node:zlib` in Node and lazily imports `brotli-wasm` only in the browser/fallback path. So bundling the CLI/Action needs nothing special (our Action bundle runs from a bare directory with no node_modules). Relevant for SPIKE S7 (browser).
 
+### ✅ Browser writes need no wasm
+Expected (SPIKE S7): `brotli-wasm` would need special bundling for browser writes. Actual: in 0.8.1, `utils/compression.ts` (the only `brotli-wasm` importer) is not imported by any action, so payloads go out uncompressed and Vite bundles the SDK with no plugin. Our Astro site reads and writes (publish / attest / keepalive through an injected EIP-1193 wallet via viem `custom()`) with stock config. Verified in Chromium: the wallet receives `wallet_addEthereumChain` for chain `0x7614d1`, then one `eth_sendTransaction` to the Arkiv contract carrying the whole batch.
+
+### ✅ Injected wallets work unchanged
+`createWalletClient({ chain: tiramisu, transport: custom(window.ethereum), account: address })` is all it takes; `executeBatch` goes through viem `writeContract`, which uses `eth_sendTransaction` for JSON-RPC accounts. viem's `assertCurrentChain` rejects the write if the wallet is on another chain, so we call `wallet_switchEthereumChain` / `wallet_addEthereumChain` (4902) first.
+
 ### ⏳ Pending on-chain spikes (S0–S6)
 `scripts/spike.ts` is ready; results will be recorded here with tx hashes.

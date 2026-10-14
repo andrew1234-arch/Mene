@@ -74,3 +74,22 @@ export function nameFromPath(path: string): string | null {
   if (parts[0]?.startsWith("@")) return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null
   return parts[0] || null
 }
+
+/**
+ * Names the root project depends on directly (dependencies, dev, optional, peer). `null` when the
+ * lockfile does not record it (v1), in which case top-level installs are treated as direct.
+ */
+export function directDependencies(text: string): Set<string> | null {
+  try {
+    const lock = JSON.parse(text) as { packages?: Record<string, Record<string, Record<string, string> | undefined>> }
+    const root = lock.packages?.[""]
+    if (!root) return null
+    const names = new Set<string>()
+    for (const f of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
+      for (const n of Object.keys(root[f] ?? {})) names.add(n)
+    }
+    return names
+  } catch {
+    return null
+  }
+}

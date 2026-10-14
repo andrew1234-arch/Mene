@@ -99,3 +99,36 @@ export function matchLockfile(
   }
   return out
 }
+
+export interface FixPlan {
+  /** `npm install a@1.0.0 b@2.0.0` for direct dependencies, or null if none. */
+  install: string | null
+  /** Entries for package.json "overrides" (transitive copies). */
+  overrides: Record<string, string>
+  /** Packages flagged with no known safe version. */
+  unresolved: string[]
+}
+
+/** Turns matches into copy-pasteable remediation: direct deps get pinned, transitive ones overridden. */
+export function planFixes(matches: Match[], direct: Set<string> | null): FixPlan {
+  const byPkg = new Map<string, Match[]>()
+  for (const m of matches) byPkg.set(m.package, [...(byPkg.get(m.package) ?? []), m])
+  const install: string[] = []
+  const overrides: Record<string, string> = {}
+  const unresolved: string[] = []
+  for (const [pkg, ms] of byPkg) {
+    const safe = ms.find((m) => m.safeVersion)?.safeVersion
+    if (!safe) {
+      unresolved.push(pkg)
+      continue
+    }
+    const isDirect = ms.some((m) => m.path === `node_modules/${pkg}`) && (direct === null || direct.has(pkg))
+    const nested = ms.some((m) => m.path !== `node_modules/${pkg}`)
+    if (isDirect) {
+      install.push(`${pkg}@${safe}`)
+      // npm requires an override of a direct dependency to reference it with "$name".
+      if (nested) overrides[pkg] = `$${pkg}`
+    } else overrides[pkg] = safe
+  }
+  return { install: install.length ? `npm install ${install.join(" ")}` : null, overrides, unresolved }
+}

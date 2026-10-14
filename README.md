@@ -8,7 +8,7 @@ Tracks: **Security** (primary) · **Censorship Resistance** · Open Source (OSV 
 
 | | |
 |---|---|
-| Web app | GitHub Pages: `https://andrew1234-arch.github.io/Mene/` (static; reads Arkiv from the browser) |
+| Web app | GitHub Pages: `https://andrew1234-arch.github.io/Mene/`. A static site that reads and writes Arkiv from the browser: check a lockfile, browse advisories, publish/confirm/withdraw/keep alive with a browser wallet, watch live events |
 | Network | Arkiv Tiramisu testnet, chain `7738577` |
 | Data contract | [`arkiv/schema.md`](arkiv/schema.md) |
 | Friction log | [`arkiv/friction.md`](arkiv/friction.md) |

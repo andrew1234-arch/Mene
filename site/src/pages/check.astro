@@ -1,20 +1,14 @@
 ---
 import Base from "../layouts/Base.astro"
+import CheckPanel from "../components/CheckPanel.astro"
 ---
-<Base title="Check your lockfile" active="/check">
-  <h1>Check your lockfile</h1>
-  <p class="notice">Your lockfile never leaves this page. Mene downloads the advisories and matches them in your browser. The queries it sends contain no package names.</p>
-
-  <label id="drop" class="card drop" tabindex="0">
-    <input type="file" id="file" accept=".json,application/json" hidden />
-    <strong>Drop <code>package-lock.json</code> here</strong>
-    <span class="muted small">or click to choose a file · lockfile v1, v2 and v3</span>
-  </label>
-  <p class="small muted">No lockfile handy? <button id="demo-bad">Try the chalk-attack fixture</button> <button id="demo-ok">Try the clean fixture</button></p>
-
-  <div id="out" aria-live="polite"></div>
-
-  <h2>Enforce it in CI</h2>
+<Base title="Check your lockfile" active="/check" description="Check a package-lock.json for poisoned npm packages, privately, in your browser.">
+  <div class="narrow">
+    <h1>Check your lockfile</h1>
+    <p class="muted">Mene downloads the advisories your witnesses agree on and matches them against your lockfile here, in the page. Your dependencies are never uploaded, and the network requests contain no package names.</p>
+    <CheckPanel compact />
+    <h2>Check every build</h2>
+    <p class="muted">Add Mene to GitHub Actions. The job fails when a poisoned version appears, and the summary lists the fix.</p>
 <pre><code id="snippet">name: mene
 on: [push, pull_request]
 jobs:
@@ -24,70 +18,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: andrew1234-arch/Mene/action@main
         with:
-          lockfile: package-lock.json
-          threshold: 2</code></pre>
-  <button data-copy-from="snippet">Copy workflow</button>
+          lockfile: package-lock.json</code></pre>
+    <button class="btn" data-copy-from="snippet">Copy workflow</button>
+  </div>
 </Base>
-
-<style>
-  .drop { display: grid; place-items: center; gap: .3rem; min-height: 160px; border-style: dashed; cursor: pointer; margin: 1.5rem 0 .5rem; text-align: center; }
-  .drop.over { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 8%, var(--surface)); }
-  .ok { color: var(--ok); font-size: 1.3rem; }
-  .bad { color: var(--red); font-size: 1.3rem; }
-</style>
-
-<script>
-  import { LockfileError, matchLockfile, parseLockfile } from "@mene/sdk"
-  import { advisoryUrl, BASE, esc, loadWall, showError } from "../scripts/mene"
-
-  const out = document.getElementById("out")!
-  const drop = document.getElementById("drop")!
-  const file = document.getElementById("file") as HTMLInputElement
-
-  async function check(text: string, name: string) {
-    out.innerHTML = `<p class="skeleton">Parsing ${esc(name)} locally and reading advisories…</p>`
-    let installed
-    try {
-      installed = parseLockfile(text)
-    } catch (e) {
-      out.innerHTML = `<p class="error">${esc(e instanceof LockfileError ? e.message : "Could not parse that file")}</p>`
-      return
-    }
-    try {
-      const wall = await loadWall()
-      const enforced = wall.statuses.filter((s) => s.enforced && s.advisory).map((s) => ({ key: s.key, status: s.label, advisory: s.advisory!.osv }))
-      const matches = matchLockfile(installed, enforced)
-      const headline = matches.length
-        ? `<p class="bad">✗ ${matches.length} poisoned package${matches.length === 1 ? "" : "s"} in ${esc(name)}</p>`
-        : `<p class="ok">✓ Clean — none of ${installed.length} packages matches an enforced advisory.</p>`
-      out.innerHTML = `${headline}<p class="small muted">${installed.length} packages checked against ${enforced.length} enforced advisories · quorum ${wall.trust.threshold}/${wall.trust.issuers.length} · block ${wall.blockNumber}</p>
-        ${matches.length ? `<div class="table-wrap"><table><thead><tr><th>Package</th><th>Installed</th><th>Use instead</th><th>Severity</th><th>Advisory</th><th>Where</th></tr></thead><tbody>${matches.map((m) => `<tr><td class="mono">${esc(m.package)}</td><td class="mono" style="color:var(--red)">${esc(m.installed)}</td><td class="mono" style="color:var(--ok)">${esc(m.safeVersion ?? "—")}</td><td>${esc(m.severity)}</td><td><a href="${advisoryUrl(m.advisoryKey)}">${esc(m.advisoryId)}</a> <span class="chip ${esc(m.status.split(" ")[0])}">${esc(m.status)}</span></td><td class="mono small">${esc(m.path)}</td></tr>`).join("")}</tbody></table></div>` : ""}`
-    } catch (err) {
-      showError(out, err)
-    }
-  }
-
-  file.addEventListener("change", async () => {
-    const f = file.files?.[0]
-    if (f) await check(await f.text(), f.name)
-  })
-  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over") })
-  drop.addEventListener("dragleave", () => drop.classList.remove("over"))
-  drop.addEventListener("drop", async (e) => {
-    e.preventDefault()
-    drop.classList.remove("over")
-    const f = e.dataTransfer?.files?.[0]
-    if (f) await check(await f.text(), f.name)
-  })
-  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click() } })
-  for (const [id, path] of [["demo-bad", "chalk-attack"], ["demo-ok", "clean"]] as const) {
-    document.getElementById(id)!.addEventListener("click", async () => {
-      const r = await fetch(`${BASE}/fixtures/${path}.package-lock.json`)
-      await check(await r.text(), `examples/${path}/package-lock.json`)
-    })
-  }
-  document.querySelector<HTMLButtonElement>("[data-copy-from]")!.addEventListener("click", (e) => {
-    const btn = e.currentTarget as HTMLButtonElement
-    void navigator.clipboard?.writeText(document.getElementById(btn.dataset.copyFrom!)!.textContent ?? "").then(() => { btn.textContent = "Copied ✓" })
-  })
-</script>
+<style>.narrow { max-width: 760px; padding-top: 2rem; }</style>
