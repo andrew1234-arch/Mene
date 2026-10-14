@@ -179,3 +179,6 @@ button:disabled { opacity: .6; cursor: progress; }
 .withdraw-form { display: grid; gap: .5rem; }
 .withdraw-form[hidden] { display: none; }
 .withdraw-form input { width: 100%; }
+
+.src-tag { display: inline-block; font: 500 .68rem/1.7 var(--sans); padding: 0 .45rem; border-radius: 4px; background: var(--bg-2); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+.details { white-space: pre-line; }

@@ -5,9 +5,9 @@ import { inRange, matchLockfile } from "../src/match"
 import { parseOsv } from "../src/osv"
 
 const read = (p: string) => readFileSync(new URL(`../../../${p}`, import.meta.url), "utf8")
-const chalk = parseOsv(JSON.parse(read("advisories/MENE-2025-0001-chalk.osv.json")))
-const debug = parseOsv(JSON.parse(read("advisories/MENE-2025-0002-debug.osv.json")))
-const fake = parseOsv(JSON.parse(read("advisories/MENE-2026-9001-false-alarm.osv.json")))
+const chalk = parseOsv(JSON.parse(read("packages/sdk/test/fixtures/chalk.osv.json")))
+const debug = parseOsv(JSON.parse(read("packages/sdk/test/fixtures/debug.osv.json")))
+const fake = parseOsv(JSON.parse(read("advisories/MENE-2026-0001-false-alarm.osv.json")))
 const enforced = [
   { key: "0x01", status: "ACTIVE", advisory: chalk },
   { key: "0x02", status: "ACTIVE", advisory: debug },
@@ -23,7 +23,7 @@ describe("matchLockfile", () => {
     expect(matchLockfile(parseLockfile(read("examples/clean/package-lock.json")), enforced)).toEqual([])
   })
   it("respects min severity", () => {
-    const m = matchLockfile([{ name: "@mene-demo/false-alarm", version: "1.0.1", path: "x" }], [
+    const m = matchLockfile([{ name: "mene-demo-false-alarm", version: "1.0.1", path: "x" }], [
       { key: "0x03", status: "ACTIVE", advisory: fake },
     ], "high")
     expect(m).toEqual([])
@@ -47,7 +47,7 @@ describe("OSV SEMVER ranges", () => {
 
 describe("parseOsv", () => {
   it("rejects bad severity", () => {
-    expect(() => parseOsv({ ...chalk, database_specific: { mene_version: 1, severity: "meh" } })).toThrow(/severity/)
+    expect(() => parseOsv({ ...chalk, database_specific: { mene: { severity: "meh" } } })).toThrow(/severity/)
   })
   it("rejects non-npm", () => {
     expect(() => parseOsv({ ...chalk, affected: [{ package: { ecosystem: "PyPI", name: "x" } }] })).toThrow(/npm/)

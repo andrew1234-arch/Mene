@@ -8,14 +8,30 @@
   "details": "On 8 Sep 2025 the npm account of maintainer qix was taken over via a phishing email from npmjs.help. chalk@5.6.1 was published with an injected browser payload that hooks wallet and network APIs to redirect cryptocurrency transactions. Downgrade to 5.6.0.",
   "affected": [
     {
-      "package": { "ecosystem": "npm", "name": "chalk", "purl": "pkg:npm/chalk" },
-      "versions": ["5.6.1"],
-      "database_specific": { "safe_version": "5.6.0" }
+      "package": {
+        "ecosystem": "npm",
+        "name": "chalk",
+        "purl": "pkg:npm/chalk"
+      },
+      "versions": [
+        "5.6.1"
+      ]
     }
   ],
   "references": [
-    { "type": "ARTICLE", "url": "https://socket.dev/blog/npm-author-qix-compromised-in-major-supply-chain-attack" },
-    { "type": "PACKAGE", "url": "https://www.npmjs.com/package/chalk" }
+    {
+      "type": "ARTICLE",
+      "url": "https://socket.dev/blog/npm-author-qix-compromised-in-major-supply-chain-attack"
+    },
+    {
+      "type": "PACKAGE",
+      "url": "https://www.npmjs.com/package/chalk"
+    }
   ],
-  "database_specific": { "mene_version": 1, "severity": "critical" }
+  "database_specific": {
+    "mene": {
+      "severity": "critical",
+      "recommended": "5.6.0"
+    }
+  }
 }

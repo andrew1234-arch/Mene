@@ -80,6 +80,7 @@ Inputs: trusted issuers T, threshold k (default 2).
 2. Group by `advisory` key. Keep each issuer's **latest** attestation per advisory (highest `createdAt`).
 3. confirmers = distinct issuers whose latest verdict is `confirm`; withdrawers = those with `withdraw`.
 4. Status: `WITHDRAWN` if |withdrawers| ≥ k; else `ACTIVE` if |confirmers| ≥ k; else `PENDING n/k`.
+   *Amendment (found while writing the attack demo, 14 Oct):* with "latest verdict" alone, one stolen key can withdraw and drop an ACTIVE advisory below quorum. The code replays verdicts in chain order: once k witnesses confirm at the same time the advisory is activated, and only a withdrawal quorum (step 4's WITHDRAWN) undoes it. Before activation, a witness can still retract its own confirm. Tests: `packages/sdk/test/quorum.test.ts`.
 5. `getEntity(key)` for each advisory. Its creator need not be trusted: readonly plus key-pinned attestations make that safe. Reject it if not readonly or schema-invalid.
 6. **Anti-burial cache** (`~/.cache/mene/state.json`; `actions/cache` in CI):
    - Store every advisory and confirm ever seen.

@@ -1,91 +1,71 @@
-# Mene data contract on Arkiv
+# Arkiv schema — Mene
 
-Project namespace: every Mene entity carries `project = "mene-v1"`. Network: Tiramisu testnet (chain `7738577`).
-Advisory payloads are [OSV](https://ossf.github.io/osv-schema/) JSON; everything queryable lives in typed attributes.
-**Trust is never taken from attributes** — anyone can write these labels. Every read is pinned with
-`.createdBy(<trusted issuer>)` (i.e. `$creator = addr(...)`), and `$creator` is immutable.
+Network Tiramisu (7738577) · SDK `@arkiv-network/sdk` 0.8.1
+Namespace on every entity: `project = "mene-v1"` (str).
+Trust: entities are trusted **only** via `$creator` matched against the reader's witness list. Attribute values are never trusted on their own, because anyone can write our labels.
 
-## Entity types
+## advisory
+Flags: `readonly`, `permissionlessExtension` · Entity Expiration 365 d (renewable by anyone) · owner after publish: `0x000000000000000000000000000000000000dEaD` (SPIKE S1) · contentType `application/json`
 
-### `advisory`
-| | |
-|---|---|
-| Payload | OSV advisory JSON (`application/json`), see `packages/sdk/src/osv.ts` |
-| Flags | `readonly: true`, `permissionlessExtension: true` |
-| Entity Expiration | 365 days at creation; anyone may apply Lifetime Extension (`mene keepalive`) |
-| Owner | sealed to `0x000000000000000000000000000000000000dEaD` in the publish batch (SPIKE S1) |
-
-| Attribute | Type | Example | Purpose |
-|---|---|---|---|
-| `project` | str | `mene-v1` | namespace |
-| `type` | str | `advisory` | entity kind |
-| `v` | i32 | `1` | schema version |
-| `osvId` | str | `MENE-2025-0001` | OSV id |
-| `ecosystem` | str | `npm` | always npm in v1 |
-| `package` | str | `chalk` | display only — **never queried** (matching is local) |
-| `severity` | i32 | `4` | 1 low · 2 medium · 3 high · 4 critical — range-filterable |
-| `publishedAt` | u64 | `1757354400` | unix seconds of OSV `published` — range-filterable |
-
-### `attestation`
-| | |
-|---|---|
-| Payload | `{ "advisory": "0x…", "verdict": "confirm" \| "withdraw", "reason": string \| null }` |
-| Flags | `readonly: true`, `permissionlessExtension: true` |
-| Entity Expiration | 365 days; anyone may extend |
-| Owner | the witness (left unsealed so `mene` can demonstrate the anti-burial cache) |
-
-| Attribute | Type | Purpose |
+| attribute | type | purpose |
 |---|---|---|
-| `project` | str | `mene-v1` |
-| `type` | str | `attestation` |
-| `v` | i32 | `1` |
-| `advisory` | key | key of the advisory this attests to |
-| `verdict` | str | `confirm` or `withdraw` |
-| `issuedAt` | u64 | unix seconds; tie-break within a block |
+| project | str | namespace |
+| type | str | `"advisory"` |
+| schemaVersion | i32 | `1` |
+| advisoryId | str | OSV id: `MAL-2025-46974` (OpenSSF mirror) or `MENE-2026-0001` (Mene original) |
+| ecosystem | str | `"npm"` |
+| pkg | str | package name (omitted if > 128 bytes) |
+| pkgId | bytes32 | `keccak256("npm:" + name)`, always set |
+| severity | i32 | 1 low · 2 moderate · 3 high · 4 critical |
+| publishedAt | u64 | unix seconds of OSV `published` |
 
-### `issuer`
-| | |
+Payload: OSV JSON (≤ 128 KB). Mene's fields live under `database_specific.mene`:
+```json
+{
+  "schema_version": "1.6.0",
+  "id": "MENE-2026-0001",
+  "summary": "DEMO: false alarm on a synthetic package (withdrawn by quorum)",
+  "published": "2026-10-14T00:00:00Z",
+  "affected": [{ "package": { "ecosystem": "npm", "name": "mene-demo-false-alarm" },
+                 "ranges": [{ "type": "SEMVER", "events": [{ "introduced": "1.0.0" }, { "fixed": "1.0.3" }] }] }],
+  "database_specific": { "mene": { "severity": "moderate", "recommended": "1.0.3" } }
+}
+```
+| `database_specific.mene` field | meaning |
 |---|---|
-| Payload | `{ "name": "Witness A" }` |
-| Flags | none (mutable, extendable only by the owner) |
-| Entity Expiration | 30-day lease, renewed in the same batch as every publish/attest |
-| Meaning | alive = "active witness"; expired = "silent witness" |
+| `severity` | required; `low` · `moderate` · `high` · `critical` (mirrored malware records are `critical`) |
+| `recommended` | optional; the version to install instead |
+| `source` | mirrored records only: `{ "repo": "https://github.com/ossf/malicious-packages", "path": "osv/malicious/npm/debug/MAL-2025-46974.json", "license": "Apache-2.0" }` |
 
-| Attribute | Type | Purpose |
+Mirrored records keep their original OSV JSON and `schema_version` (verified: 1.5.0 in ossf/malicious-packages), with one deliberate removal: the `credits` block, which holds finder names and contact e-mail addresses (personal data must not go on Arkiv; see friction.md #7). Code: [`packages/sdk/src/mirror.ts`](../packages/sdk/src/mirror.ts).
+
+## attestation
+Flags: `readonly`, `permissionlessExtension` · 365 d · contentType `application/json` (`{ "reason": "…" }` or `{}`)
+
+| attribute | type | purpose |
 |---|---|---|
-| `project` / `type` / `v` | str / str / i32 | `mene-v1` / `issuer` / `1` |
-| `name` | str | display name |
+| project | str | namespace |
+| type | str | `"attestation"` |
+| advisory | key | advisory entity key |
+| verdict | str | `"confirm"` or `"withdraw"` |
+| attestedAt | u64 | unix seconds; tie-break within a block |
 
 ## Writes
-- **Publish** — one atomic `executeBatch`: create advisory (salted, key predicted with `predictEntityKeys`) + create the publisher's `confirm` attestation pointing at the predicted key + ownership change of the advisory to the burn address + extension of the issuer lease.
-- **Attest** — one `executeBatch`: create attestation + extend issuer lease.
-- **Keepalive** — one `executeBatch` of `extensions` signed by any wallet.
+- **Publish** = one atomic `executeBatch`: create the advisory (salted; key predicted with `pub.predictEntityKeys`) + create the publisher's `confirm` attestation pointing at that predicted key + `ownershipChanges` of the advisory to the burn address. Code: `publishAdvisory` in [`arkiv.ts`](../packages/sdk/src/arkiv.ts).
+- **Attest** = `createEntity` of one attestation.
+- **Keepalive** = one `executeBatch` of `extensions`, signed by **any** wallet; entities already living longer are skipped so one can't revert the batch.
 
-## Exact queries (reproducible)
-Every query Mene sends. None contains a package name.
+## Queries the app runs
+1. Attestations per witness (repeated per trusted witness, paged with the cursor):
+   `select("*").where(and(eq("project","mene-v1"), eq("type","attestation"))).createdBy(W).limit(200)`
+   → `project = str('mene-v1') AND type = str('attestation') AND $creator = addr(W)`
+2. Advisory by key: `getEntity(key)` (`NoEntityFoundError` = deleted, expired or never existed).
+3. Wall range filters, pinned per witness:
+   `select({ key: true }).where(and(eq("project","mene-v1"), eq("type","advisory"), gte("severity", i32(N)), gte("publishedAt", u64(T)))).createdBy(W)`
+4. Mirror idempotency (scripts only): `eq("advisoryId", id)` + `createdBy(A)`.
+5. Live feed: `watchEntityEvents` over `webSocket()` without `fromBlock`, filtered client-side.
 
-```ts
-// 1. All attestations of one trusted witness (repeated per witness, paged 200 at a time)
-pub.select("*")
-  .where(and(eq("project", "mene-v1"), eq("type", "attestation")))
-  .createdBy(WITNESS)
-  .limit(200)
-  .fetch()
-// rendered: project = str('mene-v1') AND type = str('attestation') AND $creator = addr(0xWITNESS)
-
-// 2. Each advisory those attestations point at
-pub.getEntity(ADVISORY_KEY)
-
-// 3. A witness's lease
-pub.select({ key: true, expiresAt: true })
-  .where(and(eq("project", "mene-v1"), eq("type", "issuer")))
-  .createdBy(WITNESS).limit(1).fetch()
-
-// 4. Wall filters (optional, numeric ranges)
-pub.select("*").where(and(eq("project","mene-v1"), eq("type","advisory"), gte("severity", i32(3)), gte("publishedAt", u64(T))))
-```
-
-Equivalent raw JSON-RPC (what the SDK sends — useful with `curl`):
+No query ever contains a package name. Raw JSON-RPC equivalent of query 1:
 ```bash
 curl -s https://rpc.tiramisu.db-chain.testnet.arkiv.network -H 'content-type: application/json' -d '{
   "jsonrpc":"2.0","id":1,"method":"arkiv_query",
@@ -94,7 +74,21 @@ curl -s https://rpc.tiramisu.db-chain.testnet.arkiv.network -H 'content-type: ap
 ```
 
 ## Status rule
-See SPEC.md "Quorum algorithm". `WITHDRAWN` if ≥ k trusted witnesses' latest verdict is withdraw; else `ACTIVE` once k trusted witnesses have confirmed at the same time (replaying verdicts in chain order), after which only a withdrawal quorum undoes it; else `PENDING n/k`. An attested advisory that is no longer readable is `MISSING (was …)` and stays enforced when it was ACTIVE.
+`WITHDRAWN` if ≥ k witnesses' latest verdict is `withdraw`; else `ACTIVE` once k witnesses have confirmed at the same time (replaying verdicts in chain order), after which only a withdrawal quorum undoes it; else `PENDING n/k`. An attested advisory that is no longer readable is `MISSING (was …)` and stays enforced if it was ACTIVE. Code: [`quorum.ts`](../packages/sdk/src/quorum.ts).
 
-## What is deliberately NOT on Arkiv
-Lockfiles, dependency lists, which packages a user runs, trust lists, private keys.
+## Why each Arkiv feature (and what the user sees)
+| Feature | Why we chose it | Visible as |
+|---|---|---|
+| Typed attributes vs payload | Severity and date must be range-filterable (`i32`, `u64`); the OSV document is only read, never filtered, so it stays in the payload | Wall severity and date filters |
+| `createdBy()` on every read | Labels are writable by anyone; only the immutable creator identifies a witness | Forged advisories never appear; witness addresses on every confirmation |
+| Cursor pagination | A witness's attestations can exceed 200 | Complete wall regardless of size |
+| `readonly` | Witnesses confirm a fixed text: the advisory they signed off on can never change under them | "Content frozen" badge |
+| Ownership transfer to the burn address | `readonly` still lets the owner delete; sealing removes the last key that could | "Sealed" badge; the stolen-key demo's delete reverts |
+| `permissionlessExtension` | A warning must outlive its publisher; any stranger can pay to keep it, nobody can change it | "Kept alive by 0x…", "Keep alive" button, `mene keepalive` |
+| Entity Expiration 365 d | Long enough for slow-moving supply chains; renewable by anyone, so no forced maintenance by the author | Expiry countdown on every advisory |
+| Atomic `executeBatch` | An advisory without its publisher's confirmation, or an unsealed one, must never exist even briefly | No half-published advisory |
+| `predictEntityKeys` | The confirmation must reference the advisory created in the same batch | One-transaction publish |
+| WebSocket entity events | Witness activity and deletions should be seen as they happen, without polling | Live strip and red deletion alarms on the Wall |
+
+## Deliberately off Arkiv
+Lockfiles, dependency lists, which packages anyone uses, trust settings, CI results, keys.

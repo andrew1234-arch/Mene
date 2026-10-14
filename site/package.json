@@ -9,7 +9,6 @@
     "build:preview": "PUBLIC_MENE_PREVIEW=1 astro build && node scripts/relativize-preview.mjs"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.42.6",
     "astro": "^7.3.8",
     "semver": "^7.8.5",
     "sharp": "^0.35.5"

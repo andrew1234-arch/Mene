@@ -11,7 +11,6 @@ import {
   readAdvisory,
   readLive,
   resolveStatus,
-  upsertIssuerProfile,
   walletClient,
 } from "@mene/sdk"
 import { Command, Option } from "commander"
@@ -43,7 +42,7 @@ program
   .command("check")
   .description("match a package-lock.json against ACTIVE/MISSING advisories (exit 1 on a match)")
   .option("--lockfile <path>", "lockfile to scan", "package-lock.json")
-  .addOption(new Option("--min-severity <level>", "lowest severity that fails").choices(["low", "medium", "high", "critical"]))
+  .addOption(new Option("--min-severity <level>", "lowest severity that fails").choices(["low", "moderate", "high", "critical"]))
   .option("--json", "machine-readable output")
   .option("--offline", "use only the local cache")
   .action(async (o) => {
@@ -87,7 +86,7 @@ program
       if (!rows.length) return console.log("no advisories")
       for (const s of rows) {
         const osv = s.advisory?.osv
-        console.log(`${s.label.padEnd(22)} ${osv?.id ?? "?"}  ${osv?.affected.map((a) => a.package.name).join(", ") ?? ""}  [${osv?.database_specific.severity ?? "?"}]`)
+        console.log(`${s.label.padEnd(22)} ${osv?.id ?? "?"}  ${osv?.affected.map((a) => a.package.name).join(", ") ?? ""}  [${osv?.database_specific.mene.severity ?? "?"}]`)
         console.log(`  ${s.key}  witnesses: ${s.witnesses.map((w) => `${short(w.issuer)}:${w.verdict}`).join(" ")}`)
       }
     } catch (err) {
@@ -162,21 +161,7 @@ program
       const cfg = loadConfig(program.opts().config)
       const pub = publicClient({ rpcUrl: cfg.rpcUrl })
       const wallet = walletClient(requireKey("MENE_ISSUER_KEY"), { rpcUrl: cfg.rpcUrl })
-      const r = await attest(pub, wallet, key, o.confirm ? "confirm" : "withdraw", o.reason)
-      console.log(json({ ...r, explorer: explorer.tx(r.txHash) }))
-    } catch (err) {
-      console.error(`error: ${(err as Error).message}`)
-      process.exit(2)
-    }
-  })
-
-program
-  .command("issuer <name>")
-  .description("create or renew this issuer's 30-day profile lease (env MENE_ISSUER_KEY)")
-  .action(async (name: string) => {
-    try {
-      const cfg = loadConfig(program.opts().config)
-      const r = await upsertIssuerProfile(publicClient({ rpcUrl: cfg.rpcUrl }), walletClient(requireKey("MENE_ISSUER_KEY"), { rpcUrl: cfg.rpcUrl }), name)
+      const r = await attest(wallet, key, o.confirm ? "confirm" : "withdraw", o.reason)
       console.log(json({ ...r, explorer: explorer.tx(r.txHash) }))
     } catch (err) {
       console.error(`error: ${(err as Error).message}`)

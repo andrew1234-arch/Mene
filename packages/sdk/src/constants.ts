@@ -13,11 +13,11 @@ export const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD" as cons
 
 export const ADVISORY_LIFETIME_DAYS = 365
 export const ATTESTATION_LIFETIME_DAYS = 365
-export const ISSUER_LEASE_DAYS = 30
 
 export const DEFAULT_THRESHOLD = 2
 
-export const SEVERITIES = ["low", "medium", "high", "critical"] as const
+/** OSV/GHSA severity words. Stored as i32 1-4 so range queries work. */
+export const SEVERITIES = ["low", "moderate", "high", "critical"] as const
 export type Severity = (typeof SEVERITIES)[number]
 
 /** Severity is stored as an i32 attribute so range queries work. */

@@ -10,8 +10,8 @@ export interface AttestationRecord {
   verdict: Verdict
   /** Block the attestation entity was created at. */
   createdAt: number
-  /** Unix seconds, from the `issuedAt` attribute; tie-breaker within a block. */
-  issuedAt: number
+  /** Unix seconds, from the `attestedAt` attribute; tie-breaker within a block. */
+  attestedAt: number
   reason?: string
 }
 
@@ -86,10 +86,10 @@ export interface ResolveOutput {
 
 const lc = (s: string) => s.toLowerCase()
 
-/** Is attestation `a` newer than `b`? Block first, then issuedAt, then key for determinism. */
+/** Is attestation `a` newer than `b`? Block first, then attestedAt, then key for determinism. */
 function newer(a: AttestationRecord, b: AttestationRecord): boolean {
   if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt
-  if (a.issuedAt !== b.issuedAt) return a.issuedAt > b.issuedAt
+  if (a.attestedAt !== b.attestedAt) return a.attestedAt > b.attestedAt
   return a.key > b.key
 }
 

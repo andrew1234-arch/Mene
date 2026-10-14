@@ -14,7 +14,16 @@ export interface OsvAffected {
   package: { ecosystem: "npm"; name: string; purl?: string }
   ranges?: OsvRange[]
   versions?: string[]
-  database_specific?: { safe_version?: string }
+  database_specific?: Record<string, unknown>
+}
+
+/** Mene's own fields, under `database_specific.mene`. Everything else in the record is plain OSV. */
+export interface MeneMeta {
+  severity: Severity
+  /** The version users should install instead (applies to every affected package entry). */
+  recommended?: string
+  /** Set on records mirrored from another OSV database. */
+  source?: { repo: string; path: string; license: string }
 }
 
 export interface OsvAdvisory {
@@ -28,10 +37,8 @@ export interface OsvAdvisory {
   details?: string
   affected: OsvAffected[]
   references?: Array<{ type: string; url: string }>
-  database_specific: {
-    mene_version: 1
-    severity: Severity
-  }
+  credits?: unknown[]
+  database_specific: { mene: MeneMeta; [key: string]: unknown }
 }
 
 export class OsvValidationError extends Error {
@@ -79,9 +86,14 @@ export function parseOsv(raw: unknown): OsvAdvisory {
       if (typeof r?.url !== "string" || !isSafeUrl(r.url)) fail(`reference URL must be http(s): ${String(r?.url)}`)
     }
   }
-  const ds = a.database_specific as OsvAdvisory["database_specific"] | undefined
-  if (!ds || ds.mene_version !== 1) fail("database_specific.mene_version must be 1")
-  if (!isSeverity(String(ds!.severity))) fail("database_specific.severity must be low|medium|high|critical")
+  const mene = (a.database_specific as { mene?: MeneMeta } | undefined)?.mene
+  if (!mene || typeof mene !== "object") fail("database_specific.mene is required")
+  if (!isSeverity(String(mene!.severity))) fail("database_specific.mene.severity must be low|moderate|high|critical")
+  if (mene!.recommended !== undefined && !semver.valid(mene!.recommended)) fail("database_specific.mene.recommended must be a version")
+  const src = mene!.source
+  if (src !== undefined && (typeof src.repo !== "string" || typeof src.path !== "string" || typeof src.license !== "string")) {
+    fail("database_specific.mene.source must have repo, path and license")
+  }
   return raw as OsvAdvisory
 }
 
@@ -94,6 +106,12 @@ export function isSafeUrl(url: string): boolean {
     return false
   }
 }
+
+export const severityOf = (a: OsvAdvisory): Severity => a.database_specific.mene.severity
+export const recommendedOf = (a: OsvAdvisory): string | undefined => a.database_specific.mene.recommended
+/** "OpenSSF mirror" when mirrored from ossf/malicious-packages, else "Mene original". */
+export const sourceLabel = (a: OsvAdvisory): string =>
+  a.database_specific.mene.source?.repo.includes("ossf/malicious-packages") ? "OpenSSF mirror" : a.database_specific.mene.source ? "Mirror" : "Mene original"
 
 /** The first affected package — used for the `package` display attribute. */
 export function primaryPackage(a: OsvAdvisory): string {

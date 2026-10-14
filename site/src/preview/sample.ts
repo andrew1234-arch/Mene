@@ -3,9 +3,13 @@
  * clearly-labelled sample data so the site can be tried where Arkiv isn't reachable. Never part
  * of the production build: every page shows a "sample data" banner while this is active.
  */
-import chalk from "../../../advisories/MENE-2025-0001-chalk.osv.json"
-import debug from "../../../advisories/MENE-2025-0002-debug.osv.json"
-import fake from "../../../advisories/MENE-2026-9001-false-alarm.osv.json"
+import { mirrorRecord } from "@mene/sdk"
+import fake from "../../../advisories/MENE-2026-0001-false-alarm.osv.json"
+import chalk from "../../../packages/sdk/test/fixtures/chalk.osv.json"
+// A real OpenSSF malicious-packages record, converted exactly as scripts/mirror.ts does.
+import ossfDebug from "../../../packages/sdk/test/fixtures/ossf-MAL-2025-46974.json"
+
+const debug = mirrorRecord(ossfDebug, { path: "osv/malicious/npm/debug/MAL-2025-46974.json", recommended: "4.4.1" })
 
 export const SAMPLE_WITNESSES = [
   { name: "Sample witness A", address: "0xa11ce00000000000000000000000000000000001" },
@@ -23,8 +27,8 @@ const pending = {
   published: "2026-10-12T09:00:00Z",
   details: "Sample advisory for the preview. Only one witness has confirmed it, so it is pending.",
   aliases: [],
-  affected: [{ package: { ecosystem: "npm", name: "ansi-styles" }, versions: ["6.2.2"], database_specific: { safe_version: "6.2.1" } }],
-  database_specific: { mene_version: 1, severity: "high" },
+  affected: [{ package: { ecosystem: "npm", name: "ansi-styles" }, versions: ["6.2.2"] }],
+  database_specific: { mene: { severity: "high", recommended: "6.2.1" } },
 }
 const advs = [
   { key: k(1), creator: A, osv: chalk, at: 1_000_100 },
@@ -34,15 +38,15 @@ const advs = [
 ]
 const atts = (
   [
-    [A, k(1), "confirm", 1_000_100], [B, k(1), "confirm", 1_000_400],
-    [A, k(2), "confirm", 1_000_200], [B, k(2), "confirm", 1_000_500],
+    [A, k(1), "confirm", 1_000_100], [B, k(1), "confirm", 1_000_400], [C, k(1), "confirm", 1_000_450],
+    [A, k(2), "confirm", 1_000_200], [B, k(2), "confirm", 1_000_500], [C, k(2), "confirm", 1_000_550],
     [C, k(3), "confirm", 1_400_000], [A, k(3), "confirm", 1_400_100], [A, k(3), "withdraw", 1_400_500], [C, k(3), "withdraw", 1_400_600],
     [B, k(4), "confirm", 1_490_000],
   ] as const
 ).map(([creator, adv, verdict, at], i) => ({ key: k(100 + i), creator, adv, verdict, at }))
 
 const S = (name: string, value: unknown) => ({ name, type: "str", value })
-const SEV = ["low", "medium", "high", "critical"]
+const SEV = ["low", "moderate", "high", "critical"]
 const flags = { readonly: true, permissionlessExtension: true, raw: 3 }
 const blk = (n: number) => `0x${n.toString(16)}`
 
@@ -52,8 +56,9 @@ function advEntity(a: (typeof advs)[number]) {
     createdAt: blk(a.at), updatedAt: blk(a.at), expiresAt: blk(a.at + 15_768_000), creationFlags: flags,
     contentType: "application/json", payload: hex(JSON.stringify(a.osv)),
     attributes: [
-      S("project", "mene-v1"), S("type", "advisory"), S("osvId", a.osv.id), S("package", a.osv.affected[0]!.package.name),
-      { name: "severity", type: "i32", value: SEV.indexOf(a.osv.database_specific.severity) + 1 },
+      S("project", "mene-v1"), S("type", "advisory"), { name: "schemaVersion", type: "i32", value: 1 }, S("advisoryId", a.osv.id),
+      S("ecosystem", "npm"), S("pkg", a.osv.affected[0]!.package.name),
+      { name: "severity", type: "i32", value: SEV.indexOf(a.osv.database_specific.mene.severity) + 1 },
       { name: "publishedAt", type: "u64", value: String(Math.floor(Date.parse(a.osv.published) / 1000)) },
     ],
   }
@@ -62,8 +67,8 @@ function attEntity(t: (typeof atts)[number]) {
   return {
     key: t.key, owner: t.creator, creator: t.creator, createdAt: blk(t.at), updatedAt: blk(t.at), expiresAt: blk(t.at + 15_768_000),
     creationFlags: flags, contentType: "application/json",
-    payload: hex(JSON.stringify({ advisory: t.adv, verdict: t.verdict, reason: t.verdict === "withdraw" ? "synthetic package, demo false alarm" : null })),
-    attributes: [S("project", "mene-v1"), S("type", "attestation"), { name: "advisory", type: "key", value: t.adv }, S("verdict", t.verdict), { name: "issuedAt", type: "u64", value: String(t.at) }],
+    payload: hex(JSON.stringify(t.verdict === "withdraw" ? { reason: "synthetic package, demo false alarm" } : {})),
+    attributes: [S("project", "mene-v1"), S("type", "attestation"), { name: "advisory", type: "key", value: t.adv }, S("verdict", t.verdict), { name: "attestedAt", type: "u64", value: String(t.at) }],
   }
 }
 
@@ -82,14 +87,11 @@ function answer({ id, method, params = [] }: Req) {
       let data: unknown[] = []
       if (key) data = advs.filter((a) => a.key === key).map(advEntity)
       else if (q.includes("'attestation'")) data = atts.filter((t) => t.creator === creator).map(attEntity)
-      else if (q.includes("'issuer'")) {
-        const w = SAMPLE_WITNESSES.find((x) => x.address === creator)
-        data = w && creator !== C ? [{ key: k(900), expiresAt: blk(HEAD + 900_000), attributes: [S("name", w.name)] }] : []
-      } else if (q.includes("'advisory'")) {
+      else if (q.includes("'advisory'")) {
         const sev = Number(q.match(/severity >= i32\((\d+)\)/)?.[1] ?? 0)
         const since = Number(q.match(/publishedAt >= u64\((\d+)\)/)?.[1] ?? 0)
         data = advs.filter((a) => a.creator === creator).map(advEntity)
-          .filter((e) => (e.attributes[4]!.value as number) >= sev && Number(e.attributes[5]!.value) >= since)
+          .filter((e) => (e.attributes.find((x) => x.name === "severity")!.value as number) >= sev && Number(e.attributes.find((x) => x.name === "publishedAt")!.value) >= since)
       }
       return ok({ data, blockNumber: blk(HEAD) })
     }

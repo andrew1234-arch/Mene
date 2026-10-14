@@ -14,9 +14,9 @@ const KEY = `0x${"0".repeat(63)}1`
 /** A cache in which chalk 5.6.1 is ACTIVE (2 of 2 confirmations). */
 function cacheWithActiveChalk(): string {
   const dir = mkdtempSync(join(tmpdir(), "mene-cli-"))
-  const osv = parseOsv(JSON.parse(readFileSync(join(root, "advisories/MENE-2025-0001-chalk.osv.json"), "utf8")))
+  const osv = parseOsv(JSON.parse(readFileSync(join(root, "packages/sdk/test/fixtures/chalk.osv.json"), "utf8")))
   const adv: AdvisoryRecord = { key: KEY, creator: A, owner: "0x000000000000000000000000000000000000dead", createdAt: 1, expiresAt: 9e9, readonly: true, permissionlessExtension: true, osv }
-  const att = (issuer: string, n: number): AttestationRecord => ({ key: `0x${"0".repeat(62)}a${n}`, advisory: KEY, issuer, verdict: "confirm", createdAt: n, issuedAt: n })
+  const att = (issuer: string, n: number): AttestationRecord => ({ key: `0x${"0".repeat(62)}a${n}`, advisory: KEY, issuer, verdict: "confirm", createdAt: n, attestedAt: n })
   const { state } = resolveStatus({ issuers: [A, B], threshold: 2, liveAttestations: [att(A, 1), att(B, 2)], liveAdvisories: { [KEY]: adv } })
   writeFileSync(join(dir, "state.json"), JSON.stringify(state))
   return dir

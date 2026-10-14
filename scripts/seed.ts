@@ -1,20 +1,13 @@
 /**
- * Seeds the demo state on Tiramisu and records every address/tx in arkiv/evidence.md.
- *   A publishes chalk + debug (sealed) → B and C confirm both → ACTIVE (3 of 3)
- *   C publishes the synthetic false alarm → A confirms (ACTIVE) → A and C withdraw → WITHDRAWN
- *   Forger publishes a fake advisory → never appears (not a trusted creator)
- * Run: `npm run seed` (needs .env from `npx tsx scripts/keys.ts`, funded).
+ * Seeds the Mene-original demo flows on Tiramisu and records every address/tx in arkiv/evidence.md.
+ * Run `npm run mirror` first: chalk and debug come from the OpenSSF mirror (TASKS.md, Task 4).
+ *   C inscribes MENE-2026-0001 (synthetic package) → A confirms → A and C withdraw → WITHDRAWN
+ *   The keeper (an untrusted wallet) publishes a forged advisory → never appears for trusted readers
+ * Then writes the witness addresses into the CLI defaults and the site, and rebuilds the Action.
  */
 import { execSync } from "node:child_process"
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs"
-import {
-  attest,
-  explorer,
-  publicClient,
-  publishAdvisory,
-  upsertIssuerProfile,
-  walletClient,
-} from "../packages/sdk/src/index"
+import { attest, explorer, publicClient, publishAdvisory, walletClient } from "../packages/sdk/src/index"
 import { loadEnv, need } from "./env"
 
 loadEnv()
@@ -24,50 +17,42 @@ const pub = publicClient()
 const A = walletClient(need("MENE_ISSUER_A_KEY"))
 const B = walletClient(need("MENE_ISSUER_B_KEY"))
 const C = walletClient(need("MENE_ISSUER_C_KEY"))
-const F = walletClient(need("MENE_FORGER_KEY"))
+const K = walletClient(need("MENE_KEEPER_KEY"))
 const addr = (w: typeof A) => w.account!.address
-const osv = (f: string) => JSON.parse(readFileSync(`advisories/${f}`, "utf8"))
-const log: string[] = [`\n## Seed run ${new Date().toISOString()}\n`]
-const note = (label: string, tx: string, extra = "") => {
-  const line = `- ${label}: [\`${tx}\`](${explorer.tx(tx)})${extra}`
-  log.push(line)
-  console.log(line)
+
+appendFileSync("arkiv/evidence.md", `\n## Seed run ${new Date().toISOString()}\n\n`)
+const out = (s: string) => {
+  console.log(s)
+  appendFileSync("arkiv/evidence.md", `${s}\n`)
 }
+const note = (label: string, tx: string) => out(`- ${label}: [\`${tx}\`](${explorer.tx(tx)})`)
 
 const witnesses = [
   { name: "Witness A", address: addr(A) },
   { name: "Witness B", address: addr(B) },
   { name: "Witness C", address: addr(C) },
 ]
-log.push("| Role | Address |", "|---|---|")
-for (const w of witnesses) log.push(`| ${w.name} | [\`${w.address}\`](${explorer.address(w.address)}) |`)
-log.push(`| Forger (untrusted) | [\`${addr(F)}\`](${explorer.address(addr(F))}) |`, "")
+out("| Role | Address |\n|---|---|")
+for (const w of witnesses) out(`| ${w.name} (trusted) | [\`${w.address}\`](${explorer.address(w.address)}) |`)
+out(`| Keeper (untrusted: Lifetime Extension, forgery demo) | [\`${addr(K)}\`](${explorer.address(addr(K))}) |\n`)
 
-for (const [w, name] of [[A, "Witness A"], [B, "Witness B"], [C, "Witness C"]] as const) {
-  const r = await upsertIssuerProfile(pub, w, name)
-  note(`${name} profile ${r.key}`, r.txHash)
-}
+const fa = JSON.parse(readFileSync("advisories/MENE-2026-0001-false-alarm.osv.json", "utf8"))
+fa.published = fa.modified = new Date().toISOString().replace(/\.\d+Z$/, "Z")
+const fake = await publishAdvisory(pub, C, fa, { sealMode: SEAL })
+note(`C inscribes MENE-2026-0001 (synthetic false alarm) → \`${fake.advisoryKey}\``, fake.txHash)
+note("A confirms MENE-2026-0001", (await attest(A, fake.advisoryKey, "confirm")).txHash)
+note("A withdraws MENE-2026-0001", (await attest(A, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
+note("C withdraws MENE-2026-0001", (await attest(C, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
 
-const chalk = await publishAdvisory(pub, A, osv("MENE-2025-0001-chalk.osv.json"), { sealMode: SEAL })
-note(`A publishes chalk advisory ${chalk.advisoryKey}`, chalk.txHash)
-const debug = await publishAdvisory(pub, A, osv("MENE-2025-0002-debug.osv.json"), { sealMode: SEAL })
-note(`A publishes debug advisory ${debug.advisoryKey}`, debug.txHash)
-note("B confirms chalk", (await attest(pub, B, chalk.advisoryKey, "confirm")).txHash)
-note("B confirms debug", (await attest(pub, B, debug.advisoryKey, "confirm")).txHash)
-// C confirms too (3 of 3), so after the stolen-key demo removes A's support chalk stays 2 of 3.
-note("C confirms chalk", (await attest(pub, C, chalk.advisoryKey, "confirm")).txHash)
-note("C confirms debug", (await attest(pub, C, debug.advisoryKey, "confirm")).txHash)
+const now = new Date().toISOString().replace(/\.\d+Z$/, "Z")
+const forged = await publishAdvisory(pub, K, {
+  schema_version: "1.6.0", id: "FORGED-0001", published: now, modified: now,
+  summary: "FORGED: chalk 5.6.0 is malicious (it is not)",
+  affected: [{ package: { ecosystem: "npm", name: "chalk" }, versions: ["5.6.0"] }],
+  database_specific: { mene: { severity: "critical" } },
+}, { sealMode: "none" })
+note(`Keeper (untrusted) publishes a forged advisory \`${forged.advisoryKey}\` (must never appear)`, forged.txHash)
 
-const fake = await publishAdvisory(pub, C, osv("MENE-2026-9001-false-alarm.osv.json"), { sealMode: SEAL })
-note(`C publishes false alarm ${fake.advisoryKey}`, fake.txHash)
-note("A confirms false alarm", (await attest(pub, A, fake.advisoryKey, "confirm")).txHash)
-note("A withdraws false alarm", (await attest(pub, A, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
-note("C withdraws false alarm", (await attest(pub, C, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
-
-const forged = await publishAdvisory(pub, F, { ...osv("MENE-2025-0001-chalk.osv.json"), id: "FORGED-0001", summary: "FORGED: chalk 5.6.0 is malicious (it is not)" }, { sealMode: "none" })
-note(`Forger publishes fake advisory ${forged.advisoryKey} (must never appear)`, forged.txHash)
-
-appendFileSync("arkiv/evidence.md", `${log.join("\n")}\n`)
 writeFileSync(
   "packages/cli/src/witnesses.ts",
   `/** The three demo witnesses (team-controlled Tiramisu testnet wallets), written by scripts/seed.ts. */\nexport const DEMO_WITNESSES: { name: string; address: string }[] = ${JSON.stringify(witnesses, null, 2)}\n`,
@@ -75,4 +60,4 @@ writeFileSync(
 writeFileSync("site/src/data/witnesses.json", `${JSON.stringify(witnesses, null, 2)}\n`)
 // The Action bundles DEMO_WITNESSES at build time; rebuild so action/dist carries the real addresses.
 execSync("npm run build:action", { stdio: "inherit" })
-console.log("\nWrote arkiv/evidence.md, packages/cli/src/witnesses.ts, site/src/data/witnesses.json")
+console.log("\nWrote arkiv/evidence.md, packages/cli/src/witnesses.ts, site/src/data/witnesses.json, action/dist")

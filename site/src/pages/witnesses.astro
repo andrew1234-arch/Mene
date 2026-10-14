@@ -1,35 +1,36 @@
 ---
 import Base from "../layouts/Base.astro"
+const REPO = "https://github.com/andrew1234-arch/Mene"
 ---
-<Base title="Witnesses" active="/witnesses" description="Choose whose npm advisories you trust.">
+<Base title="Witnesses" active="/witnesses" description="The witnesses whose confirmations Mene counts.">
   <div class="wp">
     <h1>Witnesses</h1>
-    <p class="muted lead">A witness is an organisation whose confirmations you count. An advisory becomes active when enough of your witnesses confirm it. Trust comes from the wallet that signed each record, which can't be faked.</p>
+    <p class="muted lead">A witness is a wallet whose confirmations you count. An advisory becomes active when 2 of these 3 witnesses confirm it. Mene trusts the wallet that signed each record (its on-chain <code>$creator</code>), which can't be faked. It never trusts labels, because anyone can write those.</p>
 
     <div id="cards" class="wgrid"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
 
-    <section class="card" style="margin-top:2rem">
-      <h2>Your trust settings</h2>
-      <p class="muted small">Saved in this browser and used on every page. For the CLI and CI, put the same list in <code>mene.config.json</code>.</p>
-      <ul id="rows" class="rows"></ul>
-      <div class="row add">
-        <label class="grow">Address <input id="new-addr" placeholder="0x…" spellcheck="false" /></label>
-        <label class="grow">Name <input id="new-name" placeholder="Acme Security" /></label>
-        <button class="btn" id="add" type="button">Add witness</button>
+    <section class="card how">
+      <h2>Trust different witnesses</h2>
+      <p>The demo witnesses are three testnet wallets run by the Mene team. In production they would be independent security organisations. You choose whose confirmations count wherever you run Mene:</p>
+      <div class="two">
+        <div>
+          <p class="small muted">CLI: <code>mene.config.json</code> in your project</p>
+<pre><code id="cfg">{`{
+  "issuers": ["0x…", "0x…", "0x…"],
+  "threshold": 2,
+  "minSeverity": "low"
+}`}</code></pre>
+        </div>
+        <div>
+          <p class="small muted">GitHub Action inputs</p>
+<pre><code>- uses: andrew1234-arch/Mene/action@main
+  with:
+    lockfile: package-lock.json
+    issuers: 0x…,0x…,0x…
+    threshold: 2</code></pre>
+        </div>
       </div>
-      <div class="row" style="margin-top:1rem">
-        <label>Confirmations needed <select id="threshold"></select></label>
-        <button class="btn primary" id="save" type="button">Save</button>
-        <button class="btn" id="reset" type="button">Reset to defaults</button>
-        <button class="btn" id="export" type="button">Copy mene.config.json</button>
-      </div>
-    </section>
-
-    <section class="card" style="margin-top:1.2rem" id="become">
-      <h2>Act as a witness</h2>
-      <p class="muted small">Witnesses keep a 30-day lease on Arkiv. It renews every time they publish or confirm. A witness whose lease runs out is shown as inactive.</p>
-      <div class="row"><label class="grow">Display name <input id="lease-name" placeholder="Acme Security" maxlength="64" /></label><button class="btn primary" id="lease">Open or renew my lease</button></div>
-      <p class="small muted" id="lease-note"></p>
+      <p class="small"><a href={`${REPO}#trust-model`}>How the quorum works →</a></p>
     </section>
   </div>
 </Base>
@@ -37,110 +38,52 @@ import Base from "../layouts/Base.astro"
 <style is:global>
   .wp { padding-top: 2rem; }
   .lead { max-width: 70ch; }
-  .wgrid { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-top: 1.5rem; }
-  .wgrid .sk { height: 120px; }
-  .wcard { display: grid; gap: .4rem; }
+  .wgrid { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 1.5rem 0 2rem; }
+  .wgrid .sk { height: 140px; }
+  .wcard { display: grid; gap: .45rem; align-content: start; }
   .wcard h3 { margin: 0; }
-  .rows { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: .4rem; }
-  .rows li { display: flex; gap: .6rem; align-items: center; justify-content: space-between; padding: .5rem .7rem; border: 1px solid var(--line); border-radius: 8px; flex-wrap: wrap; }
-  .grow { flex: 1 1 200px; }
-  .grow input { width: 100%; }
-  .add { align-items: end; }
+  .wcard dl { display: grid; grid-template-columns: max-content 1fr; gap: .2rem .8rem; margin: .2rem 0 0; font-size: .9rem; }
+  .wcard dt { color: var(--muted); }
+  .wcard dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .how .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+  .how .two > div { min-width: 0; }
 </style>
 
 <script>
-  import { and, eq } from "@arkiv-network/sdk/query"
-  import { PROJECT, upsertIssuerProfile } from "@mene/sdk"
-  import { addrHtml, blocksToHuman, copyText, NoWitnessesError, esc, errorHtml, getTrust, loadWall, pub, setTrust, toast, type Trust } from "../scripts/mene"
-  import { connectedAddress, hasWallet, onWallet, wallet, withTx } from "../scripts/wallet"
+  import { addrHtml, errorHtml, esc, getTrust, watchWall } from "../scripts/mene"
 
   const cards = document.getElementById("cards")!
-  const rows = document.getElementById("rows")!
-  const th = document.getElementById("threshold") as HTMLSelectElement
-  let draft: Trust = structuredClone(getTrust())
-
-  function drawEditor() {
-    rows.innerHTML = draft.issuers.length
-      ? draft.issuers.map((i, n) => `<li><span><strong>${esc(i.name || "Unnamed")}</strong> <code class="small">${esc(i.address)}</code></span><button class="btn danger" data-rm="${n}" type="button">Remove</button></li>`).join("")
-      : `<li class="muted">No witnesses. Add at least one.</li>`
-    const max = Math.max(1, draft.issuers.length)
-    draft.threshold = Math.min(Math.max(1, draft.threshold), max)
-    th.innerHTML = Array.from({ length: max }, (_, i) => `<option value="${i + 1}" ${i + 1 === draft.threshold ? "selected" : ""}>${i + 1} of ${draft.issuers.length}</option>`).join("")
+  const t = getTrust()
+  if (t.issuers.length) {
+    document.getElementById("cfg")!.textContent = JSON.stringify({ issuers: t.issuers.map((i) => i.address), threshold: t.threshold, minSeverity: "low" }, null, 2)
   }
-  rows.addEventListener("click", (e) => {
-    const b = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-rm]")
-    if (!b) return
-    draft.issuers.splice(Number(b.dataset.rm), 1)
-    drawEditor()
-  })
-  document.getElementById("add")!.addEventListener("click", () => {
-    const a = (document.getElementById("new-addr") as HTMLInputElement).value.trim()
-    const name = (document.getElementById("new-name") as HTMLInputElement).value.trim()
-    if (!/^0x[0-9a-fA-F]{40}$/.test(a)) return toast("That isn't a wallet address (0x + 40 hex characters)", "err")
-    if (draft.issuers.some((i) => i.address.toLowerCase() === a.toLowerCase())) return toast("Already in the list", "err")
-    draft.issuers.push({ address: a, name })
-    ;(document.getElementById("new-addr") as HTMLInputElement).value = ""
-    ;(document.getElementById("new-name") as HTMLInputElement).value = ""
-    drawEditor()
-  })
-  th.addEventListener("change", () => (draft.threshold = Number(th.value)))
-  document.getElementById("save")!.addEventListener("click", () => {
-    if (!draft.issuers.length) return toast("Add at least one witness", "err")
-    setTrust(draft)
-    toast("Trust settings saved")
-    void drawCards()
-  })
-  document.getElementById("reset")!.addEventListener("click", () => {
-    setTrust(null)
-    draft = structuredClone(getTrust())
-    drawEditor()
-    toast("Reset to the default witnesses")
-    void drawCards()
-  })
-  document.getElementById("export")!.addEventListener("click", () =>
-    void copyText(JSON.stringify({ issuers: draft.issuers.map((i) => i.address), threshold: draft.threshold, minSeverity: "low" }, null, 2), "mene.config.json copied"))
 
-  async function drawCards() {
-    const t = getTrust()
-    if (!t.issuers.length) {
-      cards.innerHTML = errorHtml(new NoWitnessesError())
-      return
-    }
-    try {
-      const [head, wall] = await Promise.all([pub().getBlockNumber(), loadWall()])
-      const data = await Promise.all(t.issuers.map(async (i) => {
-        const page = await pub().select({ key: true, expiresAt: true, attributes: true }).where(and(eq("project", PROJECT), eq("type", "issuer"))).createdBy(i.address as `0x${string}`).limit(5).fetch()
-        const lease = [...page.entities].sort((a, b) => Number(b.expiresAt - a.expiresAt))[0]
-        const verdicts = wall.statuses.flatMap((s) => s.witnesses.filter((w) => w.issuer === i.address.toLowerCase()))
-        return { i, lease, confirms: verdicts.filter((v) => v.verdict === "confirm").length, withdraws: verdicts.filter((v) => v.verdict === "withdraw").length }
-      }))
-      cards.innerHTML = data.map(({ i, lease, confirms, withdraws }) => `<div class="card wcard">
-        <h3>${esc(i.name || (lease?.attributes?.name?.value as string) || "Unnamed witness")}</h3>
-        <div>${addrHtml(i.address)}</div>
-        <div>${lease ? `<span class="chip ACTIVE">ACTIVE</span> <span class="small muted">lease renews or ends in ${blocksToHuman(lease.expiresAt - head)}</span>` : `<span class="chip PENDING">INACTIVE</span> <span class="small muted">no live lease</span>`}</div>
-        <div class="small muted">${confirms} confirmed · ${withdraws} withdrawn</div>
-      </div>`).join("")
-    } catch (err) {
+  watchWall(
+    (wall) => {
+      cards.innerHTML = t.issuers
+        .map((i) => {
+          const a = i.address.toLowerCase()
+          const inscribed = wall.statuses.filter((s) => s.advisory?.creator === a).length
+          const verdicts = wall.statuses.flatMap((s) => s.witnesses.filter((w) => w.issuer === a))
+          const confirms = verdicts.filter((v) => v.verdict === "confirm").length
+          const withdraws = verdicts.filter((v) => v.verdict === "withdraw").length
+          const last = Math.max(0, ...verdicts.map((v) => v.createdAt))
+          return `<div class="card wcard">
+            <h3>${esc(i.name || "Witness")}</h3>
+            <div>${addrHtml(i.address)}</div>
+            <dl>
+              <dt>Inscribed</dt><dd>${inscribed}</dd>
+              <dt>Confirms</dt><dd>${confirms}</dd>
+              <dt>Withdrawals</dt><dd>${withdraws}</dd>
+              <dt>Last attestation</dt><dd>${last ? `block ${last}` : "—"}</dd>
+            </dl>
+          </div>`
+        })
+        .join("")
+    },
+    (err, retry) => {
       cards.innerHTML = errorHtml(err)
-      cards.querySelector("[data-retry]")?.addEventListener("click", () => void drawCards())
-    }
-  }
-
-  const note = document.getElementById("lease-note")!
-  onWallet((a) => {
-    note.innerHTML = !hasWallet() ? "Needs a browser wallet. Or run <code>mene issuer \"Name\"</code> from the CLI." : a ? `Signing as <code>${esc(a)}</code>. Share this address so others can add you as a witness.` : "You'll be asked to connect your wallet."
-  })
-  document.getElementById("lease")!.addEventListener("click", (e) => {
-    const name = (document.getElementById("lease-name") as HTMLInputElement).value.trim()
-    if (!name) return toast("Enter a display name", "err")
-    void withTx(e.currentTarget as HTMLButtonElement, "Signing", async () => {
-      await upsertIssuerProfile(pub(), await wallet(), name)
-      toast("Lease open for 30 days")
-      void connectedAddress
-      void drawCards()
-    })
-  })
-
-  drawEditor()
-  void drawCards()
+      cards.querySelector("[data-retry]")?.addEventListener("click", retry)
+    },
+  )
 </script>

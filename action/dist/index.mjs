@@ -2180,7 +2180,7 @@ var TIRAMISU = {
   explorer: "https://tiramisu.explorer.arkiv.network"
 };
 var DEFAULT_THRESHOLD = 2;
-var SEVERITIES = ["low", "medium", "high", "critical"];
+var SEVERITIES = ["low", "moderate", "high", "critical"];
 function isSeverity(s) {
   return SEVERITIES.includes(s);
 }
@@ -2230,9 +2230,14 @@ function parseOsv(raw) {
       if (typeof r?.url !== "string" || !isSafeUrl(r.url)) fail(`reference URL must be http(s): ${String(r?.url)}`);
     }
   }
-  const ds = a.database_specific;
-  if (!ds || ds.mene_version !== 1) fail("database_specific.mene_version must be 1");
-  if (!isSeverity(String(ds.severity))) fail("database_specific.severity must be low|medium|high|critical");
+  const mene = a.database_specific?.mene;
+  if (!mene || typeof mene !== "object") fail("database_specific.mene is required");
+  if (!isSeverity(String(mene.severity))) fail("database_specific.mene.severity must be low|moderate|high|critical");
+  if (mene.recommended !== void 0 && !import_semver.default.valid(mene.recommended)) fail("database_specific.mene.recommended must be a version");
+  const src = mene.source;
+  if (src !== void 0 && (typeof src.repo !== "string" || typeof src.path !== "string" || typeof src.license !== "string")) {
+    fail("database_specific.mene.source must have repo, path and license");
+  }
   return raw;
 }
 function isSafeUrl(url) {
@@ -2243,6 +2248,8 @@ function isSafeUrl(url) {
     return false;
   }
 }
+var severityOf = (a) => a.database_specific.mene.severity;
+var recommendedOf = (a) => a.database_specific.mene.recommended;
 
 // packages/sdk/src/lockfile.ts
 var LockfileError = class extends Error {
@@ -2342,7 +2349,7 @@ function matchLockfile(installed, advisories, minSeverity = "low") {
   }
   const out = [];
   for (const { key: key2, status, advisory } of advisories) {
-    const severity = advisory.database_specific.severity;
+    const severity = severityOf(advisory);
     if (SEVERITIES.indexOf(severity) < min) continue;
     if (advisory.withdrawn) continue;
     for (const aff of advisory.affected) {
@@ -2356,7 +2363,7 @@ function matchLockfile(installed, advisories, minSeverity = "low") {
           path: p.path,
           severity,
           status,
-          safeVersion: aff.database_specific?.safe_version,
+          safeVersion: recommendedOf(advisory),
           summary: advisory.summary
         });
       }
@@ -2372,7 +2379,7 @@ function emptyState() {
 var lc = (s) => s.toLowerCase();
 function newer(a, b) {
   if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt;
-  if (a.issuedAt !== b.issuedAt) return a.issuedAt > b.issuedAt;
+  if (a.attestedAt !== b.attestedAt) return a.attestedAt > b.attestedAt;
   return a.key > b.key;
 }
 function resolveStatus(input2) {
@@ -12011,7 +12018,7 @@ function toAttestationRecord(e) {
     issuer: e.creator.toLowerCase(),
     verdict,
     createdAt: Number(e.createdAt ?? 0n),
-    issuedAt: Number(attr(e, "issuedAt") ?? 0n),
+    attestedAt: Number(attr(e, "attestedAt") ?? 0n),
     reason
   };
 }
@@ -12085,6 +12092,30 @@ async function readLive(pub, issuers) {
   );
   return { attestations, advisories, invalid, blockNumber };
 }
+
+// packages/sdk/src/mirror.ts
+var import_semver3 = __toESM(require_semver2(), 1);
+var CURATED = [
+  ["chalk", "5.6.1"],
+  ["debug", "4.4.2"],
+  ["ansi-styles", "6.2.2"],
+  ["supports-color", "10.2.1"],
+  ["strip-ansi", "7.1.1"],
+  ["ansi-regex", "6.2.1"],
+  ["wrap-ansi", "9.0.1"],
+  ["color-convert", "3.1.1"],
+  ["color-name", "2.0.1"],
+  ["is-arrayish", "0.3.3"],
+  ["slice-ansi", "7.1.1"],
+  ["color", "5.0.1"],
+  ["color-string", "2.1.1"],
+  ["simple-swizzle", "0.2.3"],
+  ["supports-hyperlinks", "4.1.1"],
+  ["has-ansi", "6.0.1"],
+  ["chalk-template", "1.1.1"],
+  ["backslash", "0.2.1"],
+  ["error-ex", "1.3.3"]
+].map(([name, version]) => ({ name, version, incident: "qix-2025-09-08" }));
 
 // packages/cli/src/check.ts
 import { readFileSync as readFileSync2 } from "fs";

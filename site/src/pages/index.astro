@@ -2,91 +2,135 @@
 import Base from "../layouts/Base.astro"
 import CheckPanel from "../components/CheckPanel.astro"
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
+const REPO = "https://github.com/andrew1234-arch/Mene"
 ---
 <Base title="Mene">
   <section class="hero">
     <div class="hero-copy">
       <p class="triad">MENE · TEKEL · UPHARSIN</p>
       <h1>The writing on the wall for poisoned packages.</h1>
-      <p class="lede">Find out in seconds whether your build contains a hijacked npm release. Warnings come from independent witnesses and are written to Arkiv, where nobody can quietly delete them.</p>
-      <ul class="points">
-        <li><strong>Private.</strong> Your lockfile is checked in this page. It is never uploaded.</li>
-        <li><strong>Quorum-verified.</strong> A warning counts only when two of three witnesses confirm it.</li>
-        <li><strong>Permanent.</strong> No account, company or registry can erase an advisory.</li>
-      </ul>
+      <p class="lede">On 8 September 2025 one phished maintainer turned chalk and debug into malware. The warnings lived where they could be edited or deleted. Mene writes them where they can't be.</p>
+      <div class="cta">
+        <a class="btn primary" href={`${base}/wall`}>Read the wall</a>
+        <a class="btn" href={`${base}/check`}>Check your lockfile</a>
+        <a class="btn" href={`${REPO}#github-action`}>Add to CI</a>
+      </div>
+      <dl class="counters" aria-live="polite">
+        <div><dt>Active advisories</dt><dd id="c-active">…</dd></div>
+        <div><dt>Witnesses</dt><dd id="c-witnesses">…</dd></div>
+        <div><dt>Last inscription</dt><dd id="c-block" class="mono">…</dd></div>
+      </dl>
     </div>
     <CheckPanel />
   </section>
 
-  <section>
-    <div class="sec-head">
-      <h2>Latest advisories</h2>
-      <a href={`${base}/wall`}>View all →</a>
-    </div>
-    <div id="latest">
-      <div class="sk-list"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
-    </div>
+  <section class="grid3 panels">
+    <article class="card">
+      <p class="word">Mene — numbered</p>
+      <p>Every advisory is written to Arkiv and counted. It is a readonly entity, sealed to the burn address in the same transaction, so not even its author can delete it. <a href={`${REPO}#trust-model`}>How</a></p>
+    </article>
+    <article class="card">
+      <p class="word">Tekel — weighed</p>
+      <p>Independent witnesses weigh it, and 2 of 3 must confirm. Mene counts a confirmation by the wallet that signed it, so one hacked witness can neither forge a warning nor bury one. <a href={`${REPO}#trust-model`}>Why</a></p>
+    </article>
+    <article class="card">
+      <p class="word">Upharsin — divided</p>
+      <p>The poisoned version is cut from your build. Your lockfile is matched on your machine, and CI fails until you install the safe version. <a href={`${REPO}#github-action`}>Setup</a></p>
+    </article>
   </section>
 
-  <section>
-    <h2>How Mene works</h2>
-    <ol class="steps">
-      <li class="card"><p class="word">Mene</p><h3>Inscribed</h3><p>A witness publishes an advisory in the open OSV format. It's written to Arkiv as a readonly entity and sealed, so even its author can't delete it.</p><a href={`${base}/docs/data-contract`}>Data contract →</a></li>
-      <li class="card"><p class="word">Tekel</p><h3>Weighed</h3><p>Other witnesses confirm or withdraw it. One hacked witness can neither invent a warning nor bury a real one.</p><a href={`${base}/docs/trust-model`}>Trust model →</a></li>
-      <li class="card"><p class="word">Upharsin</p><h3>Divided</h3><p>Your lockfile, CLI or CI job matches it locally, tells you the safe version, and blocks the build until you fix it.</p><a href={`${base}/docs/action`}>Add to CI →</a></li>
-    </ol>
-  </section>
+  <h2>How a warning becomes binding</h2>
+  <figure class="card diagram">
+    <svg viewBox="0 0 760 210" role="img" aria-labelledby="qd-t">
+      <title id="qd-t">Witness A inscribes an advisory; witness B confirms; with 2 of 3 witnesses confirming, the advisory is ACTIVE and CI fails on a match.</title>
+      <g font-family="var(--sans)" font-size="14" fill="var(--text)">
+        <rect x="10" y="20" width="150" height="44" rx="8" fill="var(--bg-2)" stroke="var(--line)"/><text x="85" y="47" text-anchor="middle">Witness A inscribes</text>
+        <rect x="10" y="83" width="150" height="44" rx="8" fill="var(--bg-2)" stroke="var(--line)"/><text x="85" y="110" text-anchor="middle">Witness B confirms</text>
+        <rect x="10" y="146" width="150" height="44" rx="8" fill="var(--bg-2)" stroke="var(--line)" stroke-dasharray="4 4"/><text x="85" y="173" text-anchor="middle" fill="var(--muted)">Witness C (optional)</text>
+        <path d="M160 42 C 230 42, 230 105, 290 105 M160 105 L290 105 M160 168 C 230 168, 230 105, 290 105" stroke="var(--gold)" fill="none" stroke-width="1.5"/>
+        <rect x="290" y="72" width="180" height="66" rx="10" fill="var(--surface)" stroke="var(--gold)"/>
+        <text x="380" y="100" text-anchor="middle" font-family="var(--serif)" font-size="22" fill="var(--gold)">Arkiv</text>
+        <text x="380" y="122" text-anchor="middle" font-size="12" fill="var(--muted)">2 of 3 confirmations</text>
+        <path d="M470 105 L560 105" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="560" y="72" width="190" height="66" rx="10" fill="var(--gold)"/>
+        <text x="655" y="100" text-anchor="middle" font-weight="600" fill="var(--gold-ink)">ACTIVE</text>
+        <text x="655" y="122" text-anchor="middle" font-size="12" fill="var(--gold-ink)">your CI fails on a match</text>
+      </g>
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--gold)"/></marker></defs>
+    </svg>
+  </figure>
 
-  <section class="ci">
+  <h2>Thirty seconds to a safer build</h2>
+  <div class="two">
     <div>
-      <h2>Block poisoned installs in CI</h2>
-      <p class="muted">Add one step to your workflow. If a package in your lockfile has an active advisory, the job fails and lists the safe versions.</p>
-      <p><a class="btn" href={`${base}/docs/action`}>Action docs</a> <a class="btn" href={`${base}/docs/cli`}>CLI</a></p>
+      <p class="muted small">From the command line</p>
+<pre><code>git clone {REPO} && cd Mene
+npm ci && npm run build
+node packages/cli/dist/index.js check --lockfile ../app/package-lock.json
+# exit 0 clean · 1 poisoned · 2 can't verify (fails closed)</code></pre>
     </div>
-<pre><code id="ci-snippet">- uses: andrew1234-arch/Mene/action@main
+    <div>
+      <p class="muted small">In GitHub Actions</p>
+<pre><code>- uses: andrew1234-arch/Mene/action@main
   with:
     lockfile: package-lock.json</code></pre>
+    </div>
+  </div>
+
+  <section class="story">
+    <h2>The writing on the wall</h2>
+    <p>In the book of Daniel, chapter 5, King Belshazzar holds a feast. A hand appears and writes four words on the palace wall, opposite the lampstand: <em>Mene, Mene, Tekel, Upharsin</em>. Numbered, weighed, divided. Nobody at the feast can wipe them away.</p>
+    <p>A supply-chain warning should work the same way. Everyone can read it, and nobody can quietly erase it.</p>
   </section>
 
-  <section class="card witness-cta">
-    <div>
-      <h2>Run a witness</h2>
-      <p class="muted">Security teams and maintainers can publish advisories and confirm others' straight from the browser with any Ethereum wallet.</p>
-    </div>
-    <div class="row-actions"><a class="btn primary" href={`${base}/publish`}>Publish an advisory</a><a class="btn" href={`${base}/witnesses`}>Choose your witnesses</a></div>
-  </section>
+  <h2 id="threats">What an attacker can and can't do</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Attacker</th><th>Tries to</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td>Anyone</td><td>Publish a fake advisory with Mene's labels</td><td>It never appears. Every read is pinned to the witnesses' wallets with <code>createdBy()</code>, and an entity's creator can't be changed.</td></tr>
+      <tr><td>One stolen witness key</td><td>Force a false warning</td><td>It stays <em>PENDING 1/2</em>. It needs a second witness.</td></tr>
+      <tr><td>One stolen witness key</td><td>Withdraw a real warning</td><td>One withdrawal isn't a quorum. The advisory stays ACTIVE.</td></tr>
+      <tr><td>The advisory's author</td><td>Edit or delete it</td><td>It can't be edited: it's readonly. Deletion fails: it's sealed to the burn address.</td></tr>
+      <tr><td>A witness</td><td>Delete their own confirmation</td><td>Every client that saw it keeps counting it, and the Wall raises a deletion alarm.</td></tr>
+      <tr><td>Mene's authors</td><td>Take the site down</td><td>There's no server. The CLI and any copy of this site read Arkiv directly.</td></tr>
+      <tr><td>Time</td><td>Let advisories expire</td><td>Any wallet can pay for a Lifetime Extension with <code>mene keepalive</code>. No permission needed.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small"><a href={`${REPO}#threat-model`}>Threat model and limitations in the README →</a></p>
 </Base>
 
 <style>
   .hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 3rem; align-items: center; padding: 3.5rem 0 2rem; }
-  .hero h1 { font-size: clamp(2.4rem, 5vw, 3.9rem); }
+  .hero h1 { font-size: clamp(2.4rem, 5vw, 3.9rem); text-wrap: balance; }
   .lede { font-size: 1.12rem; color: var(--muted); max-width: 54ch; }
-  .points { list-style: none; padding: 0; margin: 1.4rem 0 0; display: grid; gap: .5rem; }
-  .points li { padding-left: 1.4rem; position: relative; }
-  .points li::before { content: "✦"; position: absolute; left: 0; color: var(--gold); font-size: .8rem; top: .2rem; }
+  .cta { display: flex; gap: .6rem; flex-wrap: wrap; margin: 1.5rem 0 1.8rem; }
+  .counters { display: flex; gap: 2.2rem; flex-wrap: wrap; margin: 0; }
+  .counters dt { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
+  .counters dd { margin: 0; font-family: var(--serif); font-size: 2.1rem; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .counters dd.mono { font-family: var(--mono); font-size: 1.15rem; padding-top: .65rem; }
   @media (max-width: 860px) { .hero { grid-template-columns: 1fr; gap: 1.5rem; padding-top: 2rem; } }
-  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
-  .steps { list-style: none; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-  .word { font-family: var(--serif); font-style: italic; color: var(--gold); font-size: 1.5rem; margin: 0; }
-  .ci { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; margin-top: 2rem; }
-  @media (max-width: 760px) { .ci { grid-template-columns: 1fr; } }
-  .witness-cta { display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-top: 3rem; }
-  .witness-cta h2 { margin-top: 0; }
+  .panels { margin-top: 1rem; }
+  .word { font-family: var(--serif); font-style: italic; color: var(--gold); font-size: 1.45rem; margin: 0 0 .4rem; }
+  .diagram svg { width: 100%; height: auto; display: block; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+  .two > div { min-width: 0; }
+  .story { max-width: 68ch; }
+  .story p { font-size: 1.05rem; }
 </style>
 
 <script>
-  import { advCard, watchWall, route, errorHtml } from "../scripts/mene"
-  const el = document.getElementById("latest")!
+  import { getTrust, watchWall } from "../scripts/mene"
+  const $ = (id: string) => document.getElementById(id)!
+  $("c-witnesses").textContent = String(getTrust().issuers.length)
   watchWall(
     (w) => {
-      const rows = w.statuses.filter((s) => s.status !== "WITHDRAWN").slice(0, 5)
-      el.innerHTML = rows.length
-        ? `<ul class="adv-list">${rows.map(advCard).join("")}</ul>`
-        : `<div class="empty"><p><strong>The wall is clean.</strong></p><p class="muted">No active advisories from your witnesses. <a href="${route("publish")}">Publish one</a>.</p></div>`
+      $("c-active").textContent = String(w.statuses.filter((s) => s.status === "ACTIVE").length)
+      const last = Math.max(0, ...w.statuses.map((s) => s.advisory?.createdAt ?? 0))
+      $("c-block").textContent = last ? `#${last}` : "—"
     },
-    (err, retry) => {
-      el.innerHTML = errorHtml(err)
-      el.querySelector("[data-retry]")?.addEventListener("click", retry)
+    () => {
+      $("c-active").textContent = "—"
+      $("c-block").textContent = "—"
     },
   )
 </script>

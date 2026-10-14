@@ -5,7 +5,7 @@ import { parseLockfile } from "../src/lockfile"
 import { inRange } from "../src/match"
 import { isSafeUrl, parseOsv } from "../src/osv"
 
-const chalk = JSON.parse(readFileSync(new URL("../../../advisories/MENE-2025-0001-chalk.osv.json", import.meta.url), "utf8"))
+const chalk = JSON.parse(readFileSync(new URL("./fixtures/chalk.osv.json", import.meta.url), "utf8"))
 
 describe("review fixes", () => {
   it("rejects javascript: reference URLs", () => {

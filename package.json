@@ -23,7 +23,8 @@
     "site:dev": "npm run dev -w site",
     "site:build": "npm run build -w site",
     "attack": "tsx scripts/attack.ts",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "mirror": "tsx scripts/mirror.ts"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

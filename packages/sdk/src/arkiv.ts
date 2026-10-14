@@ -7,22 +7,21 @@ import {
   type PublicArkivClient,
   type WalletArkivClient,
 } from "@arkiv-network/sdk"
-import { i32, key as keyAttr, str, u64 } from "@arkiv-network/sdk/attr"
+import { bytes32, i32, key as keyAttr, str, u64 } from "@arkiv-network/sdk/attr"
 import { tiramisu } from "@arkiv-network/sdk/chains"
 import { and, eq } from "@arkiv-network/sdk/query"
-import { type Hex, http, webSocket } from "viem"
+import { type Hex, http, keccak256, toBytes, webSocket } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import {
   ADVISORY_LIFETIME_DAYS,
   ATTESTATION_LIFETIME_DAYS,
   BURN_ADDRESS,
-  ISSUER_LEASE_DAYS,
   PROJECT,
   SCHEMA_VERSION,
   severityToInt,
   TIRAMISU,
 } from "./constants"
-import { type OsvAdvisory, parseOsv, primaryPackage } from "./osv"
+import { type OsvAdvisory, parseOsv, primaryPackage, severityOf } from "./osv"
 import type { AdvisoryRecord, AttestationRecord, Verdict } from "./quorum"
 
 export type MenePublicClient = PublicArkivClient
@@ -82,6 +81,7 @@ export function toAttestationRecord(e: AnyEntity): AttestationRecord | null {
   if (typeof advisory !== "string") return null
   let reason: string | undefined
   try {
+    // Payload is `{ "reason": "…" }` or `{}`.
     const p = e.toJson?.() as { reason?: unknown } | undefined
     if (p && typeof p.reason === "string") reason = p.reason
   } catch {
@@ -93,7 +93,7 @@ export function toAttestationRecord(e: AnyEntity): AttestationRecord | null {
     issuer: e.creator.toLowerCase(),
     verdict,
     createdAt: Number(e.createdAt ?? 0n),
-    issuedAt: Number((attr(e, "issuedAt") as bigint | undefined) ?? 0n),
+    attestedAt: Number((attr(e, "attestedAt") as bigint | undefined) ?? 0n),
     reason,
   }
 }
@@ -180,67 +180,40 @@ export async function readLive(pub: MenePublicClient, issuers: string[]) {
 
 // ---------------------------------------------------------------- writes
 
-function advisoryAttributes(osv: OsvAdvisory) {
+const utf8Len = (s: string) => new TextEncoder().encode(s).length
+
+/** Attributes per arkiv/schema.md. Everything a query filters on; the OSV JSON goes in the payload. */
+export function advisoryAttributes(osv: OsvAdvisory) {
+  const name = primaryPackage(osv)
   return {
     project: str(PROJECT),
     type: str("advisory"),
-    v: i32(SCHEMA_VERSION),
-    osvId: str(osv.id),
+    schemaVersion: i32(SCHEMA_VERSION),
+    advisoryId: str(osv.id),
     ecosystem: str("npm"),
-    package: str(primaryPackage(osv).slice(0, 128)),
-    severity: i32(severityToInt(osv.database_specific.severity)),
+    // str is capped at 128 bytes; pkgId always identifies the package.
+    ...(utf8Len(name) <= 128 ? { pkg: str(name) } : {}),
+    pkgId: bytes32(keccak256(toBytes(`npm:${name}`))),
+    severity: i32(severityToInt(severityOf(osv))),
     publishedAt: u64(BigInt(Math.floor(Date.parse(osv.published) / 1000))),
   }
 }
 
 function attestationCreate(advisoryKey: Hex, verdict: Verdict, reason?: string, salt?: bigint) {
   return {
-    payload: jsonToPayload({ advisory: advisoryKey, verdict, reason: reason ?? null }),
+    payload: jsonToPayload(reason ? { reason } : {}),
     contentType: "application/json",
     expires: ExpirationTime.fromDays(ATTESTATION_LIFETIME_DAYS),
     attributes: {
       project: str(PROJECT),
       type: str("attestation"),
-      v: i32(SCHEMA_VERSION),
       advisory: keyAttr(advisoryKey),
       verdict: str(verdict),
-      issuedAt: u64(BigInt(Math.floor(Date.now() / 1000))),
+      attestedAt: u64(BigInt(Math.floor(Date.now() / 1000))),
     },
     flags: { readonly: true, permissionlessExtension: true },
     ...(salt !== undefined ? { salt } : {}),
   }
-}
-
-/** The issuer's profile entity key, if it has one that is still alive. */
-export async function findIssuerProfile(pub: MenePublicClient, issuer: string): Promise<Hex | null> {
-  const page = await pub
-    .select({ key: true, expiresAt: true })
-    .where(and(eq("project", PROJECT), eq("type", "issuer")))
-    .createdBy(issuer as Hex)
-    .limit(1)
-    .fetch()
-  return (page.entities[0]?.key as Hex | undefined) ?? null
-}
-
-/** Creates or renews the issuer's 30-day lease profile. */
-export async function upsertIssuerProfile(
-  pub: MenePublicClient,
-  wallet: MeneWalletClient,
-  name: string,
-): Promise<{ key: Hex; txHash: Hex }> {
-  const me = wallet.account!.address
-  const existing = await findIssuerProfile(pub, me)
-  if (existing) {
-    const r = await wallet.extendEntity({ entityKey: existing, expires: ExpirationTime.fromDays(ISSUER_LEASE_DAYS) })
-    return { key: existing, txHash: r.txHash }
-  }
-  const r = await wallet.createEntity({
-    payload: jsonToPayload({ name }),
-    contentType: "application/json",
-    expires: ExpirationTime.fromDays(ISSUER_LEASE_DAYS),
-    attributes: { project: str(PROJECT), type: str("issuer"), v: i32(SCHEMA_VERSION), name: str(name.slice(0, 128)) },
-  })
-  return { key: r.entityKey, txHash: r.txHash }
 }
 
 export interface PublishResult {
@@ -253,7 +226,7 @@ export interface PublishResult {
 
 /**
  * Publishes an advisory in one atomic batch: advisory + the publisher's own confirm attestation +
- * (optionally) the seal to the burn address + the issuer-lease extension.
+ * (optionally) the seal to the burn address.
  *
  * `sealMode`: "batch" seals in the same transaction (SPIKE S1), "separate" seals in a follow-up
  * transaction, "none" leaves the issuer as owner.
@@ -268,7 +241,6 @@ export async function publishAdvisory(
   const sealMode = opts.sealMode ?? "batch"
   const me = wallet.account!.address
   const [adv, att] = await pub.predictEntityKeys({ owner: me, count: 2 })
-  const profile = await findIssuerProfile(pub, me)
   const r = await wallet.executeBatch({
     creates: [
       {
@@ -279,10 +251,9 @@ export async function publishAdvisory(
         flags: { readonly: true, permissionlessExtension: true },
         salt: adv.salt,
       },
-      attestationCreate(adv.key, "confirm", "publisher", att.salt),
+      attestationCreate(adv.key, "confirm", undefined, att.salt),
     ],
     ownershipChanges: sealMode === "batch" ? [{ entityKey: adv.key, newOwner: BURN_ADDRESS }] : [],
-    extensions: profile ? [{ entityKey: profile, expires: ExpirationTime.fromDays(ISSUER_LEASE_DAYS) }] : [],
   })
   const advisoryKey = (r.createdEntities[0] ?? adv.key) as Hex
   const attestationKey = (r.createdEntities[1] ?? att.key) as Hex
@@ -293,21 +264,15 @@ export async function publishAdvisory(
   return { txHash: r.txHash, advisoryKey, attestationKey, sealed: sealMode !== "none", sealTxHash }
 }
 
-/** Writes a confirm or withdraw attestation (and renews the issuer lease in the same batch). */
+/** Writes a confirm or withdraw attestation. */
 export async function attest(
-  pub: MenePublicClient,
   wallet: MeneWalletClient,
   advisoryKey: string,
   verdict: Verdict,
   reason?: string,
 ): Promise<{ txHash: Hex; attestationKey: Hex }> {
-  const me = wallet.account!.address
-  const profile = await findIssuerProfile(pub, me)
-  const r = await wallet.executeBatch({
-    creates: [attestationCreate(advisoryKey as Hex, verdict, reason)],
-    extensions: profile ? [{ entityKey: profile, expires: ExpirationTime.fromDays(ISSUER_LEASE_DAYS) }] : [],
-  })
-  return { txHash: r.txHash, attestationKey: r.createdEntities[0] as Hex }
+  const r = await wallet.createEntity(attestationCreate(advisoryKey as Hex, verdict, reason))
+  return { txHash: r.txHash, attestationKey: r.entityKey }
 }
 
 /** Permissionless Lifetime Extension: any wallet can keep advisories and attestations alive. */

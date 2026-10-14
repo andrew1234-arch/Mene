@@ -1,7 +1,7 @@
 import semver from "semver"
 import { type Severity, SEVERITIES } from "./constants"
 import type { InstalledPackage } from "./lockfile"
-import type { OsvAdvisory, OsvAffected, OsvRange } from "./osv"
+import { type OsvAdvisory, type OsvAffected, type OsvRange, recommendedOf, severityOf } from "./osv"
 
 export interface Match {
   advisoryId: string
@@ -77,7 +77,7 @@ export function matchLockfile(
   }
   const out: Match[] = []
   for (const { key, status, advisory } of advisories) {
-    const severity = advisory.database_specific.severity
+    const severity = severityOf(advisory)
     if (SEVERITIES.indexOf(severity) < min) continue
     if (advisory.withdrawn) continue
     for (const aff of advisory.affected) {
@@ -91,7 +91,7 @@ export function matchLockfile(
           path: p.path,
           severity,
           status,
-          safeVersion: aff.database_specific?.safe_version,
+          safeVersion: recommendedOf(advisory),
           summary: advisory.summary,
         })
       }

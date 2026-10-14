@@ -16,7 +16,7 @@ const att = (issuer: string, verdict: "confirm" | "withdraw", block: number): At
   issuer,
   verdict,
   createdAt: block,
-  issuedAt: block,
+  attestedAt: block,
 })
 const adv = { key: ADV, creator: A, owner: "0x000000000000000000000000000000000000dead", createdAt: 1, expiresAt: 999, readonly: true, permissionlessExtension: true, osv: {} } as unknown as AdvisoryRecord
 const live = { [ADV]: adv }

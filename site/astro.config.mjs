@@ -1,4 +1,3 @@
-import starlight from "@astrojs/starlight"
 import { defineConfig } from "astro/config"
 
 // GitHub Pages: https://<owner>.github.io/<repo>/
@@ -13,24 +12,6 @@ export default defineConfig({
   trailingSlash: "ignore",
   outDir: PREVIEW ? "dist-preview" : "dist",
   build: PREVIEW ? { format: "file", assets: "assets" } : {},
-  integrations: [
-    starlight({
-      title: "Mene docs",
-      pagefind: !PREVIEW,
-      description: "Quorum-witnessed npm compromise advisories on Arkiv.",
-      social: [{ icon: "github", label: "GitHub", href: "https://github.com/andrew1234-arch/Mene" }],
-      customCss: ["./src/styles/starlight.css"],
-      head: [
-        { tag: "link", attrs: { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;600&family=JetBrains+Mono&display=swap" } },
-      ],
-      sidebar: [
-        { label: "← Mene home", link: `${base}/` },
-        { label: "Start", items: ["docs/quickstart", "docs/cli", "docs/action"] },
-        { label: "How it works", items: ["docs/trust-model", "docs/data-contract", "docs/witness", "docs/keepalive"] },
-        { label: "More", items: ["docs/faq"] },
-      ],
-    }),
-  ],
   vite: {
     resolve: {
       alias: {

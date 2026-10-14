@@ -7,12 +7,27 @@ import {
   publicClient,
   readLive,
   resolveStatus,
+  severityOf,
+  sourceLabel,
 } from "@mene/sdk"
 import defaultWitnessesJson from "../data/witnesses.json"
 // Resolves to src/preview/sample.ts in preview builds and to an empty module in production.
 import { SAMPLE_WITNESSES } from "mene:preview"
 
 export const PREVIEW = import.meta.env.PUBLIC_MENE_PREVIEW === "1"
+
+/** The README and arkiv/schema.md are the docs. */
+export const REPO = "https://github.com/andrew1234-arch/Mene"
+export const DOCS = {
+  quickstart: `${REPO}#quickstart`,
+  cli: `${REPO}#cli`,
+  action: `${REPO}#github-action`,
+  trust: `${REPO}#trust-model`,
+  threats: `${REPO}#threat-model`,
+  schema: `${REPO}/blob/main/arkiv/schema.md`,
+  friction: `${REPO}/blob/main/arkiv/friction.md`,
+  evidence: `${REPO}/blob/main/arkiv/evidence.md`,
+}
 const defaultWitnesses = PREVIEW ? SAMPLE_WITNESSES : defaultWitnessesJson
 
 /** Site root. Preview builds use relative files, so the root is found from this chunk's URL. */
@@ -54,15 +69,9 @@ export const store = {
   },
 }
 
+/** The site trusts the three demo witnesses. Change trust in mene.config.json or the Action inputs. */
 export function getTrust(): Trust {
-  const t = store.get<Trust>("mene:trust")
-  if (t?.issuers?.length) return t
   return { issuers: defaultWitnesses as Trust["issuers"], threshold: DEFAULT_THRESHOLD }
-}
-export function setTrust(t: Trust | null) {
-  if (t === null) store.del("mene:trust")
-  else store.set("mene:trust", t)
-  store.del("mene:wall", "session")
 }
 export const isTrusted = (a: string) => getTrust().issuers.some((i) => i.address.toLowerCase() === a.toLowerCase())
 
@@ -214,7 +223,7 @@ document.addEventListener("click", (e) => {
 /** Friendly network error with a retry button. */
 export function errorHtml(err: unknown): string {
   if (err instanceof NoWitnessesError) {
-    return `<div class="empty"><p><strong>No witnesses yet.</strong></p><p class="muted">Choose whose advisories to trust on the <a href="${route("witnesses")}">Witnesses</a> page.</p></div>`
+    return `<div class="empty"><p><strong>No witnesses configured yet.</strong></p><p class="muted">The demo witnesses are added when the advisories are seeded. See <a href="${route("witnesses")}">Witnesses</a>.</p></div>`
   }
   return `<div class="empty"><p><strong>Can't reach the Arkiv network right now.</strong></p><p class="muted">Mene reads Arkiv directly from your browser, with no server in between. We'll keep retrying.</p><button class="btn" data-retry>Retry now</button></div>`
 }
@@ -267,7 +276,7 @@ export function advCard(s: AdvisoryStatus): string {
   const pkgs = o?.affected.map((a) => `${a.package.name} ${affectedText(a as never)}`).join(" · ") ?? "content not readable"
   const confirms = s.confirmers.length
   return `<li><a class="adv ${s.status === "WITHDRAWN" ? "withdrawn" : ""}" href="${advisoryUrl(s.key)}">
-    <div class="t"><span class="pk">${esc(pkgs)}</span>${sevBadge(o?.database_specific.severity)}</div>
+    <div class="t"><span class="pk">${esc(pkgs)}</span>${sevBadge(o ? severityOf(o) : undefined)}${o ? `<span class="src-tag">${esc(sourceLabel(o))}</span>` : ""}</div>
     <div class="right">${chip(s)}<span class="wit">${confirms} of ${getTrust().issuers.length} witnesses confirm</span></div>
     <div class="sum"><span class="id">${esc(o?.id ?? short(s.key))}</span> · ${esc(o?.summary ?? "")}${o?.published ? ` · ${esc(fmtDate(o.published))}` : ""}</div>
   </a></li>`

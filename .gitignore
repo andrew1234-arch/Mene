@@ -10,3 +10,4 @@ site/.astro/
 *.log
 .DS_Store
 dist-preview/
+mirror-out/

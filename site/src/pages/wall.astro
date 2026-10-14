@@ -9,6 +9,10 @@ import Base from "../layouts/Base.astro"
     </div>
   </div>
 
+  <section class="live" aria-label="Live activity on Arkiv">
+    <div class="live-head"><span class="chip PENDING" id="live-status">CONNECTING</span><span class="small muted">Live from Arkiv over WebSocket: inscriptions, confirmations, withdrawals, Lifetime Extensions. Deletions raise a red alarm.</span></div>
+    <ol id="live-feed" class="live-feed"><li class="muted small" id="live-idle">Waiting for activity…</li></ol>
+  </section>
   <form id="filters" class="filters" onsubmit="return false" role="search">
     <input type="search" name="q" class="search" placeholder="Search packages or advisory IDs…" autocomplete="off" aria-label="Search packages or advisory IDs" />
     <div class="tabs" role="tablist" id="tabs">
@@ -22,7 +26,7 @@ import Base from "../layouts/Base.astro"
       <summary>Filters</summary>
       <div class="row">
         <label>Minimum severity
-          <select name="sev"><option value="1">Any</option><option value="2">Medium+</option><option value="3">High+</option><option value="4">Critical</option></select>
+          <select name="sev"><option value="1">Any</option><option value="2">Moderate+</option><option value="3">High+</option><option value="4">Critical</option></select>
         </label>
         <label>Published since <input type="date" name="since" /></label>
         <label>Sort
@@ -49,13 +53,18 @@ import Base from "../layouts/Base.astro"
   .more summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
   .more .row { margin-top: .6rem; }
   #alarms { display: grid; gap: .6rem; margin-bottom: 1rem; }
+  .live { border: 1px solid var(--line); border-radius: 12px; padding: .7rem .9rem; margin: 0 0 1rem; background: var(--surface); }
+  .live-head { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .live-feed { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .3rem; max-height: 9.5rem; overflow-y: auto; font-size: .88rem; }
+  .live-feed li.alarm-row { color: var(--red); font-weight: 600; }
+  .live-feed .when { font: .72rem var(--mono); color: var(--muted); margin-right: .4rem; }
 </style>
 
 <script>
   import { and, eq, gte } from "@arkiv-network/sdk/query"
   import { i32, u64 } from "@arkiv-network/sdk/attr"
-  import { PROJECT, type AdvisoryStatus } from "@mene/sdk"
-  import { addrHtml, advCard, advisoryUrl, esc, errorHtml, pub, watchWall, witnessName, type Wall } from "../scripts/mene"
+  import { BURN_ADDRESS, PROJECT, publicClient, severityOf, severityToInt, type AdvisoryStatus } from "@mene/sdk"
+  import { addrHtml, advCard, advisoryUrl, esc, errorHtml, getState, getTrust, pub, short, store, watchWall, witnessName, type Wall } from "../scripts/mene"
 
   const form = document.getElementById("filters") as HTMLFormElement
   const out = document.getElementById("out")!
@@ -67,8 +76,7 @@ import Base from "../layouts/Base.astro"
   let rangeKeys: Set<string> | null = null
   let rangeSev = 1
   let rangeSince = 0
-  const SEV = ["low", "medium", "high", "critical"]
-  const sevOf = (s: AdvisoryStatus) => SEV.indexOf(s.advisory?.osv.database_specific.severity ?? "low") + 1
+  const sevOf = (s: AdvisoryStatus) => (s.advisory ? severityToInt(severityOf(s.advisory.osv)) : 1)
 
   /**
    * Numeric range query on Arkiv, pinned per trusted witness with createdBy() like every read. It
@@ -134,7 +142,7 @@ import Base from "../layouts/Base.astro"
       : `<div class="empty"><p><strong>${q ? `Nothing matches “${esc(q)}”.` : "Nothing here."}</strong></p><p class="muted">${q ? "Try another package name or advisory ID." : "Try another tab or clear the filters."}</p></div>`
   }
 
-  watchWall(
+  const reload = watchWall(
     async (w) => {
       const first = !wall
       wall = w
@@ -164,6 +172,85 @@ import Base from "../layouts/Base.astro"
     history.replaceState(null, "", url)
     render()
   })
+  // ---- live strip: watchEntityEvents over a WebSocket (no fromBlock, so it is a real socket)
+  const feed = document.getElementById("live-feed")!
+  const liveStatus = document.getElementById("live-status")!
+  const trusted = new Set(getTrust().issuers.map((i) => i.address.toLowerCase()))
+  function liveRow(html: string, block: bigint, alarm = false) {
+    document.getElementById("live-idle")?.remove()
+    const li = document.createElement("li")
+    if (alarm) li.className = "alarm-row"
+    li.innerHTML = `<span class="when">#${block}</span>${html}`
+    feed.prepend(li)
+    while (feed.children.length > 30) feed.lastElementChild!.remove()
+  }
+  async function describe(key: string) {
+    const k = key.toLowerCase()
+    try {
+      const e = await pub().getEntity(key as `0x${string}`)
+      const a = e.attributes ?? {}
+      if (a.project?.value !== PROJECT) return null
+      return { type: String(a.type?.value), creator: e.creator.toLowerCase(), verdict: a.verdict?.value as string | undefined, advisory: (a.advisory?.value as string | undefined)?.toLowerCase(), id: a.advisoryId?.value as string | undefined }
+    } catch {
+      const st = getState()
+      if (st?.advisories[k]) return { type: "advisory", creator: st.advisories[k]!.creator, id: st.advisories[k]!.osv.id }
+      if (st?.attestations[k]) return { type: "attestation", creator: st.attestations[k]!.issuer, verdict: st.attestations[k]!.verdict, advisory: st.attestations[k]!.advisory }
+      return null
+    }
+  }
+  const who = (a: string) => `${esc(witnessName(a) ?? (trusted.has(a) ? "witness" : "untrusted wallet"))} <span class="addr">${esc(short(a))}</span>`
+  // A new inscription, confirmation or deletion changes statuses: re-read the wall (debounced).
+  let pending: ReturnType<typeof setTimeout> | undefined
+  const refresh = () => {
+    clearTimeout(pending)
+    pending = setTimeout(() => {
+      store.del("mene:wall", "session")
+      reload()
+    }, 1500)
+  }
+  try {
+    const ws = publicClient({ ws: true })
+    liveStatus.className = "chip ACTIVE"
+    liveStatus.textContent = "LIVE"
+    ws.watchEntityEvents({
+      onEntityCreated: async (ev) => {
+        const d = await describe(ev.entityKey)
+        if (!d || !trusted.has(d.creator)) return
+        if (d.type === "advisory") liveRow(`<strong>Inscribed</strong> <a href="${advisoryUrl(ev.entityKey)}">${esc(d.id)}</a> by ${who(d.creator)}`, ev.blockNumber)
+        else if (d.type === "attestation") liveRow(`<strong>${d.verdict === "withdraw" ? "Withdrawn" : "Confirmed"}</strong> <a href="${advisoryUrl(d.advisory!)}">${esc(short(d.advisory!))}</a> by ${who(d.creator)}`, ev.blockNumber)
+        refresh()
+      },
+      onExpiryExtended: async (ev) => {
+        const d = await describe(ev.entityKey)
+        if (!d) return
+        let by = ""
+        try {
+          by = (await pub().getTransaction({ hash: ev.transactionHash })).from.toLowerCase()
+        } catch {}
+        liveRow(`<strong>Lifetime Extension</strong> of ${esc(d.type)} ${esc(short(ev.entityKey))}${by ? ` paid by ${who(by)}` : ""}`, ev.blockNumber)
+      },
+      onOwnershipTransferred: async (ev) => {
+        if (ev.newOwner.toLowerCase() !== BURN_ADDRESS.toLowerCase()) return
+        const d = await describe(ev.entityKey)
+        if (d) liveRow(`<strong>Sealed</strong> ${esc(d.type)} ${esc(short(ev.entityKey))}: nobody can delete it now`, ev.blockNumber)
+      },
+      onEntityDeleted: async (ev) => {
+        const d = await describe(ev.entityKey)
+        if (!d) return
+        liveRow(`DELETION ALARM: ${esc(d.type)} ${esc(short(ev.entityKey))} by ${who(ev.owner.toLowerCase())} was deleted. ${d.type === "attestation" ? "Mene keeps counting it." : "Mene keeps enforcing it as MISSING."}`, ev.blockNumber, true)
+        refresh()
+      },
+      onError: (err) => {
+        liveStatus.className = "chip MISSING"
+        liveStatus.textContent = "OFFLINE"
+        liveStatus.title = String((err as Error)?.message ?? err).split("\n")[0]!
+      },
+    })
+  } catch {
+    liveStatus.className = "chip MISSING"
+    liveStatus.textContent = "OFFLINE"
+  }
+
   form.addEventListener("input", async (e) => {
     const name = (e.target as HTMLInputElement).name
     if (name === "sev" || name === "since") {
