@@ -43,8 +43,6 @@ const { compact = false } = Astro.props
 
 <script>
   import { directDependencies, LockfileError, matchLockfile, parseLockfile, planFixes, type Match } from "@mene/sdk"
-  import chalkAttackLock from "../../../examples/chalk-attack/package-lock.json?raw"
-  import cleanLock from "../../../examples/clean/package-lock.json?raw"
   import { DOCS } from "../config"
   import { advisoryUrl, esc, loadWall, sevBadge, showError, chip, toast } from "../scripts/mene"
 
@@ -133,10 +131,21 @@ const { compact = false } = Astro.props
     if (!p.hidden) (document.getElementById("paste-text") as HTMLTextAreaElement).focus()
   })
   document.getElementById("paste-go")!.addEventListener("click", () => void check((document.getElementById("paste-text") as HTMLTextAreaElement).value, "pasted lockfile"))
-  // The demo lockfiles are bundled from examples/ (one copy in the repo, no network request).
-  const fixtures: Record<string, string> = { "chalk-attack": chalkAttackLock, clean: cleanLock }
+  // Demo lockfiles come from examples/ (one copy in the repo). They are code-split and loaded
+  // only when an example is clicked, so ordinary visitors don't download them.
+  const fixtures: Record<string, () => Promise<{ default: string }>> = {
+    "chalk-attack": () => import("../../../examples/chalk-attack/package-lock.json?raw"),
+    clean: () => import("../../../examples/clean/package-lock.json?raw"),
+  }
   for (const b of document.querySelectorAll<HTMLButtonElement>("[data-fixture]")) {
     const name = b.dataset.fixture!
-    b.addEventListener("click", () => void check(fixtures[name]!, `example: ${name}`))
+    b.addEventListener("click", async () => {
+      try {
+        const { default: text } = await fixtures[name]!()
+        await check(text, `example: ${name}`)
+      } catch {
+        toast("Couldn't load the example lockfile", "err")
+      }
+    })
   }
 </script>
