@@ -56,8 +56,10 @@ interface V1Dep {
 function walkV1(deps: Record<string, V1Dep>, prefix: string, out: InstalledPackage[]) {
   for (const [name, dep] of Object.entries(deps)) {
     const path = `${prefix}node_modules/${name}`
-    if (typeof dep.version === "string" && !dep.version.includes(":")) {
-      out.push({ name, version: dep.version, path })
+    if (typeof dep.version === "string") {
+      const alias = dep.version.match(/^npm:((?:@[^/]+\/)?[^@]+)@(.+)$/)
+      if (alias) out.push({ name: alias[1]!, version: alias[2]!, path })
+      else if (!dep.version.includes(":")) out.push({ name, version: dep.version, path })
     }
     if (dep.dependencies) walkV1(dep.dependencies, `${path}/`, out)
   }

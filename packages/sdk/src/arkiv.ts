@@ -128,7 +128,12 @@ export function toAdvisoryRecord(e: AnyEntity): AdvisoryRecord {
     throw new InvalidAdvisoryError("entity is not a mene-v1 advisory")
   }
   if (!e.creationFlags?.readonly) throw new InvalidAdvisoryError("advisory is not readonly")
-  const osv = parseOsv(e.toJson?.())
+  let osv: OsvAdvisory
+  try {
+    osv = parseOsv(e.toJson?.())
+  } catch (err) {
+    throw new InvalidAdvisoryError(`invalid OSV payload: ${(err as Error).message}`)
+  }
   return {
     key: e.key.toLowerCase(),
     creator: e.creator.toLowerCase(),
@@ -164,7 +169,7 @@ export async function readLive(pub: MenePublicClient, issuers: string[]) {
         const a = await readAdvisory(pub, k)
         if (a) advisories[k] = a
       } catch (err) {
-        if (err instanceof InvalidAdvisoryError || (err as Error).name === "OsvValidationError") {
+        if (err instanceof InvalidAdvisoryError) {
           invalid[k] = (err as Error).message
         } else throw err
       }
@@ -307,12 +312,30 @@ export async function attest(
 
 /** Permissionless Lifetime Extension: any wallet can keep advisories and attestations alive. */
 export async function keepalive(
+  pub: MenePublicClient,
   wallet: MeneWalletClient,
   keys: string[],
   days = ADVISORY_LIFETIME_DAYS,
-): Promise<{ txHash: Hex; extended: Hex[] }> {
+): Promise<{ txHash?: Hex; extended: Hex[]; skipped: Hex[] }> {
+  if (!Number.isFinite(days) || days <= 0) throw new Error("days must be a positive number")
+  // extendEntity reverts unless the new expiry is later than the current one, and one revert sinks
+  // the whole batch, so leave out anything that already lives at least that long (with 1 h margin).
+  const head = await pub.getBlockNumber()
+  const target = head + BigInt(Math.floor((days * 86400) / 2)) - 1800n
+  const extend: Hex[] = []
+  const skipped: Hex[] = []
+  for (const k of keys) {
+    try {
+      const e = await pub.getEntity(k as Hex)
+      ;(e.expiresAt < target ? extend : skipped).push(k as Hex)
+    } catch (err) {
+      if (err instanceof NoEntityFoundError) skipped.push(k as Hex)
+      else throw err
+    }
+  }
+  if (!extend.length) return { extended: [], skipped }
   const r = await wallet.executeBatch({
-    extensions: keys.map((k) => ({ entityKey: k as Hex, expires: ExpirationTime.fromDays(days) })),
+    extensions: extend.map((k) => ({ entityKey: k, expires: ExpirationTime.fromDays(days) })),
   })
-  return { txHash: r.txHash, extended: r.extendedEntities }
+  return { txHash: r.txHash, extended: r.extendedEntities, skipped }
 }

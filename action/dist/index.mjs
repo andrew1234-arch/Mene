@@ -2171,8 +2171,286 @@ var require_semver2 = __commonJS({
 // action/src/index.ts
 import { appendFileSync } from "fs";
 
-// packages/sdk/dist/index.js
+// packages/sdk/src/constants.ts
+var PROJECT = "mene-v1";
+var TIRAMISU = {
+  chainId: 7738577,
+  rpcUrl: "https://rpc.tiramisu.db-chain.testnet.arkiv.network",
+  wsUrl: "wss://rpc.tiramisu.db-chain.testnet.arkiv.network",
+  explorer: "https://tiramisu.explorer.arkiv.network"
+};
+var DEFAULT_THRESHOLD = 2;
+var SEVERITIES = ["low", "medium", "high", "critical"];
+function isSeverity(s) {
+  return SEVERITIES.includes(s);
+}
+
+// packages/sdk/src/osv.ts
 var import_semver = __toESM(require_semver2(), 1);
+var OsvValidationError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "OsvValidationError";
+  }
+};
+function parseOsv(raw) {
+  const fail = (m) => {
+    throw new OsvValidationError(m);
+  };
+  if (!raw || typeof raw !== "object") fail("advisory must be an object");
+  const a = raw;
+  for (const f of ["schema_version", "id", "modified", "published", "summary"]) {
+    if (typeof a[f] !== "string" || !a[f].length) fail(`missing string field "${f}"`);
+  }
+  if (a.id.length > 64) fail("id longer than 64 characters");
+  if (!Array.isArray(a.affected) || a.affected.length === 0) fail("affected must be a non-empty array");
+  for (const [i, aff] of a.affected.entries()) {
+    const p = aff?.package;
+    if (!p || p.ecosystem !== "npm" || typeof p.name !== "string" || !p.name) {
+      fail(`affected[${i}].package must be an npm package`);
+    }
+    for (const [j, r] of (aff.ranges ?? []).entries()) {
+      if (!r || !Array.isArray(r.events) || r.events.length === 0) fail(`affected[${i}].ranges[${j}].events must be a non-empty array`);
+      if (r.type !== "SEMVER") continue;
+      for (const ev of r.events) {
+        for (const [k, v2] of Object.entries(ev ?? {})) {
+          if (!["introduced", "fixed", "last_affected"].includes(k)) fail(`affected[${i}].ranges[${j}] has unknown event "${k}"`);
+          if (typeof v2 !== "string" || v2 !== "0" && !import_semver.default.valid(v2)) fail(`affected[${i}].ranges[${j}] event ${k}="${String(v2)}" is not semver`);
+        }
+      }
+    }
+    const v = aff.versions;
+    if (v !== void 0 && (!Array.isArray(v) || v.some((x) => typeof x !== "string"))) {
+      fail(`affected[${i}].versions must be strings`);
+    }
+  }
+  if (a.references !== void 0) {
+    if (!Array.isArray(a.references)) fail("references must be an array");
+    for (const r of a.references) {
+      if (typeof r?.url !== "string" || !isSafeUrl(r.url)) fail(`reference URL must be http(s): ${String(r?.url)}`);
+    }
+  }
+  const ds = a.database_specific;
+  if (!ds || ds.mene_version !== 1) fail("database_specific.mene_version must be 1");
+  if (!isSeverity(String(ds.severity))) fail("database_specific.severity must be low|medium|high|critical");
+  return raw;
+}
+function isSafeUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+// packages/sdk/src/lockfile.ts
+var LockfileError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "LockfileError";
+  }
+};
+function parseLockfile(text) {
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new LockfileError("lockfile is not valid JSON");
+  }
+  if (!json || typeof json !== "object") throw new LockfileError("lockfile must be a JSON object");
+  const lock = json;
+  if (lock.packages && typeof lock.packages === "object") {
+    const out = [];
+    for (const [path, meta] of Object.entries(lock.packages)) {
+      if (!path || !meta || meta.link || typeof meta.version !== "string") continue;
+      const name = meta.name ?? nameFromPath(path);
+      if (!name) continue;
+      out.push({ name, version: meta.version, path });
+    }
+    return out;
+  }
+  if (lock.dependencies && typeof lock.dependencies === "object") {
+    const out = [];
+    walkV1(lock.dependencies, "", out);
+    return out;
+  }
+  throw new LockfileError("unsupported lockfile: no `packages` or `dependencies` map");
+}
+function walkV1(deps, prefix, out) {
+  for (const [name, dep] of Object.entries(deps)) {
+    const path = `${prefix}node_modules/${name}`;
+    if (typeof dep.version === "string") {
+      const alias = dep.version.match(/^npm:((?:@[^/]+\/)?[^@]+)@(.+)$/);
+      if (alias) out.push({ name: alias[1], version: alias[2], path });
+      else if (!dep.version.includes(":")) out.push({ name, version: dep.version, path });
+    }
+    if (dep.dependencies) walkV1(dep.dependencies, `${path}/`, out);
+  }
+}
+function nameFromPath(path) {
+  const idx = path.lastIndexOf("node_modules/");
+  if (idx === -1) return null;
+  const rest = path.slice(idx + "node_modules/".length);
+  const parts = rest.split("/");
+  if (parts[0]?.startsWith("@")) return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null;
+  return parts[0] || null;
+}
+
+// packages/sdk/src/match.ts
+var import_semver2 = __toESM(require_semver2(), 1);
+function isAffected(aff, version) {
+  if (aff.versions?.includes(version)) return true;
+  if (!import_semver2.default.valid(version)) return false;
+  return (aff.ranges ?? []).some((r) => inRange(r, version));
+}
+function inRange(range, version) {
+  if (range.type !== "SEMVER" || !Array.isArray(range.events)) return false;
+  const ok = (v) => v !== void 0 && (v === "0" || import_semver2.default.valid(v) !== null);
+  let affected = false;
+  const events = [...range.events].sort((a, b) => {
+    const va = eventVersion(a);
+    const vb = eventVersion(b);
+    return import_semver2.default.compare(va, vb);
+  });
+  for (const ev of events) {
+    if (ev.introduced !== void 0) {
+      if (!ok(ev.introduced)) continue;
+      const v = ev.introduced === "0" ? "0.0.0" : ev.introduced;
+      if (import_semver2.default.gte(version, v)) affected = true;
+    } else if (ev.fixed !== void 0) {
+      if (!ok(ev.fixed)) continue;
+      if (import_semver2.default.gte(version, ev.fixed)) affected = false;
+    } else if (ev.last_affected !== void 0) {
+      if (!ok(ev.last_affected)) continue;
+      if (import_semver2.default.gt(version, ev.last_affected)) affected = false;
+    }
+  }
+  return affected;
+}
+function eventVersion(ev) {
+  const v = ev.introduced ?? ev.fixed ?? ev.last_affected ?? "0.0.0";
+  return v === "0" ? "0.0.0" : import_semver2.default.valid(v) ?? "0.0.0";
+}
+function matchLockfile(installed, advisories, minSeverity = "low") {
+  const min = SEVERITIES.indexOf(minSeverity);
+  const byName = /* @__PURE__ */ new Map();
+  for (const p of installed) {
+    const list = byName.get(p.name) ?? [];
+    list.push(p);
+    byName.set(p.name, list);
+  }
+  const out = [];
+  for (const { key: key2, status, advisory } of advisories) {
+    const severity = advisory.database_specific.severity;
+    if (SEVERITIES.indexOf(severity) < min) continue;
+    if (advisory.withdrawn) continue;
+    for (const aff of advisory.affected) {
+      for (const p of byName.get(aff.package.name) ?? []) {
+        if (!isAffected(aff, p.version)) continue;
+        out.push({
+          advisoryId: advisory.id,
+          advisoryKey: key2,
+          package: p.name,
+          installed: p.version,
+          path: p.path,
+          severity,
+          status,
+          safeVersion: aff.database_specific?.safe_version,
+          summary: advisory.summary
+        });
+      }
+    }
+  }
+  return out;
+}
+
+// packages/sdk/src/quorum.ts
+function emptyState() {
+  return { version: 1, advisories: {}, attestations: {}, lastStatus: {}, wasStatus: {} };
+}
+var lc = (s) => s.toLowerCase();
+function newer(a, b) {
+  if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt;
+  if (a.issuedAt !== b.issuedAt) return a.issuedAt > b.issuedAt;
+  return a.key > b.key;
+}
+function resolveStatus(input2) {
+  const trusted = new Set(input2.issuers.map(lc));
+  const k = input2.threshold;
+  const prev = input2.state ?? emptyState();
+  const state = {
+    version: 1,
+    advisories: { ...prev.advisories },
+    attestations: { ...prev.attestations },
+    lastStatus: { ...prev.lastStatus },
+    wasStatus: { ...prev.wasStatus ?? {} }
+  };
+  const liveKeys = /* @__PURE__ */ new Set();
+  for (const a of input2.liveAttestations) {
+    if (!trusted.has(lc(a.issuer))) continue;
+    liveKeys.add(lc(a.key));
+    state.attestations[lc(a.key)] = { ...a, key: lc(a.key), advisory: lc(a.advisory), issuer: lc(a.issuer) };
+  }
+  for (const [key2, adv] of Object.entries(input2.liveAdvisories)) {
+    state.advisories[lc(key2)] = adv;
+  }
+  const byAdvisory = /* @__PURE__ */ new Map();
+  for (const a of Object.values(state.attestations)) {
+    if (!trusted.has(a.issuer)) continue;
+    const list = byAdvisory.get(a.advisory) ?? [];
+    list.push(a);
+    byAdvisory.set(a.advisory, list);
+  }
+  for (const key2 of Object.keys(state.advisories)) if (!byAdvisory.has(key2)) byAdvisory.set(key2, []);
+  const statuses = [];
+  for (const [advKey, atts] of byAdvisory) {
+    const latest = /* @__PURE__ */ new Map();
+    for (const a of atts) {
+      const cur = latest.get(a.issuer);
+      if (!cur || newer(a, cur)) latest.set(a.issuer, a);
+    }
+    const witnesses = [...latest.values()].sort((a, b) => a.createdAt - b.createdAt);
+    const confirmers = witnesses.filter((w) => w.verdict === "confirm").map((w) => w.issuer);
+    const withdrawers = witnesses.filter((w) => w.verdict === "withdraw").map((w) => w.issuer);
+    const vanished = atts.filter((a) => !liveKeys.has(a.key));
+    let quorum;
+    if (withdrawers.length >= k) quorum = "WITHDRAWN";
+    else if (confirmers.length >= k) quorum = "ACTIVE";
+    else quorum = "PENDING";
+    const advisoryGone = !input2.liveAdvisories[advKey];
+    const advisory = state.advisories[advKey];
+    const before = prev.lastStatus[advKey];
+    let status = quorum;
+    let was;
+    if (advisoryGone && quorum !== "WITHDRAWN" && (advisory || before || atts.length > 0)) {
+      status = "MISSING";
+      was = before === "MISSING" ? state.wasStatus[advKey] ?? quorum : before ?? quorum;
+      state.wasStatus[advKey] = was;
+    } else {
+      delete state.wasStatus[advKey];
+    }
+    state.lastStatus[advKey] = status;
+    const enforced = status === "ACTIVE" || status === "MISSING" && (was === "ACTIVE" || quorum === "ACTIVE");
+    const label = status === "PENDING" ? `PENDING ${confirmers.length}/${k}` : status === "MISSING" ? `MISSING (was ${was ?? quorum})` : status;
+    statuses.push({
+      key: advKey,
+      status,
+      was,
+      confirmers,
+      withdrawers,
+      threshold: k,
+      witnesses,
+      vanished,
+      advisory,
+      advisoryGone,
+      enforced,
+      label
+    });
+  }
+  statuses.sort((a, b) => (b.advisory?.createdAt ?? 0) - (a.advisory?.createdAt ?? 0));
+  return { statuses, state };
+}
 
 // node_modules/viem/_esm/utils/getAction.js
 function getAction(client, actionFn, name) {
@@ -11697,265 +11975,6 @@ var logger$12 = getLogger("actions:wallet:extend-entity");
 var logger2 = getLogger("actions:wallet:patch-entity");
 var chainMap = new Map(Object.entries(chains_exports).map(([key$1, value]) => [key$1.toLowerCase(), value]));
 
-// packages/sdk/dist/index.js
-var SEVERITIES = ["low", "medium", "high", "critical"];
-function isSeverity(s) {
-  return SEVERITIES.includes(s);
-}
-
-// packages/cli/src/check.ts
-import { readFileSync as readFileSync2 } from "fs";
-
-// packages/sdk/src/constants.ts
-var PROJECT = "mene-v1";
-var TIRAMISU = {
-  chainId: 7738577,
-  rpcUrl: "https://rpc.tiramisu.db-chain.testnet.arkiv.network",
-  wsUrl: "wss://rpc.tiramisu.db-chain.testnet.arkiv.network",
-  explorer: "https://tiramisu.explorer.arkiv.network"
-};
-var DEFAULT_THRESHOLD = 2;
-var SEVERITIES2 = ["low", "medium", "high", "critical"];
-function isSeverity2(s) {
-  return SEVERITIES2.includes(s);
-}
-
-// packages/sdk/src/osv.ts
-var OsvValidationError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "OsvValidationError";
-  }
-};
-function parseOsv(raw) {
-  const fail = (m) => {
-    throw new OsvValidationError(m);
-  };
-  if (!raw || typeof raw !== "object") fail("advisory must be an object");
-  const a = raw;
-  for (const f of ["schema_version", "id", "modified", "published", "summary"]) {
-    if (typeof a[f] !== "string" || !a[f].length) fail(`missing string field "${f}"`);
-  }
-  if (a.id.length > 64) fail("id longer than 64 characters");
-  if (!Array.isArray(a.affected) || a.affected.length === 0) fail("affected must be a non-empty array");
-  for (const [i, aff] of a.affected.entries()) {
-    const p = aff?.package;
-    if (!p || p.ecosystem !== "npm" || typeof p.name !== "string" || !p.name) {
-      fail(`affected[${i}].package must be an npm package`);
-    }
-    const v = aff.versions;
-    if (v !== void 0 && (!Array.isArray(v) || v.some((x) => typeof x !== "string"))) {
-      fail(`affected[${i}].versions must be strings`);
-    }
-  }
-  const ds = a.database_specific;
-  if (!ds || ds.mene_version !== 1) fail("database_specific.mene_version must be 1");
-  if (!isSeverity2(String(ds.severity))) fail("database_specific.severity must be low|medium|high|critical");
-  return raw;
-}
-
-// packages/sdk/src/lockfile.ts
-var LockfileError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "LockfileError";
-  }
-};
-function parseLockfile(text) {
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new LockfileError("lockfile is not valid JSON");
-  }
-  if (!json || typeof json !== "object") throw new LockfileError("lockfile must be a JSON object");
-  const lock = json;
-  if (lock.packages && typeof lock.packages === "object") {
-    const out = [];
-    for (const [path, meta] of Object.entries(lock.packages)) {
-      if (!path || !meta || meta.link || typeof meta.version !== "string") continue;
-      const name = meta.name ?? nameFromPath(path);
-      if (!name) continue;
-      out.push({ name, version: meta.version, path });
-    }
-    return out;
-  }
-  if (lock.dependencies && typeof lock.dependencies === "object") {
-    const out = [];
-    walkV1(lock.dependencies, "", out);
-    return out;
-  }
-  throw new LockfileError("unsupported lockfile: no `packages` or `dependencies` map");
-}
-function walkV1(deps, prefix, out) {
-  for (const [name, dep] of Object.entries(deps)) {
-    const path = `${prefix}node_modules/${name}`;
-    if (typeof dep.version === "string" && !dep.version.includes(":")) {
-      out.push({ name, version: dep.version, path });
-    }
-    if (dep.dependencies) walkV1(dep.dependencies, `${path}/`, out);
-  }
-}
-function nameFromPath(path) {
-  const idx = path.lastIndexOf("node_modules/");
-  if (idx === -1) return null;
-  const rest = path.slice(idx + "node_modules/".length);
-  const parts = rest.split("/");
-  if (parts[0]?.startsWith("@")) return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null;
-  return parts[0] || null;
-}
-
-// packages/sdk/src/match.ts
-var import_semver2 = __toESM(require_semver2(), 1);
-function isAffected(aff, version) {
-  if (aff.versions?.includes(version)) return true;
-  if (!import_semver2.default.valid(version)) return false;
-  return (aff.ranges ?? []).some((r) => inRange(r, version));
-}
-function inRange(range, version) {
-  if (range.type !== "SEMVER") return false;
-  let affected = false;
-  const events = [...range.events].sort((a, b) => {
-    const va = eventVersion(a);
-    const vb = eventVersion(b);
-    return import_semver2.default.compare(va, vb);
-  });
-  for (const ev of events) {
-    if (ev.introduced !== void 0) {
-      const v = ev.introduced === "0" ? "0.0.0" : ev.introduced;
-      if (import_semver2.default.gte(version, v)) affected = true;
-    } else if (ev.fixed !== void 0) {
-      if (import_semver2.default.gte(version, ev.fixed)) affected = false;
-    } else if (ev.last_affected !== void 0) {
-      if (import_semver2.default.gt(version, ev.last_affected)) affected = false;
-    }
-  }
-  return affected;
-}
-function eventVersion(ev) {
-  const v = ev.introduced ?? ev.fixed ?? ev.last_affected ?? "0.0.0";
-  return v === "0" ? "0.0.0" : import_semver2.default.valid(v) ?? "0.0.0";
-}
-function matchLockfile(installed, advisories, minSeverity = "low") {
-  const min = SEVERITIES2.indexOf(minSeverity);
-  const byName = /* @__PURE__ */ new Map();
-  for (const p of installed) {
-    const list = byName.get(p.name) ?? [];
-    list.push(p);
-    byName.set(p.name, list);
-  }
-  const out = [];
-  for (const { key: key2, status, advisory } of advisories) {
-    const severity = advisory.database_specific.severity;
-    if (SEVERITIES2.indexOf(severity) < min) continue;
-    if (advisory.withdrawn) continue;
-    for (const aff of advisory.affected) {
-      for (const p of byName.get(aff.package.name) ?? []) {
-        if (!isAffected(aff, p.version)) continue;
-        out.push({
-          advisoryId: advisory.id,
-          advisoryKey: key2,
-          package: p.name,
-          installed: p.version,
-          path: p.path,
-          severity,
-          status,
-          safeVersion: aff.database_specific?.safe_version,
-          summary: advisory.summary
-        });
-      }
-    }
-  }
-  return out;
-}
-
-// packages/sdk/src/quorum.ts
-function emptyState() {
-  return { version: 1, advisories: {}, attestations: {}, lastStatus: {}, wasStatus: {} };
-}
-var lc = (s) => s.toLowerCase();
-function newer(a, b) {
-  if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt;
-  if (a.issuedAt !== b.issuedAt) return a.issuedAt > b.issuedAt;
-  return a.key > b.key;
-}
-function resolveStatus(input2) {
-  const trusted = new Set(input2.issuers.map(lc));
-  const k = input2.threshold;
-  const prev = input2.state ?? emptyState();
-  const state = {
-    version: 1,
-    advisories: { ...prev.advisories },
-    attestations: { ...prev.attestations },
-    lastStatus: { ...prev.lastStatus },
-    wasStatus: { ...prev.wasStatus ?? {} }
-  };
-  const liveKeys = /* @__PURE__ */ new Set();
-  for (const a of input2.liveAttestations) {
-    if (!trusted.has(lc(a.issuer))) continue;
-    liveKeys.add(lc(a.key));
-    state.attestations[lc(a.key)] = { ...a, key: lc(a.key), advisory: lc(a.advisory), issuer: lc(a.issuer) };
-  }
-  for (const [key2, adv] of Object.entries(input2.liveAdvisories)) {
-    state.advisories[lc(key2)] = adv;
-  }
-  const byAdvisory = /* @__PURE__ */ new Map();
-  for (const a of Object.values(state.attestations)) {
-    if (!trusted.has(a.issuer)) continue;
-    const list = byAdvisory.get(a.advisory) ?? [];
-    list.push(a);
-    byAdvisory.set(a.advisory, list);
-  }
-  for (const key2 of Object.keys(state.advisories)) if (!byAdvisory.has(key2)) byAdvisory.set(key2, []);
-  const statuses = [];
-  for (const [advKey, atts] of byAdvisory) {
-    const latest = /* @__PURE__ */ new Map();
-    for (const a of atts) {
-      const cur = latest.get(a.issuer);
-      if (!cur || newer(a, cur)) latest.set(a.issuer, a);
-    }
-    const witnesses = [...latest.values()].sort((a, b) => a.createdAt - b.createdAt);
-    const confirmers = witnesses.filter((w) => w.verdict === "confirm").map((w) => w.issuer);
-    const withdrawers = witnesses.filter((w) => w.verdict === "withdraw").map((w) => w.issuer);
-    const vanished = atts.filter((a) => !liveKeys.has(a.key));
-    let quorum;
-    if (withdrawers.length >= k) quorum = "WITHDRAWN";
-    else if (confirmers.length >= k) quorum = "ACTIVE";
-    else quorum = "PENDING";
-    const advisoryGone = !input2.liveAdvisories[advKey];
-    const advisory = state.advisories[advKey];
-    const before = prev.lastStatus[advKey];
-    let status = quorum;
-    let was;
-    if (advisoryGone && quorum !== "WITHDRAWN" && (advisory || before || atts.length > 0)) {
-      status = "MISSING";
-      was = before === "MISSING" ? state.wasStatus[advKey] ?? quorum : before ?? quorum;
-      state.wasStatus[advKey] = was;
-    } else {
-      delete state.wasStatus[advKey];
-    }
-    state.lastStatus[advKey] = status;
-    const enforced = status === "ACTIVE" || status === "MISSING" && (was === "ACTIVE" || quorum === "ACTIVE");
-    const label = status === "PENDING" ? `PENDING ${confirmers.length}/${k}` : status === "MISSING" ? `MISSING (was ${was ?? quorum})` : status;
-    statuses.push({
-      key: advKey,
-      status,
-      was,
-      confirmers,
-      withdrawers,
-      threshold: k,
-      witnesses,
-      vanished,
-      advisory,
-      advisoryGone,
-      enforced,
-      label
-    });
-  }
-  statuses.sort((a, b) => (b.advisory?.createdAt ?? 0) - (a.advisory?.createdAt ?? 0));
-  return { statuses, state };
-}
-
 // packages/sdk/src/arkiv.ts
 function publicClient(opts = {}) {
   const transport = opts.ws ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl) : http(opts.rpcUrl ?? TIRAMISU.rpcUrl);
@@ -12014,7 +12033,12 @@ function toAdvisoryRecord(e) {
     throw new InvalidAdvisoryError("entity is not a mene-v1 advisory");
   }
   if (!e.creationFlags?.readonly) throw new InvalidAdvisoryError("advisory is not readonly");
-  const osv = parseOsv(e.toJson?.());
+  let osv;
+  try {
+    osv = parseOsv(e.toJson?.());
+  } catch (err) {
+    throw new InvalidAdvisoryError(`invalid OSV payload: ${err.message}`);
+  }
   return {
     key: e.key.toLowerCase(),
     creator: e.creator.toLowerCase(),
@@ -12046,7 +12070,7 @@ async function readLive(pub, issuers) {
         const a = await readAdvisory(pub, k);
         if (a) advisories[k] = a;
       } catch (err) {
-        if (err instanceof InvalidAdvisoryError || err.name === "OsvValidationError") {
+        if (err instanceof InvalidAdvisoryError) {
           invalid[k] = err.message;
         } else throw err;
       }
@@ -12055,8 +12079,11 @@ async function readLive(pub, issuers) {
   return { attestations, advisories, invalid, blockNumber };
 }
 
+// packages/cli/src/check.ts
+import { readFileSync as readFileSync2 } from "fs";
+
 // packages/cli/src/config.ts
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 
@@ -12065,21 +12092,22 @@ var DEMO_WITNESSES = [];
 
 // packages/cli/src/config.ts
 var ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-function loadConfig(path) {
+function loadConfig(path, overrides = {}) {
   const file = path ? resolve(path) : resolve("mene.config.json");
   let raw = {};
   if (existsSync(file)) raw = JSON.parse(readFileSync(file, "utf8"));
   else if (path) throw new Error(`config file not found: ${path}`);
+  for (const [k, v] of Object.entries(overrides)) if (v !== void 0) raw[k] = v;
   let issuers = raw.issuers?.length ? raw.issuers : void 0;
   if (!issuers && process.env.MENE_ISSUERS) issuers = process.env.MENE_ISSUERS.split(/[\s,]+/).filter(Boolean);
   issuers ??= DEMO_WITNESSES.map((w) => w.address);
   for (const i of issuers) if (!ADDRESS.test(i)) throw new Error(`invalid issuer address: ${i}`);
-  const threshold = Number(process.env.MENE_THRESHOLD ?? raw.threshold ?? DEFAULT_THRESHOLD);
+  const threshold = Number(raw.threshold ?? process.env.MENE_THRESHOLD ?? DEFAULT_THRESHOLD);
   if (!Number.isInteger(threshold) || threshold < 1) throw new Error("threshold must be a positive integer");
   if (issuers.length > 0 && threshold > issuers.length) throw new Error("threshold exceeds the number of issuers");
   const minSeverity = raw.minSeverity ?? "low";
-  if (!isSeverity2(minSeverity)) throw new Error(`invalid minSeverity: ${minSeverity}`);
-  return { issuers, threshold, minSeverity, rpcUrl: process.env.MENE_RPC_URL ?? raw.rpcUrl };
+  if (!isSeverity(minSeverity)) throw new Error(`invalid minSeverity: ${minSeverity}`);
+  return { issuers, threshold, minSeverity, rpcUrl: raw.rpcUrl ?? process.env.MENE_RPC_URL };
 }
 function cachePath() {
   const dir = process.env.MENE_CACHE_DIR ?? join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "mene");
@@ -12088,17 +12116,21 @@ function cachePath() {
 function loadState() {
   const p = cachePath();
   if (!existsSync(p)) return void 0;
+  let s;
   try {
-    const s = JSON.parse(readFileSync(p, "utf8"));
-    return s.version === 1 ? { ...emptyState(), ...s } : void 0;
+    s = JSON.parse(readFileSync(p, "utf8"));
   } catch {
-    return void 0;
+    throw new Error(`cache ${p} is corrupt; inspect or delete it deliberately (fail closed)`);
   }
+  if (s.version !== 1) throw new Error(`cache ${p} has unknown version ${String(s.version)} (fail closed)`);
+  return { ...emptyState(), ...s };
 }
 function saveState(s) {
   const p = cachePath();
   mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(s, null, 2));
+  const tmp = `${p}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(s, null, 2));
+  renameSync(tmp, p);
 }
 
 // packages/cli/src/check.ts
@@ -12165,15 +12197,17 @@ var summary = (md) => process.env.GITHUB_STEP_SUMMARY && appendFileSync(process.
 var output = (k, v) => process.env.GITHUB_OUTPUT && appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}
 `);
 async function main() {
-  if (input("issuers")) process.env.MENE_ISSUERS = input("issuers");
-  if (input("threshold")) process.env.MENE_THRESHOLD = input("threshold");
-  if (input("rpc-url")) process.env.MENE_RPC_URL = input("rpc-url");
   process.env.MENE_CACHE_DIR ??= `${process.env.RUNNER_TEMP ?? "/tmp"}/mene-cache`;
-  const sev = input("min-severity") || "low";
-  if (!isSeverity(sev)) throw new Error(`invalid min-severity ${sev}`);
+  const sev = input("min-severity") || void 0;
+  if (sev !== void 0 && !isSeverity(sev)) throw new Error(`invalid min-severity ${sev}`);
   const lockfile = input("lockfile") || "package-lock.json";
-  const cfg = loadConfig();
-  const r = await runCheck(cfg, lockfile, { minSeverity: sev });
+  const cfg = loadConfig(void 0, {
+    issuers: input("issuers") ? input("issuers").split(/[\s,]+/).filter(Boolean) : void 0,
+    threshold: input("threshold") ? Number(input("threshold")) : void 0,
+    minSeverity: sev,
+    rpcUrl: input("rpc-url") || void 0
+  });
+  const r = await runCheck(cfg, lockfile);
   for (const w of r.warnings) console.log(`::warning::${w}`);
   output("matches", String(r.matches.length));
   const head = `### Mene \xB7 \`${lockfile}\`

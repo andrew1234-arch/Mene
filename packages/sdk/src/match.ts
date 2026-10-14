@@ -24,7 +24,8 @@ export function isAffected(aff: OsvAffected, version: string): boolean {
 
 /** Evaluates an OSV SEMVER range: sorted introduced/fixed/last_affected events. */
 export function inRange(range: OsvRange, version: string): boolean {
-  if (range.type !== "SEMVER") return false
+  if (range.type !== "SEMVER" || !Array.isArray(range.events)) return false
+  const ok = (v: string | undefined) => v !== undefined && (v === "0" || semver.valid(v) !== null)
   let affected = false
   const events = [...range.events].sort((a, b) => {
     const va = eventVersion(a)
@@ -33,11 +34,14 @@ export function inRange(range: OsvRange, version: string): boolean {
   })
   for (const ev of events) {
     if (ev.introduced !== undefined) {
+      if (!ok(ev.introduced)) continue
       const v = ev.introduced === "0" ? "0.0.0" : ev.introduced
       if (semver.gte(version, v)) affected = true
     } else if (ev.fixed !== undefined) {
+      if (!ok(ev.fixed)) continue
       if (semver.gte(version, ev.fixed)) affected = false
     } else if (ev.last_affected !== undefined) {
+      if (!ok(ev.last_affected)) continue
       if (semver.gt(version, ev.last_affected)) affected = false
     }
   }

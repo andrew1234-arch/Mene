@@ -12,14 +12,14 @@ inputs:
     description: "Comma-separated trusted witness addresses (defaults to the Mene demo witnesses)"
     default: ""
   threshold:
-    description: "How many witnesses must confirm"
-    default: "2"
+    description: "How many witnesses must confirm (default: mene.config.json, else 2)"
+    default: ""
   min-severity:
-    description: "low | medium | high | critical"
-    default: "low"
+    description: "low | medium | high | critical (default: mene.config.json, else low)"
+    default: ""
   rpc-url:
-    description: "Arkiv RPC URL"
-    default: "https://rpc.tiramisu.db-chain.testnet.arkiv.network"
+    description: "Arkiv RPC URL (default: Tiramisu)"
+    default: ""
 outputs:
   matches:
     description: "Number of poisoned packages found"

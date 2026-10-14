@@ -199,8 +199,10 @@ program
       } else if (key) keys = [key]
       else throw new Error("pass an entity key or --all")
       if (!keys.length) return console.log("nothing to extend")
-      const r = await keepalive(walletClient(requireKey("MENE_KEEPER_KEY"), { rpcUrl: cfg.rpcUrl }), keys, Number(o.days))
-      console.log(json({ ...r, explorer: explorer.tx(r.txHash) }))
+      const days = Number(o.days)
+      if (!Number.isFinite(days) || days <= 0) throw new Error("--days must be a positive number")
+      const r = await keepalive(publicClient({ rpcUrl: cfg.rpcUrl }), walletClient(requireKey("MENE_KEEPER_KEY"), { rpcUrl: cfg.rpcUrl }), keys, days)
+      console.log(json({ ...r, explorer: r.txHash ? explorer.tx(r.txHash) : null }))
     } catch (err) {
       console.error(`error: ${(err as Error).message}`)
       process.exit(2)

@@ -16,7 +16,7 @@
   "scripts": {
     "build": "npm run build -w @mene/sdk && npm run build -w @mene/cli && npm run build:action",
     "test": "vitest run",
-    "typecheck": "tsc -p packages/sdk --noEmit && tsc -p packages/cli --noEmit",
+    "typecheck": "tsc -p packages/sdk --noEmit && tsc -p packages/cli --noEmit && tsc -p action && tsc -p scripts",
     "spike": "tsx scripts/spike.ts",
     "seed": "tsx scripts/seed.ts",
     "build:action": "tsup --config action/tsup.config.ts",

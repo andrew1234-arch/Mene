@@ -48,23 +48,44 @@ import Base from "../layouts/Base.astro"
   const alarms = document.getElementById("alarms")!
   let wall: Wall | undefined
   let rangeKeys: Set<string> | null = null
+  let rangeSev = 1
+  let rangeSince = 0
 
-  /** Server-side numeric range filter: which advisory keys satisfy severity/date. */
+  /**
+   * Server-side numeric range filter, pinned per trusted witness with createdBy() like every other
+   * read. It decides for advisories a trusted witness created and are still live; anything else
+   * (MISSING, or inscribed by a non-witness and then attested) is decided from its OSV content.
+   */
   async function runRangeQuery() {
     const fd = new FormData(form)
-    const sev = Number(fd.get("sev"))
+    rangeSev = Number(fd.get("sev"))
     const since = String(fd.get("since") || "")
-    if (sev <= 1 && !since) return (rangeKeys = null)
-    const preds = [eq("project", PROJECT), eq("type", "advisory"), gte("severity", i32(sev))]
-    if (since) preds.push(gte("publishedAt", u64(BigInt(Math.floor(Date.parse(since) / 1000)))))
+    rangeSince = since ? Math.floor(Date.parse(since) / 1000) : 0
+    if (rangeSev <= 1 && !rangeSince) return (rangeKeys = null)
+    const preds = [eq("project", PROJECT), eq("type", "advisory"), gte("severity", i32(rangeSev))]
+    if (rangeSince) preds.push(gte("publishedAt", u64(BigInt(rangeSince))))
     const keys = new Set<string>()
-    let page = await pub().select({ key: true }).where(and(preds)).limit(200).fetch()
-    for (;;) {
-      for (const e of page.entities) keys.add(e.key.toLowerCase())
-      if (!page.hasNextPage()) break
-      page = await page.next()
+    for (const w of wall?.trust.issuers ?? []) {
+      let page = await pub().select({ key: true }).where(and(preds)).createdBy(w.address as `0x${string}`).limit(200).fetch()
+      for (;;) {
+        for (const e of page.entities) keys.add(e.key.toLowerCase())
+        if (!page.hasNextPage()) break
+        page = await page.next()
+      }
     }
     rangeKeys = keys
+  }
+
+  const SEV = ["low", "medium", "high", "critical"]
+  function inRangeFilter(s: AdvisoryStatus): boolean {
+    if (!rangeKeys) return true
+    const a = s.advisory
+    const queried = a && !s.advisoryGone && wall!.trust.issuers.some((i) => i.address.toLowerCase() === a.creator)
+    if (queried) return rangeKeys.has(s.key)
+    if (!a) return true // content unknown: never hide an enforced row
+    const sevOk = SEV.indexOf(a.osv.database_specific.severity) + 1 >= rangeSev
+    const dateOk = !rangeSince || Date.parse(a.osv.published) / 1000 >= rangeSince
+    return sevOk && dateOk
   }
 
   function render() {
@@ -74,7 +95,7 @@ import Base from "../layouts/Base.astro"
     const q = String(fd.get("q") || "").trim().toLowerCase()
     const rows = wall.statuses.filter((s: AdvisoryStatus) => {
       if (status !== "all" && s.status !== status) return false
-      if (rangeKeys && !rangeKeys.has(s.key)) return false
+      if (!inRangeFilter(s)) return false
       if (q && !s.advisory?.osv.affected.some((a) => a.package.name.toLowerCase().includes(q))) return false
       return true
     })

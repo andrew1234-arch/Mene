@@ -24,7 +24,7 @@ import Base from "../../layouts/Base.astro"
 
 <script>
   import { NoEntityFoundError } from "@arkiv-network/sdk"
-  import { attestationQuery, BURN_ADDRESS, explorer, readAdvisory, TIRAMISU } from "@mene/sdk"
+  import { attestationQuery, BURN_ADDRESS, explorer, isSafeUrl, readAdvisory, TIRAMISU } from "@mene/sdk"
   import { addrHtml, blocksToHuman, chip, esc, getTrust, loadWall, pub, showError, witnessName } from "../../scripts/mene"
 
   const out = document.getElementById("out")!
@@ -66,7 +66,7 @@ import Base from "../../layouts/Base.astro"
             </dl>`).join("<hr style='border:0;border-top:1px solid var(--line)'>")}
           ${o?.details ? `<p class="small">${esc(o.details)}</p>` : ""}
           ${o?.aliases?.length ? `<p class="small muted">Also known as ${o.aliases.map((a) => `<code>${esc(a)}</code>`).join(", ")}</p>` : ""}
-          ${o?.references?.length ? `<h3 style="margin-top:1rem">References</h3><ul class="small">${o.references.map((r) => `<li>${esc(r.type)}: <a href="${esc(r.url)}" rel="noopener" target="_blank">${esc(r.url)}</a></li>`).join("")}</ul>` : ""}
+          ${o?.references?.length ? `<h3 style="margin-top:1rem">References</h3><ul class="small">${o.references.map((r) => `<li>${esc(r.type)}: ${isSafeUrl(r.url) ? `<a href="${esc(r.url)}" rel="noopener noreferrer" target="_blank">${esc(r.url)}</a>` : `<code>${esc(r.url)}</code>`}</li>`).join("")}</ul>` : ""}
         </section>
         <section class="card">
           <h3>Witness timeline</h3>

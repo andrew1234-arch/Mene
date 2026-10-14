@@ -8,16 +8,18 @@ const summary = (md: string) => process.env.GITHUB_STEP_SUMMARY && appendFileSyn
 const output = (k: string, v: string) => process.env.GITHUB_OUTPUT && appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`)
 
 async function main() {
-  if (input("issuers")) process.env.MENE_ISSUERS = input("issuers")
-  if (input("threshold")) process.env.MENE_THRESHOLD = input("threshold")
-  if (input("rpc-url")) process.env.MENE_RPC_URL = input("rpc-url")
   process.env.MENE_CACHE_DIR ??= `${process.env.RUNNER_TEMP ?? "/tmp"}/mene-cache`
-  const sev = input("min-severity") || "low"
-  if (!isSeverity(sev)) throw new Error(`invalid min-severity ${sev}`)
+  const sev = input("min-severity") || undefined
+  if (sev !== undefined && !isSeverity(sev)) throw new Error(`invalid min-severity ${sev}`)
   const lockfile = input("lockfile") || "package-lock.json"
 
-  const cfg = loadConfig()
-  const r = await runCheck(cfg, lockfile, { minSeverity: sev })
+  const cfg = loadConfig(undefined, {
+    issuers: input("issuers") ? input("issuers").split(/[\s,]+/).filter(Boolean) : undefined,
+    threshold: input("threshold") ? Number(input("threshold")) : undefined,
+    minSeverity: sev,
+    rpcUrl: input("rpc-url") || undefined,
+  })
+  const r = await runCheck(cfg, lockfile)
   for (const w of r.warnings) console.log(`::warning::${w}`)
   output("matches", String(r.matches.length))
   const head = `### Mene · \`${lockfile}\`\n${r.statuses.length} advisories, ${r.statuses.filter((s) => s.enforced).length} enforced · quorum ${cfg.threshold}/${cfg.issuers.length} · source: ${r.source}${r.blockNumber ? ` @ block ${r.blockNumber}` : ""}\n`

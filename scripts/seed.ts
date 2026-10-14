@@ -5,6 +5,7 @@
  *   Forger publishes a fake advisory → never appears (not a trusted creator)
  * Run: `npm run seed` (needs .env from `npx tsx scripts/keys.ts`, funded).
  */
+import { execSync } from "node:child_process"
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs"
 import {
   attest,
@@ -68,4 +69,6 @@ writeFileSync(
   `/** The three demo witnesses (team-controlled Tiramisu testnet wallets), written by scripts/seed.ts. */\nexport const DEMO_WITNESSES: { name: string; address: string }[] = ${JSON.stringify(witnesses, null, 2)}\n`,
 )
 writeFileSync("site/src/data/witnesses.json", `${JSON.stringify(witnesses, null, 2)}\n`)
+// The Action bundles DEMO_WITNESSES at build time; rebuild so action/dist carries the real addresses.
+execSync("npm run build:action", { stdio: "inherit" })
 console.log("\nWrote arkiv/evidence.md, packages/cli/src/witnesses.ts, site/src/data/witnesses.json")

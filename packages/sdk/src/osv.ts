@@ -1,3 +1,4 @@
+import semver from "semver"
 import { isSeverity, type Severity } from "./constants"
 
 /**
@@ -57,15 +58,41 @@ export function parseOsv(raw: unknown): OsvAdvisory {
     if (!p || p.ecosystem !== "npm" || typeof p.name !== "string" || !p.name) {
       fail(`affected[${i}].package must be an npm package`)
     }
+    for (const [j, r] of ((aff as OsvAffected).ranges ?? []).entries()) {
+      if (!r || !Array.isArray(r.events) || r.events.length === 0) fail(`affected[${i}].ranges[${j}].events must be a non-empty array`)
+      if (r.type !== "SEMVER") continue
+      for (const ev of r.events) {
+        for (const [k, v] of Object.entries(ev ?? {})) {
+          if (!["introduced", "fixed", "last_affected"].includes(k)) fail(`affected[${i}].ranges[${j}] has unknown event "${k}"`)
+          if (typeof v !== "string" || (v !== "0" && !semver.valid(v))) fail(`affected[${i}].ranges[${j}] event ${k}="${String(v)}" is not semver`)
+        }
+      }
+    }
     const v = (aff as OsvAffected).versions
     if (v !== undefined && (!Array.isArray(v) || v.some((x) => typeof x !== "string"))) {
       fail(`affected[${i}].versions must be strings`)
+    }
+  }
+  if (a.references !== undefined) {
+    if (!Array.isArray(a.references)) fail("references must be an array")
+    for (const r of a.references as Array<{ url?: unknown }>) {
+      if (typeof r?.url !== "string" || !isSafeUrl(r.url)) fail(`reference URL must be http(s): ${String(r?.url)}`)
     }
   }
   const ds = a.database_specific as OsvAdvisory["database_specific"] | undefined
   if (!ds || ds.mene_version !== 1) fail("database_specific.mene_version must be 1")
   if (!isSeverity(String(ds!.severity))) fail("database_specific.severity must be low|medium|high|critical")
   return raw as OsvAdvisory
+}
+
+/** Only http(s) links may be rendered from advisory content. */
+export function isSafeUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === "https:" || u.protocol === "http:"
+  } catch {
+    return false
+  }
 }
 
 /** The first affected package — used for the `package` display attribute. */

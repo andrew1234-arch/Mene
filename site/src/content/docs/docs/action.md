@@ -26,10 +26,12 @@ jobs:
 | Input | Default | |
 |---|---|---|
 | `lockfile` | `package-lock.json` | path to scan |
-| `issuers` | demo witnesses | comma-separated trusted addresses |
-| `threshold` | `2` | confirmations needed |
-| `min-severity` | `low` | `low` · `medium` · `high` · `critical` |
-| `rpc-url` | Tiramisu | Arkiv HTTP RPC |
+| `issuers` | config file, else demo witnesses | comma-separated trusted addresses |
+| `threshold` | config file, else `2` | confirmations needed |
+| `min-severity` | config file, else `low` | `low` · `medium` · `high` · `critical` |
+| `rpc-url` | config file, else Tiramisu | Arkiv HTTP RPC |
+
+Inputs you set explicitly override the repository's `mene.config.json`. Inputs you leave empty fall back to it.
 
 The Action writes a table of matches to the job summary and adds an error annotation on the lockfile for each poisoned package. It fails the job when anything matches. If it can't reach Arkiv and has no cache, it fails closed.
 
