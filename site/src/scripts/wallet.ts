@@ -1,7 +1,7 @@
 import { createWalletClient } from "@arkiv-network/sdk"
 import { tiramisu } from "@arkiv-network/sdk/chains"
 import { type MeneWalletClient, TIRAMISU } from "@mene/sdk"
-import { custom, type EIP1193Provider } from "viem"
+import { type EIP1193Provider, custom } from "viem"
 import { isTrusted, store, toast } from "./mene"
 
 declare global {
@@ -70,18 +70,27 @@ export async function wallet(): Promise<MeneWalletClient> {
   if (!eth) throw new Error("No browser wallet found")
   const a = current ?? (await connect())
   await ensureChain(eth)
-  return createWalletClient({ chain: tiramisu, transport: custom(eth), account: a as `0x${string}` }) as unknown as MeneWalletClient
+  return createWalletClient({
+    chain: tiramisu,
+    transport: custom(eth),
+    account: a as `0x${string}`,
+  }) as unknown as MeneWalletClient
 }
 
 /** Human message for wallet/transaction failures. */
-export function txError(err: unknown): string {
+function txError(err: unknown): string {
   const e = err as { code?: number; shortMessage?: string; message?: string }
   if (e.code === 4001 || /rejected|denied/i.test(e.message ?? "")) return "You rejected the request in your wallet."
-  if (/insufficient funds/i.test(e.message ?? "")) return "This wallet has no testnet GLM for gas. Use the Tiramisu faucet."
+  if (/insufficient funds/i.test(e.message ?? ""))
+    return "This wallet has no testnet GLM for gas. Use the Tiramisu faucet."
   return (e.shortMessage ?? e.message ?? String(err)).split("\n")[0]!
 }
 
-export async function withTx<T>(btn: HTMLButtonElement | null, label: string, fn: () => Promise<T>): Promise<T | undefined> {
+export async function withTx<T>(
+  btn: HTMLButtonElement | null,
+  label: string,
+  fn: () => Promise<T>,
+): Promise<T | undefined> {
   const old = btn?.textContent
   if (btn) {
     btn.disabled = true
@@ -107,10 +116,13 @@ export const isWitness = () => !!current && isTrusted(current)
 if (hasWallet()) {
   const eth = window.ethereum!
   if (store.get("mene:wallet")) {
-    eth.request({ method: "eth_accounts" }).then((accs) => {
-      const a = (accs as string[])[0]
-      if (a) set(a.toLowerCase())
-    }, () => {})
+    eth.request({ method: "eth_accounts" }).then(
+      (accs) => {
+        const a = (accs as string[])[0]
+        if (a) set(a.toLowerCase())
+      },
+      () => {},
+    )
   }
   eth.on?.("accountsChanged", (accs: string[]) => {
     if (current !== null || store.get("mene:wallet")) set(accs[0]?.toLowerCase() ?? null)

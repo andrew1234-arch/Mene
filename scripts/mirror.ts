@@ -14,15 +14,15 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { and, eq } from "@arkiv-network/sdk/query"
 import {
-  attest,
   CURATED,
-  coversVersion,
-  ensureSealed,
-  latestVerdict,
-  explorer,
-  mirrorRecord,
   OSSF_RAW,
   PROJECT,
+  attest,
+  coversVersion,
+  ensureSealed,
+  explorer,
+  latestVerdict,
+  mirrorRecord,
   publicClient,
   publishAdvisory,
   recommendedVersion,
@@ -46,7 +46,10 @@ async function listRecords(name: string): Promise<string[]> {
   const headers: Record<string, string> = { accept: "application/vnd.github+json" }
   if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`
   const dir = `osv/malicious/npm/${name}`
-  const items = await getJson<{ name: string; path: string }[]>(`https://api.github.com/repos/ossf/malicious-packages/contents/${dir}`, headers)
+  const items = await getJson<{ name: string; path: string }[]>(
+    `https://api.github.com/repos/ossf/malicious-packages/contents/${dir}`,
+    headers,
+  )
   return items.filter((i) => /^MAL-.*\.json$/.test(i.name)).map((i) => i.path)
 }
 
@@ -69,8 +72,14 @@ for (const c of CURATED.filter((c) => !only || only.has(c.name))) {
         console.log(`! ${path}: ${(e as Error).message}`)
       }
     }
-    const status = found ? "record found" : skipped ? `skipped: ${skipped} matching record(s) contain personal data` : "no OpenSSF record for this version"
-    console.log(`${found ? "✓" : skipped ? "✗" : "·"} ${c.name}@${c.version}: ${status} (recommended ${recommended ?? "none"})`)
+    const status = found
+      ? "record found"
+      : skipped
+        ? `skipped: ${skipped} matching record(s) contain personal data`
+        : "no OpenSSF record for this version"
+    console.log(
+      `${found ? "✓" : skipped ? "✗" : "·"} ${c.name}@${c.version}: ${status} (recommended ${recommended ?? "none"})`,
+    )
     // A curated incident that couldn't be mirrored must not look like success.
     if (!found && skipped) process.exitCode = 1
   } catch (e) {

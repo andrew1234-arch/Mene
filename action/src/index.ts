@@ -1,11 +1,12 @@
 import { appendFileSync } from "node:fs"
+import { loadConfig, matchTable, runCheck } from "@mene/cli/lib"
 import { normalizeSeverity } from "@mene/sdk"
-import { matchTable, runCheck } from "../../packages/cli/src/check"
-import { loadConfig } from "../../packages/cli/src/config"
 
 const input = (name: string) => (process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] ?? "").trim()
-const summary = (md: string) => process.env.GITHUB_STEP_SUMMARY && appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${md}\n`)
-const output = (k: string, v: string) => process.env.GITHUB_OUTPUT && appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`)
+const summary = (md: string) =>
+  process.env.GITHUB_STEP_SUMMARY && appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${md}\n`)
+const output = (k: string, v: string) =>
+  process.env.GITHUB_OUTPUT && appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`)
 
 async function main() {
   process.env.MENE_CACHE_DIR ??= `${process.env.RUNNER_TEMP ?? "/tmp"}/mene-cache`
@@ -15,7 +16,11 @@ async function main() {
   const lockfile = input("lockfile") || "package-lock.json"
 
   const cfg = loadConfig(undefined, {
-    issuers: input("issuers") ? input("issuers").split(/[\s,]+/).filter(Boolean) : undefined,
+    issuers: input("issuers")
+      ? input("issuers")
+          .split(/[\s,]+/)
+          .filter(Boolean)
+      : undefined,
     threshold: input("threshold") ? Number(input("threshold")) : undefined,
     minSeverity: sev,
     rpcUrl: input("rpc-url") || undefined,
@@ -31,7 +36,9 @@ async function main() {
   }
   summary(`${head}\n❌ **${r.matches.length} poisoned package(s)**\n\n${matchTable(r.matches)}`)
   for (const m of r.matches) {
-    console.log(`::error file=${lockfile}::${m.package}@${m.installed} is flagged by ${m.advisoryId} (${m.status})${m.safeVersion ? `; use ${m.safeVersion}` : ""}`)
+    console.log(
+      `::error file=${lockfile}::${m.package}@${m.installed} is flagged by ${m.advisoryId} (${m.status})${m.safeVersion ? `; use ${m.safeVersion}` : ""}`,
+    )
   }
   process.exitCode = 1
 }

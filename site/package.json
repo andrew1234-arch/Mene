@@ -6,13 +6,14 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "build:preview": "PUBLIC_MENE_PREVIEW=1 astro build && node scripts/relativize-preview.mjs",
+    "build:preview": "PUBLIC_MENE_PREVIEW=1 astro build && node tools/relativize-preview.mjs",
     "check": "astro check"
   },
   "dependencies": {
+    "@arkiv-network/sdk": "0.8.1",
+    "@mene/sdk": "0.1.0",
     "astro": "^7.3.8",
-    "semver": "^7.8.5",
-    "sharp": "^0.35.5"
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

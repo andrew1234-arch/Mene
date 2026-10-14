@@ -1,17 +1,18 @@
 // Turns the preview build (dist-preview, built with base "/" and build.format "file") into a
 // bundle of relative files that works from any URL prefix, e.g. a claude.ai artifact.
-import { readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { join, posix, relative } from "node:path"
 
 const root = new URL("../dist-preview/", import.meta.url).pathname
-const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]))
+const walk = (d) =>
+  readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]))
 
 // Pagefind search can't work from relative files; drop it.
 rmSync(join(root, "pagefind"), { recursive: true, force: true })
 // "/" → home.html, so the artifact's own entry page can be a small launcher.
 renameSync(join(root, "index.html"), join(root, "home.html"))
 
-const ASSET = /^\/(assets|fixtures|favicon|sitemap)/
+const ASSET = /^\/(assets|favicon|sitemap)/
 /** Map a site path ("/wall", "/docs/cli/", "/") to its file ("wall.html", "docs/cli.html", "home.html"). */
 function toFile(p) {
   if (ASSET.test(p) || /\.[a-z0-9]+$/i.test(p)) return p.slice(1)

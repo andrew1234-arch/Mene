@@ -1,5 +1,7 @@
 ---
-interface Props { compact?: boolean }
+interface Props {
+  compact?: boolean
+}
 const { compact = false } = Astro.props
 ---
 <section class:list={["checker", { compact }]} aria-labelledby="check-title">
@@ -41,7 +43,9 @@ const { compact = false } = Astro.props
 
 <script>
   import { directDependencies, LockfileError, matchLockfile, parseLockfile, planFixes, type Match } from "@mene/sdk"
-  import { advisoryUrl, BASE, DOCS, esc, loadWall, sevBadge, showError, chip, toast } from "../scripts/mene"
+  import chalkAttackLock from "../../../examples/chalk-attack/package-lock.json?raw"
+  import cleanLock from "../../../examples/clean/package-lock.json?raw"
+  import { advisoryUrl, DOCS, esc, loadWall, sevBadge, showError, chip, toast } from "../scripts/mene"
 
   const out = document.getElementById("check-out")!
   const input = document.getElementById("check-input")!
@@ -128,15 +132,10 @@ const { compact = false } = Astro.props
     if (!p.hidden) (document.getElementById("paste-text") as HTMLTextAreaElement).focus()
   })
   document.getElementById("paste-go")!.addEventListener("click", () => void check((document.getElementById("paste-text") as HTMLTextAreaElement).value, "pasted lockfile"))
+  // The demo lockfiles are bundled from examples/ (one copy in the repo, no network request).
+  const fixtures: Record<string, string> = { "chalk-attack": chalkAttackLock, clean: cleanLock }
   for (const b of document.querySelectorAll<HTMLButtonElement>("[data-fixture]")) {
-    b.addEventListener("click", async () => {
-      try {
-        const r = await fetch(`${BASE}/fixtures/${b.dataset.fixture}.package-lock.json`)
-        if (!r.ok) throw new Error(String(r.status))
-        await check(await r.text(), `example: ${b.dataset.fixture}`)
-      } catch {
-        toast("Couldn't load the example lockfile", "err")
-      }
-    })
+    const name = b.dataset.fixture!
+    b.addEventListener("click", () => void check(fixtures[name]!, `example: ${name}`))
   }
 </script>

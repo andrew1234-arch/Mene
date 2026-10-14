@@ -1,6 +1,6 @@
 # CLAUDE.md — Mene
 
-You are building **Mene**, a censorship-resistant, quorum-signed npm compromise advisory system on Arkiv, for the Arkiv Global Tour Stop hackathon. Read SPEC.md (what), DESIGN.md (web pages), TASKS.md (order), arkiv/schema.md (data contract). The hackathon's agent guide (https://github.com/Arkiv-Network/global-tour-stop-pre-devcon/blob/main/AGENTS.md) overrides this file if they conflict.
+You are building **Mene**, a censorship-resistant, quorum-signed npm compromise advisory system on Arkiv, for the Arkiv Global Tour Stop hackathon. Read docs/SPEC.md (what), docs/DESIGN.md (web pages), docs/TASKS.md (order), arkiv/schema.md (data contract). The hackathon's agent guide (https://github.com/Arkiv-Network/global-tour-stop-pre-devcon/blob/main/AGENTS.md) overrides this file if they conflict.
 
 **Scope: do everything you can.** Code, tests, seeding, the CLI, the Action, every web page and its copy, docs, README, demo video script, and drafted Devfolio answers. Only stop to ask the user for things you cannot do: funding wallets, recording the video, submitting on Devfolio, or a SPIKE fallback that changes the product promise.
 

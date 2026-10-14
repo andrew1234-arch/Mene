@@ -1,9 +1,11 @@
+// Resolves to src/preview/sample.ts in preview builds and to an empty module in production.
+import { SAMPLE_WITNESSES } from "mene:preview"
 import {
   type AdvisoryStatus,
   DEFAULT_THRESHOLD,
-  migrateState,
-  explorer,
   type MeneState,
+  explorer,
+  migrateState,
   publicClient,
   readLive,
   resolveStatus,
@@ -11,13 +13,11 @@ import {
   sourceLabel,
 } from "@mene/sdk"
 import defaultWitnessesJson from "../data/witnesses.json"
-// Resolves to src/preview/sample.ts in preview builds and to an empty module in production.
-import { SAMPLE_WITNESSES } from "mene:preview"
 
-export const PREVIEW = import.meta.env.PUBLIC_MENE_PREVIEW === "1"
+const PREVIEW = import.meta.env.PUBLIC_MENE_PREVIEW === "1"
 
 /** The README and arkiv/schema.md are the docs. */
-export const REPO = "https://github.com/andrew1234-arch/Mene"
+const REPO = "https://github.com/andrew1234-arch/Mene"
 export const DOCS = {
   quickstart: `${REPO}#quickstart`,
   cli: `${REPO}#cli`,
@@ -31,7 +31,7 @@ export const DOCS = {
 const defaultWitnesses = PREVIEW ? SAMPLE_WITNESSES : defaultWitnessesJson
 
 /** Site root. Preview builds use relative files, so the root is found from this chunk's URL. */
-export const BASE = PREVIEW
+const BASE = PREVIEW
   ? new URL("../", import.meta.url).pathname.replace(/\/$/, "")
   : import.meta.env.BASE_URL.replace(/\/$/, "")
 
@@ -57,7 +57,10 @@ export const store = {
   },
   set(k: string, v: unknown, a: Area = "local") {
     try {
-      area(a).setItem(k, JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x)))
+      area(a).setItem(
+        k,
+        JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x)),
+      )
     } catch {
       /* private mode: run stateless */
     }
@@ -81,7 +84,10 @@ export function getState(): MeneState | undefined {
 }
 
 let _pub: ReturnType<typeof publicClient> | undefined
-export const pub = () => (_pub ??= publicClient())
+export function pub() {
+  if (!_pub) _pub = publicClient()
+  return _pub
+}
 
 export interface Wall {
   statuses: AdvisoryStatus[]
@@ -104,7 +110,10 @@ export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
     try {
       const trust = getTrust()
       if (!trust.issuers.length) throw new NoWitnessesError()
-      const live = await readLive(pub(), trust.issuers.map((i) => i.address))
+      const live = await readLive(
+        pub(),
+        trust.issuers.map((i) => i.address),
+      )
       const out = resolveStatus({
         issuers: trust.issuers.map((i) => i.address),
         threshold: trust.threshold,
@@ -113,7 +122,14 @@ export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
         state: getState(),
       })
       store.set("mene:state", out.state)
-      const wall: Wall = { statuses: out.statuses, blockNumber: live.blockNumber.toString(), invalid: live.invalid, trust, at: Date.now(), v: 2 }
+      const wall: Wall = {
+        statuses: out.statuses,
+        blockNumber: live.blockNumber.toString(),
+        invalid: live.invalid,
+        trust,
+        at: Date.now(),
+        v: 2,
+      }
       store.set("mene:wall", wall, "session")
       setConnection({ ok: true, block: wall.blockNumber })
       return wall
@@ -146,7 +162,7 @@ export function watchWall(render: (w: Wall) => void, onError: (err: unknown, ret
   return run
 }
 
-export class NoWitnessesError extends Error {
+class NoWitnessesError extends Error {
   constructor() {
     super("No witnesses configured")
   }
@@ -169,7 +185,10 @@ export function onConnection(l: (c: Conn) => void) {
 // ------------------------------------------------------------------ rendering helpers
 
 export const esc = (s: unknown) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!)
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  )
 
 export const short = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a)
 
@@ -205,7 +224,7 @@ export function toast(msg: string, kind: "ok" | "err" = "ok") {
   setTimeout(() => t.remove(), 3500)
 }
 
-export async function copyText(text: string, what = "Copied") {
+async function copyText(text: string, what = "Copied") {
   try {
     await navigator.clipboard.writeText(text)
     toast(`${what} to clipboard`)
@@ -236,7 +255,7 @@ export function showError(el: HTMLElement, err: unknown, retry?: () => void) {
   })
 }
 
-export const skeleton = (n = 3) => `<div class="sk-list">${'<div class="sk"></div>'.repeat(n)}</div>`
+const skeleton = (n = 3) => `<div class="sk-list">${'<div class="sk"></div>'.repeat(n)}</div>`
 
 /** Approximate time left at the nominal 2 s block time. */
 export function blocksToHuman(blocks: bigint | number): string {
@@ -253,7 +272,9 @@ export const advisoryUrl = (key: string) => (PREVIEW ? `${route("advisory")}#${k
 export function fmtDate(iso: string | undefined) {
   if (!iso) return ""
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
 
 /** "5.6.1" / "≥1.0.0 <1.0.3" style summary of an OSV affected entry. */
@@ -274,7 +295,8 @@ export function affectedText(a: { versions?: string[]; ranges?: { events: Record
 /** One advisory as a clickable card (wall, home). */
 export function advCard(s: AdvisoryStatus): string {
   const o = s.advisory?.osv
-  const pkgs = o?.affected.map((a) => `${a.package.name} ${affectedText(a as never)}`).join(" · ") ?? "content not readable"
+  const pkgs =
+    o?.affected.map((a) => `${a.package.name} ${affectedText(a as never)}`).join(" · ") ?? "content not readable"
   const confirms = s.confirmers.length
   return `<li><a class="adv ${s.status === "WITHDRAWN" ? "withdrawn" : ""}" href="${advisoryUrl(s.key)}">
     <div class="t"><span class="pk">${esc(pkgs)}</span>${sevBadge(o ? severityOf(o) : undefined)}${o ? `<span class="src-tag">${esc(sourceLabel(o))}</span>` : ""}</div>

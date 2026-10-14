@@ -1,15 +1,18 @@
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { emptyState } from "@mene/sdk"
 import { afterEach, describe, expect, it } from "vitest"
 import { loadConfig, loadState, saveState } from "../src/config"
-import { emptyState } from "@mene/sdk"
 
 const A = "0x1111111111111111111111111111111111111111"
 const B = "0x2222222222222222222222222222222222222222"
 const C = "0x3333333333333333333333333333333333333333"
 afterEach(() => {
+  // Unsetting env vars needs `delete`: assigning undefined would set the string "undefined".
+  // biome-ignore lint/performance/noDelete: see above
   delete process.env.MENE_THRESHOLD
+  // biome-ignore lint/performance/noDelete: see above
   delete process.env.MENE_CACHE_DIR
 })
 

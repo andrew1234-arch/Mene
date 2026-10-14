@@ -1,7 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join, resolve } from "node:path"
-import { DEFAULT_THRESHOLD, emptyState, migrateState, type MeneState, normalizeSeverity, type Severity } from "@mene/sdk"
+import {
+  DEFAULT_THRESHOLD,
+  type MeneState,
+  type Severity,
+  emptyState,
+  migrateState,
+  normalizeSeverity,
+} from "@mene/sdk"
 import { DEMO_WITNESSES } from "./witnesses"
 
 export interface MeneConfig {
@@ -54,7 +61,10 @@ export function loadState(): MeneState | undefined {
     throw new Error(`cache ${p} is corrupt; inspect or delete it deliberately (fail closed)`)
   }
   const migrated = migrateState(s)
-  if (!migrated) throw new Error(`cache ${p} is malformed or from an unknown version; inspect or delete it deliberately (fail closed)`)
+  if (!migrated)
+    throw new Error(
+      `cache ${p} is malformed or from an unknown version; inspect or delete it deliberately (fail closed)`,
+    )
   return migrated
 }
 

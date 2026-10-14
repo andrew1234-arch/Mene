@@ -1,0 +1,14 @@
+{
+  "name": "@mene/action",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@mene/cli": "0.1.0",
+    "@mene/sdk": "0.1.0"
+  }
+}

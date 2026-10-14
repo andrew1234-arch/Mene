@@ -1,5 +1,5 @@
 import semver from "semver"
-import { type Severity, SEVERITIES } from "./constants"
+import { SEVERITIES, type Severity } from "./constants"
 import type { InstalledPackage } from "./lockfile"
 import { type OsvAdvisory, type OsvAffected, type OsvRange, recommendedOf, severityOf } from "./osv"
 

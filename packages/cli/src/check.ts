@@ -2,14 +2,14 @@ import { readFileSync } from "node:fs"
 import {
   type AdvisoryStatus,
   type Match,
+  type Severity,
   matchLockfile,
   parseLockfile,
   publicClient,
   readLive,
   resolveStatus,
-  type Severity,
 } from "@mene/sdk"
-import { loadState, type MeneConfig, saveState } from "./config"
+import { type MeneConfig, loadState, saveState } from "./config"
 
 export interface CheckResult {
   matches: Match[]
@@ -69,7 +69,9 @@ export async function runCheck(
     .filter((s) => s.enforced)
     .flatMap((s) => {
       if (!s.advisory) {
-        loaded.warnings.push(`advisory ${s.key} is ${s.label} but its content was never cached; read it from chain history`)
+        loaded.warnings.push(
+          `advisory ${s.key} is ${s.label} but its content was never cached; read it from chain history`,
+        )
         return []
       }
       return [{ key: s.key, status: s.label, advisory: s.advisory.osv }]

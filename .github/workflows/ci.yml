@@ -10,12 +10,14 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 22, cache: npm }
       - run: npm ci
+      - run: npm run lint
+      - run: npm run knip
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
       - name: Committed Action bundle matches its source
         run: git diff --exit-code -- action/dist
-      - run: npm run check -w site
+      - run: npm run site:check
       - run: npm run site:build
   workflows:
     # Validates every workflow file (and its shell steps via shellcheck) so a broken workflow

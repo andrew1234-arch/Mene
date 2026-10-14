@@ -1,5 +1,5 @@
 /**
- * On-chain spikes from TASKS.md Task 1. Run: `npm run spike` (needs funded MENE_ISSUER_A_KEY and
+ * On-chain spikes from docs/TASKS.md Task 1. Run: `npm run spike` (needs funded MENE_ISSUER_A_KEY and
  * MENE_KEEPER_KEY). Prints PASS/FAIL, evidence (tx hash / revert reason) and GLM spent per
  * operation, then appends a markdown summary to arkiv/friction.md.
  */
@@ -7,8 +7,8 @@ import { appendFileSync } from "node:fs"
 import { ExpirationTime, jsonToPayload } from "@arkiv-network/sdk"
 import { i32, str } from "@arkiv-network/sdk/attr"
 import { and, eq, gte } from "@arkiv-network/sdk/query"
-import { formatEther, type Hex } from "viem"
-import { BURN_ADDRESS, publicClient, TIRAMISU, walletClient } from "../packages/sdk/src/index"
+import { type Hex, formatEther } from "viem"
+import { BURN_ADDRESS, TIRAMISU, publicClient, walletClient } from "../packages/sdk/src/index"
 import { loadEnv, need } from "./env"
 
 loadEnv()
@@ -61,18 +61,26 @@ await spike("S0 chain", "chain id 7738577", async () => {
 })
 
 let sealed: Hex | undefined
-await spike("S1 seal in one batch", "create advisory + attestation + ownership → burn in one executeBatch; owner = 0x…dEaD", async () => {
-  const [adv, att] = await pub.predictEntityKeys({ owner: me, count: 2 })
-  const r = await A.executeBatch({
-    creates: [base(1, undefined, adv.salt), { ...base(1, undefined, att.salt), attributes: { project: str("mene-spike"), type: str("spike-att") } }],
-    ownershipChanges: [{ entityKey: adv.key, newOwner: BURN_ADDRESS }],
-  })
-  if (r.createdEntities[0]?.toLowerCase() !== adv.key.toLowerCase()) throw new Error(`predicted ${adv.key}, got ${r.createdEntities[0]}`)
-  const e = await pub.getEntity(adv.key)
-  if (e.owner.toLowerCase() !== BURN_ADDRESS.toLowerCase()) throw new Error(`owner is ${e.owner}`)
-  sealed = adv.key
-  return `tx ${r.txHash}, owner burn, ${await cost(r.txHash)}`
-})
+await spike(
+  "S1 seal in one batch",
+  "create advisory + attestation + ownership → burn in one executeBatch; owner = 0x…dEaD",
+  async () => {
+    const [adv, att] = await pub.predictEntityKeys({ owner: me, count: 2 })
+    const r = await A.executeBatch({
+      creates: [
+        base(1, undefined, adv.salt),
+        { ...base(1, undefined, att.salt), attributes: { project: str("mene-spike"), type: str("spike-att") } },
+      ],
+      ownershipChanges: [{ entityKey: adv.key, newOwner: BURN_ADDRESS }],
+    })
+    if (r.createdEntities[0]?.toLowerCase() !== adv.key.toLowerCase())
+      throw new Error(`predicted ${adv.key}, got ${r.createdEntities[0]}`)
+    const e = await pub.getEntity(adv.key)
+    if (e.owner.toLowerCase() !== BURN_ADDRESS.toLowerCase()) throw new Error(`owner is ${e.owner}`)
+    sealed = adv.key
+    return `tx ${r.txHash}, owner burn, ${await cost(r.txHash)}`
+  },
+)
 await spike("S1b original key deletes sealed entity", "revert", async () => {
   if (!sealed) throw new Error("S1 failed")
   return `reverted: ${await revertOf(A.deleteEntity({ entityKey: sealed }))}`
@@ -93,42 +101,56 @@ await spike("S3 patch readonly entity", "revert", async () => {
   return `reverted: ${await revertOf(A.patchEntity({ entityKey: r.entityKey, set: { type: str("tampered") } }))}`
 })
 
-await spike("S4 createdBy, range, cursor", "look-alike from keeper excluded; gte(severity, i32(3)) matches; cursor pages", async () => {
-  await K.createEntity(base()) // look-alike from an untrusted wallet
-  await A.createEntity(base())
-  const q = () => pub.select({ key: true, creator: true }).where(and(eq("project", "mene-spike"), gte("severity", i32(3)))).createdBy(me).limit(1)
-  let page = await q().fetch()
-  const all = [...page.entities]
-  let pages = 1
-  while (page.hasNextPage() && pages < 5) {
-    page = await page.next()
-    all.push(...page.entities)
-    pages++
-  }
-  const n = all.length
-  const foreign = all.some((e) => e.creator.toLowerCase() !== me.toLowerCase())
-  if (foreign) throw new Error("a foreign creator leaked through createdBy()")
-  if (pages < 2) throw new Error("expected more than one page at limit(1)")
-  return `${n} rows over ${pages} pages (limit 1), all created by A`
-})
+await spike(
+  "S4 createdBy, range, cursor",
+  "look-alike from keeper excluded; gte(severity, i32(3)) matches; cursor pages",
+  async () => {
+    await K.createEntity(base()) // look-alike from an untrusted wallet
+    await A.createEntity(base())
+    const q = () =>
+      pub
+        .select({ key: true, creator: true })
+        .where(and(eq("project", "mene-spike"), gte("severity", i32(3))))
+        .createdBy(me)
+        .limit(1)
+    let page = await q().fetch()
+    const all = [...page.entities]
+    let pages = 1
+    while (page.hasNextPage() && pages < 5) {
+      page = await page.next()
+      all.push(...page.entities)
+      pages++
+    }
+    const n = all.length
+    const foreign = all.some((e) => e.creator.toLowerCase() !== me.toLowerCase())
+    if (foreign) throw new Error("a foreign creator leaked through createdBy()")
+    if (pages < 2) throw new Error("expected more than one page at limit(1)")
+    return `${n} rows over ${pages} pages (limit 1), all created by A`
+  },
+)
 
-await spike("S5 WebSocket events", "watchEntityEvents over webSocket(), no fromBlock, receives create + delete", async () => {
-  const seen: string[] = []
-  const stop = ws.watchEntityEvents({
-    onEntityCreated: (e) => seen.push(`created ${e.entityKey}`),
-    onEntityDeleted: (e) => seen.push(`deleted ${e.entityKey}`),
-    onError: () => {},
-  })
-  await new Promise((r) => setTimeout(r, 2000))
-  const c = await A.createEntity(base(1, { readonly: false, permissionlessExtension: false }))
-  await A.deleteEntity({ entityKey: c.entityKey })
-  const deadline = Date.now() + 30_000
-  while (Date.now() < deadline && !seen.some((s) => s === `deleted ${c.entityKey}`)) await new Promise((r) => setTimeout(r, 500))
-  stop()
-  const got = seen.filter((s) => s.endsWith(c.entityKey))
-  if (got.length < 2) throw new Error(`only saw: ${got.join(", ") || "nothing"}`)
-  return got.map((g) => g.split(" ")[0]).join(" + ")
-})
+await spike(
+  "S5 WebSocket events",
+  "watchEntityEvents over webSocket(), no fromBlock, receives create + delete",
+  async () => {
+    const seen: string[] = []
+    const stop = ws.watchEntityEvents({
+      onEntityCreated: (e) => seen.push(`created ${e.entityKey}`),
+      onEntityDeleted: (e) => seen.push(`deleted ${e.entityKey}`),
+      onError: () => {},
+    })
+    await new Promise((r) => setTimeout(r, 2000))
+    const c = await A.createEntity(base(1, { readonly: false, permissionlessExtension: false }))
+    await A.deleteEntity({ entityKey: c.entityKey })
+    const deadline = Date.now() + 30_000
+    while (Date.now() < deadline && !seen.some((s) => s === `deleted ${c.entityKey}`))
+      await new Promise((r) => setTimeout(r, 500))
+    stop()
+    const got = seen.filter((s) => s.endsWith(c.entityKey))
+    if (got.length < 2) throw new Error(`only saw: ${got.join(", ") || "nothing"}`)
+    return got.map((g) => g.split(" ")[0]).join(" + ")
+  },
+)
 
 await spike("S6 365-day Entity Expiration cost", "accepted; cost compared with 30 days", async () => {
   const r30 = await A.createEntity(base(30))

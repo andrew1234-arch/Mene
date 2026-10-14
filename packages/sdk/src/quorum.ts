@@ -55,7 +55,9 @@ function upgradeOsv(osv: unknown): OsvAdvisory | undefined {
   if (isRecord(ds.mene)) return osv as unknown as OsvAdvisory
   const sev = ds.severity === "medium" ? "moderate" : ds.severity
   const affected = Array.isArray(osv.affected) ? (osv.affected as Record<string, unknown>[]) : []
-  const safe = affected.map((a) => (isRecord(a?.database_specific) ? a.database_specific.safe_version : undefined)).find((v) => typeof v === "string")
+  const safe = affected
+    .map((a) => (isRecord(a?.database_specific) ? a.database_specific.safe_version : undefined))
+    .find((v) => typeof v === "string")
   const { mene_version: _v, severity: _s, ...rest } = ds
   return {
     ...(osv as object),
@@ -64,7 +66,10 @@ function upgradeOsv(osv: unknown): OsvAdvisory | undefined {
       const { safe_version: _sv, ...keep } = a.database_specific
       return { ...a, database_specific: keep }
     }),
-    database_specific: { ...rest, mene: { severity: typeof sev === "string" ? sev : "critical", ...(safe ? { recommended: safe } : {}) } },
+    database_specific: {
+      ...rest,
+      mene: { severity: typeof sev === "string" ? sev : "critical", ...(safe ? { recommended: safe } : {}) },
+    },
   } as unknown as OsvAdvisory
 }
 
@@ -87,7 +92,9 @@ export function migrateState(raw: unknown): MeneState | undefined {
     advisories[k] = { ...a, osv }
   }
   const attestations: MeneState["attestations"] = {}
-  for (const [k, a] of Object.entries((raw.attestations as Record<string, AttestationRecord & { issuedAt?: number }>) ?? {})) {
+  for (const [k, a] of Object.entries(
+    (raw.attestations as Record<string, AttestationRecord & { issuedAt?: number }>) ?? {},
+  )) {
     if (!isRecord(a) || typeof a.advisory !== "string" || typeof a.issuer !== "string") return undefined
     attestations[k] = { ...a, attestedAt: a.attestedAt ?? a.issuedAt ?? 0 }
   }
@@ -229,8 +236,7 @@ export function resolveStatus(input: ResolveInput): ResolveOutput {
     }
     state.lastStatus[advKey] = status
 
-    const enforced =
-      status === "ACTIVE" || (status === "MISSING" && (was === "ACTIVE" || quorum === "ACTIVE"))
+    const enforced = status === "ACTIVE" || (status === "MISSING" && (was === "ACTIVE" || quorum === "ACTIVE"))
     const label =
       status === "PENDING"
         ? `PENDING ${confirmers.length}/${k}`

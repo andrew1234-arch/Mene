@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import { advisoryAttributes } from "../src/arkiv"
 import { matchLockfile } from "../src/match"
-import { coversVersion, CURATED, mirrorRecord, recommendedVersion } from "../src/mirror"
+import { CURATED, coversVersion, mirrorRecord, recommendedVersion } from "../src/mirror"
 import { sourceLabel } from "../src/osv"
 
 // Real record from ossf/malicious-packages (osv/malicious/npm/debug/MAL-2025-46974.json), Apache-2.0.
@@ -30,7 +30,10 @@ describe("OpenSSF mirror", () => {
     expect(JSON.stringify(osv)).not.toMatch(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
   })
   it("is matched against a lockfile like any advisory", () => {
-    const m = matchLockfile([{ name: "debug", version: "4.4.2", path: "node_modules/debug" }], [{ key: "0x1", status: "ACTIVE", advisory: osv }])
+    const m = matchLockfile(
+      [{ name: "debug", version: "4.4.2", path: "node_modules/debug" }],
+      [{ key: "0x1", status: "ACTIVE", advisory: osv }],
+    )
     expect(m[0]).toMatchObject({ advisoryId: "MAL-2025-46974", safeVersion: "4.4.1", severity: "critical" })
   })
   it("fits Arkiv limits", () => {

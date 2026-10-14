@@ -5,8 +5,8 @@ import {
   schnorr,
   secp256k1,
   secp256k1_hasher
-} from "./chunk-LGJ6SLOR.mjs";
-import "./chunk-APR5DZYV.mjs";
+} from "./chunk-AYBSHAX2.mjs";
+import "./chunk-HUK5DCK4.mjs";
 import "./chunk-RCVPDT3Q.mjs";
 export {
   encodeToCurve,
