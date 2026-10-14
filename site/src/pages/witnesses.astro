@@ -1,0 +1,89 @@
+---
+import Base from "../layouts/Base.astro"
+const REPO = "https://github.com/andrew1234-arch/Mene"
+---
+<Base title="Witnesses" active="/witnesses" description="The witnesses whose confirmations Mene counts.">
+  <div class="wp">
+    <h1>Witnesses</h1>
+    <p class="muted lead">A witness is a wallet whose confirmations you count. An advisory becomes active when 2 of these 3 witnesses confirm it. Mene trusts the wallet that signed each record (its on-chain <code>$creator</code>), which can't be faked. It never trusts labels, because anyone can write those.</p>
+
+    <div id="cards" class="wgrid"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
+
+    <section class="card how">
+      <h2>Trust different witnesses</h2>
+      <p>The demo witnesses are three testnet wallets run by the Mene team. In production they would be independent security organisations. You choose whose confirmations count wherever you run Mene:</p>
+      <div class="two">
+        <div>
+          <p class="small muted">CLI: <code>mene.config.json</code> in your project</p>
+<pre><code id="cfg">{`{
+  "issuers": ["0x…", "0x…", "0x…"],
+  "threshold": 2,
+  "minSeverity": "low"
+}`}</code></pre>
+        </div>
+        <div>
+          <p class="small muted">GitHub Action inputs</p>
+<pre><code>- uses: andrew1234-arch/Mene/action@main
+  with:
+    lockfile: package-lock.json
+    issuers: 0x…,0x…,0x…
+    threshold: 2</code></pre>
+        </div>
+      </div>
+      <p class="small"><a href={`${REPO}#trust-model`}>How the quorum works →</a></p>
+    </section>
+  </div>
+</Base>
+
+<style is:global>
+  .wp { padding-top: 2rem; }
+  .lead { max-width: 70ch; }
+  .wgrid { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 1.5rem 0 2rem; }
+  .wgrid .sk { height: 140px; }
+  .wcard { display: grid; gap: .45rem; align-content: start; }
+  .wcard h3 { margin: 0; }
+  .wcard dl { display: grid; grid-template-columns: max-content 1fr; gap: .2rem .8rem; margin: .2rem 0 0; font-size: .9rem; }
+  .wcard dt { color: var(--muted); }
+  .wcard dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .how .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+  .how .two > div { min-width: 0; }
+</style>
+
+<script>
+  import { addrHtml, errorHtml, esc, getTrust, watchWall } from "../scripts/mene"
+
+  const cards = document.getElementById("cards")!
+  const t = getTrust()
+  if (t.issuers.length) {
+    document.getElementById("cfg")!.textContent = JSON.stringify({ issuers: t.issuers.map((i) => i.address), threshold: t.threshold, minSeverity: "low" }, null, 2)
+  }
+
+  watchWall(
+    (wall) => {
+      cards.innerHTML = t.issuers
+        .map((i) => {
+          const a = i.address.toLowerCase()
+          const inscribed = wall.statuses.filter((s) => s.advisory?.creator === a).length
+          const verdicts = wall.statuses.flatMap((s) => s.witnesses.filter((w) => w.issuer === a))
+          const confirms = verdicts.filter((v) => v.verdict === "confirm").length
+          const withdraws = verdicts.filter((v) => v.verdict === "withdraw").length
+          const last = Math.max(0, ...verdicts.map((v) => v.createdAt))
+          return `<div class="card wcard">
+            <h3>${esc(i.name || "Witness")}</h3>
+            <div>${addrHtml(i.address)}</div>
+            <dl>
+              <dt>Inscribed</dt><dd>${inscribed}</dd>
+              <dt>Confirms</dt><dd>${confirms}</dd>
+              <dt>Withdrawals</dt><dd>${withdraws}</dd>
+              <dt>Last attestation</dt><dd>${last ? `block ${last}` : "—"}</dd>
+            </dl>
+          </div>`
+        })
+        .join("")
+    },
+    (err, retry) => {
+      cards.innerHTML = errorHtml(err)
+      cards.querySelector("[data-retry]")?.addEventListener("click", retry)
+    },
+  )
+</script>

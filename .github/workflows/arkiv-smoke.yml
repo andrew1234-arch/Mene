@@ -1,0 +1,32 @@
+# Read-only checks against the live Tiramisu node. No keys needed.
+name: arkiv-smoke
+on:
+  workflow_dispatch:
+    inputs:
+      witnesses:
+        description: "Witness addresses to read (space-separated). Default: the configured demo witnesses."
+        required: false
+  push:
+    paths: ["packages/sdk/src/**", "scripts/smoke.ts", ".github/workflows/arkiv-smoke.yml"]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Query Tiramisu
+        shell: bash
+        env:
+          WITNESSES: ${{ github.event.inputs.witnesses }}
+        run: |
+          set -o pipefail
+          W="$WITNESSES"
+          if [ -z "$W" ]; then W=$(node -e "const s=require('fs').readFileSync('site/src/data/witnesses.json','utf8');console.log(JSON.parse(s).map(w=>w.address).join(' '))"); fi
+          # Only pass well-formed addresses through to the script.
+          ARGS=()
+          for a in $W; do [[ "$a" =~ ^0x[0-9a-fA-F]{40}$ ]] && ARGS+=("$a") || echo "skipping invalid address: $a"; done
+          npx tsx scripts/smoke.ts "${ARGS[@]}" | tee smoke.log
+      - uses: actions/upload-artifact@v6
+        with: { name: smoke-log, path: smoke.log }

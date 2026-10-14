@@ -1,0 +1,292 @@
+---
+import Base from "../layouts/Base.astro"
+---
+<Base title="Advisories" active="/wall" description="Every npm compromise advisory your witnesses agree on, read live from Arkiv.">
+  <div class="head">
+    <div>
+      <h1>The Wall</h1>
+      <p class="muted">Every npm compromise advisory your witnesses have weighed. Status comes from the quorum, not from whoever wrote the advisory.</p>
+    </div>
+  </div>
+
+  <section class="live" aria-label="Live activity on Arkiv">
+    <div class="live-head"><span class="chip PENDING" id="live-status">CONNECTING</span><span class="small muted">Live from Arkiv over WebSocket: inscriptions, confirmations, withdrawals, Lifetime Extensions. Deletions raise a red alarm.</span></div>
+    <ol id="live-feed" class="live-feed"><li class="muted small" id="live-idle">Waiting for activity…</li></ol>
+  </section>
+  <form id="filters" class="filters" onsubmit="return false" role="search">
+    <input type="search" name="q" class="search" placeholder="Search packages or advisory IDs…" autocomplete="off" aria-label="Search packages or advisory IDs" />
+    <div class="tabs" role="tablist" id="tabs">
+      <button type="button" role="tab" data-status="all" aria-selected="true">All <span></span></button>
+      <button type="button" role="tab" data-status="ACTIVE" aria-selected="false">Active <span></span></button>
+      <button type="button" role="tab" data-status="PENDING" aria-selected="false">Pending <span></span></button>
+      <button type="button" role="tab" data-status="WITHDRAWN" aria-selected="false">Withdrawn <span></span></button>
+      <button type="button" role="tab" data-status="MISSING" aria-selected="false">Missing <span></span></button>
+    </div>
+    <details class="more">
+      <summary>Filters</summary>
+      <div class="row">
+        <label>Minimum severity
+          <select name="sev"><option value="1">Any</option><option value="2">Moderate+</option><option value="3">High+</option><option value="4">Critical</option></select>
+        </label>
+        <label>Published since <input type="date" name="since" /></label>
+        <label>Sort
+          <select name="sort"><option value="new">Newest first</option><option value="sev">Most severe first</option></select>
+        </label>
+      </div>
+      <p class="small muted">Severity and date run as range queries on Arkiv. Search runs only in your browser, so package names never go over the network.</p>
+    </details>
+  </form>
+
+  <div id="alarms"></div>
+  <div id="out"><div class="sk-list"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
+  <p id="meta" class="small muted"></p>
+</Base>
+
+<style>
+  .head { padding-top: 2rem; }
+  .filters { display: grid; gap: .8rem; margin: 1.5rem 0 1rem; }
+  .search { width: 100%; font-size: 1.05rem; padding: .75rem 1rem; border-radius: 12px; }
+  .tabs { display: flex; gap: .3rem; flex-wrap: wrap; }
+  .tabs button { border-radius: 999px; font-size: .88rem; padding: .3rem .8rem; }
+  .tabs button[aria-selected="true"] { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+  .tabs span { opacity: .7; font-family: var(--mono); font-size: .78rem; margin-left: .15rem; }
+  .more summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+  .more .row { margin-top: .6rem; }
+  #alarms { display: grid; gap: .6rem; margin-bottom: 1rem; }
+  .live { border: 1px solid var(--line); border-radius: 12px; padding: .7rem .9rem; margin: 0 0 1rem; background: var(--surface); }
+  .live-head { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .live-feed { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .3rem; max-height: 9.5rem; overflow-y: auto; font-size: .88rem; }
+  .live-feed li.alarm-row { color: var(--red); font-weight: 600; }
+  .live-feed .when { font: .72rem var(--mono); color: var(--muted); margin-right: .4rem; }
+</style>
+
+<script>
+  import { and, eq, gte } from "@arkiv-network/sdk/query"
+  import { i32, u64 } from "@arkiv-network/sdk/attr"
+  import { BURN_ADDRESS, PROJECT, publicClient, severityOf, severityToInt, type AdvisoryStatus } from "@mene/sdk"
+  import { addrHtml, advCard, advisoryUrl, esc, errorHtml, getState, getTrust, pub, short, store, watchWall, witnessName, type Wall } from "../scripts/mene"
+
+  const form = document.getElementById("filters") as HTMLFormElement
+  const out = document.getElementById("out")!
+  const meta = document.getElementById("meta")!
+  const alarms = document.getElementById("alarms")!
+  const tabs = document.getElementById("tabs")!
+  let wall: Wall | undefined
+  let knownKeys = new Set<string>()
+  let status = new URLSearchParams(location.search).get("status") ?? "all"
+  let rangeKeys: Set<string> | null = null
+  let rangeSev = 1
+  let rangeSince = 0
+  const sevOf = (s: AdvisoryStatus) => (s.advisory ? severityToInt(severityOf(s.advisory.osv)) : 1)
+
+  /**
+   * Numeric range query on Arkiv, pinned per trusted witness with createdBy() like every read. It
+   * decides for live advisories a witness created; anything else is decided from its OSV content.
+   */
+  let rangeSeq = 0
+  async function runRangeQuery() {
+    const seq = ++rangeSeq
+    const fd = new FormData(form)
+    const sev = Number(fd.get("sev"))
+    const sinceStr = String(fd.get("since") || "")
+    const since = sinceStr ? Math.floor(Date.parse(sinceStr) / 1000) : 0
+    if (sev <= 1 && !since) {
+      rangeKeys = null
+      return
+    }
+    // Before the wall has loaded we don't know the witnesses yet; the wall's render reruns this.
+    if (!wall) return
+    rangeSev = sev
+    rangeSince = since
+    const preds = [eq("project", PROJECT), eq("type", "advisory"), gte("severity", i32(rangeSev))]
+    if (rangeSince) preds.push(gte("publishedAt", u64(BigInt(rangeSince))))
+    const keys = new Set<string>()
+    for (const w of wall.trust.issuers) {
+      let page = await pub().select({ key: true }).where(and(preds)).createdBy(w.address as `0x${string}`).limit(200).fetch()
+      for (;;) {
+        for (const e of page.entities) keys.add(e.key.toLowerCase())
+        if (!page.hasNextPage()) break
+        page = await page.next()
+      }
+    }
+    if (seq !== rangeSeq) return // a newer filter change superseded this query
+    rangeKeys = keys
+  }
+  function inRangeFilter(s: AdvisoryStatus): boolean {
+    if (!rangeKeys) return true
+    const a = s.advisory
+    const queried = a && !s.advisoryGone && wall!.trust.issuers.some((i) => i.address.toLowerCase() === a.creator)
+    if (queried) return rangeKeys.has(s.key)
+    if (!a) return true // content unknown: never hide an enforced row
+    return sevOf(s) >= rangeSev && (!rangeSince || Date.parse(a.osv.published) / 1000 >= rangeSince)
+  }
+
+  function render() {
+    if (!wall) return
+    const fd = new FormData(form)
+    const q = String(fd.get("q") || "").trim().toLowerCase()
+    const base = wall.statuses.filter((s) => {
+      if (!inRangeFilter(s)) return false
+      if (!q) return true
+      const o = s.advisory?.osv
+      return !!o && (o.id.toLowerCase().includes(q) || o.summary.toLowerCase().includes(q) || (o.aliases ?? []).some((a) => a.toLowerCase().includes(q)) || o.affected.some((a) => a.package.name.toLowerCase().includes(q)))
+    })
+    for (const b of tabs.querySelectorAll<HTMLButtonElement>("button")) {
+      const st = b.dataset.status!
+      b.setAttribute("aria-selected", String(st === status))
+      b.querySelector("span")!.textContent = String(st === "all" ? base.length : base.filter((s) => s.status === st).length)
+    }
+    let rows = base.filter((s) => status === "all" || s.status === status)
+    if (fd.get("sort") === "sev") rows = [...rows].sort((a, b) => sevOf(b) - sevOf(a))
+    out.innerHTML = rows.length
+      ? `<ul class="adv-list">${rows.map(advCard).join("")}</ul>`
+      : `<div class="empty"><p><strong>${q ? `Nothing matches “${esc(q)}”.` : "Nothing here."}</strong></p><p class="muted">${q ? "Try another package name or advisory ID." : "Try another tab or clear the filters."}</p></div>`
+  }
+
+  const reload = watchWall(
+    async (w) => {
+      const first = !wall
+      wall = w
+      rebuildKnown()
+      if (first) await runRangeQuery().catch(() => {})
+      meta.textContent = `Read live from Arkiv at block ${w.blockNumber} · ${w.trust.threshold}-of-${w.trust.issuers.length} witness quorum`
+      alarms.innerHTML = w.statuses
+        .flatMap((s) => [
+          ...(s.status === "MISSING" ? [`<div class="alarm"><strong>Advisory removed from Arkiv:</strong> <a href="${advisoryUrl(s.key)}">${esc(s.advisory?.osv.id ?? s.key)}</a> was deleted or expired. Mene still enforces it (${esc(s.label)}).</div>`] : []),
+          ...s.vanished.map((v) => `<div class="alarm"><strong>Confirmation deleted:</strong> ${esc(witnessName(v.issuer) ?? "A witness")} ${addrHtml(v.issuer)} deleted their ${esc(v.verdict)} on <a href="${advisoryUrl(s.key)}">${esc(s.advisory?.osv.id ?? s.key)}</a>. This browser saw it, so it still counts.</div>`),
+        ])
+        .join("")
+      render()
+    },
+    (err, retry) => {
+      out.innerHTML = errorHtml(err)
+      out.querySelector("[data-retry]")?.addEventListener("click", retry)
+    },
+  )
+
+  tabs.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-status]")
+    if (!b) return
+    status = b.dataset.status!
+    const url = new URL(location.href)
+    if (status === "all") url.searchParams.delete("status")
+    else url.searchParams.set("status", status)
+    history.replaceState(null, "", url)
+    render()
+  })
+  // ---- live strip: watchEntityEvents over a WebSocket (no fromBlock, so it is a real socket)
+  const feed = document.getElementById("live-feed")!
+  const liveStatus = document.getElementById("live-status")!
+  const trusted = new Set(getTrust().issuers.map((i) => i.address.toLowerCase()))
+  function liveRow(html: string, block: bigint, alarm = false) {
+    document.getElementById("live-idle")?.remove()
+    const li = document.createElement("li")
+    if (alarm) li.className = "alarm-row"
+    li.innerHTML = `<span class="when">#${block}</span>${html}`
+    feed.prepend(li)
+    while (feed.children.length > 30) feed.lastElementChild!.remove()
+  }
+  async function describe(key: string) {
+    const k = key.toLowerCase()
+    try {
+      const e = await pub().getEntity(key as `0x${string}`)
+      const a = e.attributes ?? {}
+      if (a.project?.value !== PROJECT) return null
+      return { type: String(a.type?.value), creator: e.creator.toLowerCase(), verdict: a.verdict?.value as string | undefined, advisory: (a.advisory?.value as string | undefined)?.toLowerCase(), id: a.advisoryId?.value as string | undefined }
+    } catch {
+      const st = getState()
+      if (st?.advisories[k]) return { type: "advisory", creator: st.advisories[k]!.creator, id: st.advisories[k]!.osv.id }
+      if (st?.attestations[k]) return { type: "attestation", creator: st.attestations[k]!.issuer, verdict: st.attestations[k]!.verdict, advisory: st.attestations[k]!.advisory }
+      return null
+    }
+  }
+  // Tiramisu is shared: drop other projects' events before making any RPC call. Known keys are
+  // collected once per wall render, not re-parsed from storage on every event.
+  function rebuildKnown() {
+    const ks = new Set<string>()
+    for (const s of wall?.statuses ?? []) {
+      ks.add(s.key)
+      for (const w of [...s.witnesses, ...s.vanished]) ks.add(w.key)
+    }
+    const st = getState()
+    for (const k of Object.keys(st?.advisories ?? {})) ks.add(k)
+    for (const k of Object.keys(st?.attestations ?? {})) ks.add(k)
+    knownKeys = ks
+  }
+  // Ours if the wall knows the key, or a trusted witness owns it (covers entities created since
+  // the last refresh). Sealed advisories are owned by the burn address.
+  const relevant = (key: string, owner: string) =>
+    knownKeys.has(key.toLowerCase()) || trusted.has(owner.toLowerCase())
+  const who = (a: string) => `${esc(witnessName(a) ?? (trusted.has(a) ? "witness" : "untrusted wallet"))} <span class="addr">${esc(short(a))}</span>`
+  // A new inscription, confirmation or deletion changes statuses: re-read the wall (debounced).
+  let pending: ReturnType<typeof setTimeout> | undefined
+  const refresh = () => {
+    clearTimeout(pending)
+    pending = setTimeout(() => {
+      store.del("mene:wall", "session")
+      reload()
+    }, 1500)
+  }
+  try {
+    const ws = publicClient({ ws: true })
+    liveStatus.className = "chip ACTIVE"
+    liveStatus.textContent = "LIVE"
+    ws.watchEntityEvents({
+      onEntityCreated: async (ev) => {
+        // A batch-sealed advisory may report the burn address as owner; describe() then checks
+        // the real creator, so only trusted witnesses' entities are shown.
+        const o = ev.owner.toLowerCase()
+        if (!trusted.has(o) && o !== BURN_ADDRESS.toLowerCase()) return
+        const d = await describe(ev.entityKey)
+        if (!d || !trusted.has(d.creator)) return
+        if (d.type === "advisory") liveRow(`<strong>Inscribed</strong> <a href="${advisoryUrl(ev.entityKey)}">${esc(d.id)}</a> by ${who(d.creator)}`, ev.blockNumber)
+        else if (d.type === "attestation") liveRow(`<strong>${d.verdict === "withdraw" ? "Withdrawn" : "Confirmed"}</strong> <a href="${advisoryUrl(d.advisory!)}">${esc(short(d.advisory!))}</a> by ${who(d.creator)}`, ev.blockNumber)
+        refresh()
+      },
+      onExpiryExtended: async (ev) => {
+        if (!relevant(ev.entityKey, ev.owner)) return
+        const d = await describe(ev.entityKey)
+        if (!d) return
+        let by = ""
+        try {
+          by = (await pub().getTransaction({ hash: ev.transactionHash })).from.toLowerCase()
+        } catch {}
+        liveRow(`<strong>Lifetime Extension</strong> of ${esc(d.type)} ${esc(short(ev.entityKey))}${by ? ` paid by ${who(by)}` : ""}`, ev.blockNumber)
+      },
+      onOwnershipTransferred: async (ev) => {
+        if (ev.newOwner.toLowerCase() !== BURN_ADDRESS.toLowerCase() || !trusted.has(ev.previousOwner.toLowerCase())) return
+        const d = await describe(ev.entityKey)
+        if (d) liveRow(`<strong>Sealed</strong> ${esc(d.type)} ${esc(short(ev.entityKey))}: nobody can delete it now`, ev.blockNumber)
+      },
+      onEntityDeleted: async (ev) => {
+        if (!relevant(ev.entityKey, ev.owner)) return
+        // A deleted entity can't be read back; if this page never saw it, fall back to the
+        // owner: a witness deleting anything of ours is worth an alarm.
+        const d = (await describe(ev.entityKey)) ?? { type: "entity", creator: ev.owner.toLowerCase() }
+        liveRow(`DELETION ALARM: ${esc(d.type)} ${esc(short(ev.entityKey))} by ${who(ev.owner.toLowerCase())} was deleted. ${d.type === "attestation" ? "Mene keeps counting it." : "Mene keeps enforcing it as MISSING."}`, ev.blockNumber, true)
+        refresh()
+      },
+      onError: (err) => {
+        liveStatus.className = "chip MISSING"
+        liveStatus.textContent = "OFFLINE"
+        liveStatus.title = String((err as Error)?.message ?? err).split("\n")[0]!
+      },
+    })
+  } catch {
+    liveStatus.className = "chip MISSING"
+    liveStatus.textContent = "OFFLINE"
+  }
+
+  form.addEventListener("input", async (e) => {
+    const name = (e.target as HTMLInputElement).name
+    if (name === "sev" || name === "since") {
+      try {
+        await runRangeQuery()
+      } catch {
+        out.innerHTML = errorHtml(new Error("network"))
+        return
+      }
+    }
+    render()
+  })
+</script>

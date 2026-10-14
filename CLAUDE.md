@@ -4,6 +4,13 @@ You are building **Mene**, a censorship-resistant, quorum-signed npm compromise 
 
 **Scope: do everything you can.** Code, tests, seeding, the CLI, the Action, every web page and its copy, docs, README, demo video script, and drafted Devfolio answers. Only stop to ask the user for things you cannot do: funding wallets, recording the video, submitting on Devfolio, or a SPIKE fallback that changes the product promise.
 
+## Scoring strategy (from docs/scoring-rubric.md — read it)
+- Judges score **how and why** each Arkiv feature is used, **not how many**. A feature claimed but not found on chain or in code **counts against us**. Never add a feature for show.
+- Every Arkiv feature used must change something the user sees, and `arkiv/schema.md` must say why we chose it.
+- Friction report = 25/100. Every spike result goes in with expected vs actual, versions and repro steps; smooth paths documented that rigorously score the same as bugs.
+- Ties go to "Why Arkiv?" and then "How you use Arkiv". The seal plus `$creator` story is our "falls apart without Arkiv" argument; lead with it.
+- Minimum 50/100 to win. We enter three tracks: Security, Censorship Resistance, Open Source.
+
 ## Hard deadline
 Submissions close **18 Oct 2026, 22:59 UTC** (23:59 London / 23:59 Lagos). Judges grade the commit SHA at the deadline. **Never rewrite git history** (it disqualifies the entry). Code freeze: 18 Oct 18:00 UTC.
 

@@ -1,8 +1,8 @@
 # Mene — Web pages, design and references
 
 ## Framework (decided)
-- **Astro** (static multi-page, islands) with **Starlight** for `/docs`, deployed to **GitHub Pages** via Actions. There is no backend; every page reads Arkiv directly from the browser. This is the Censorship Resistance proof.
-- Arkiv's own docs are built on Starlight, so the docs will feel familiar to judges.
+- **Astro** (static multi-page, islands), deployed to **GitHub Pages** via Actions. There is no backend; every page reads Arkiv directly from the browser. This is the Censorship Resistance proof.
+- No docs site: the README and `arkiv/schema.md` are the docs (judges read those).
 - Interactive pieces (wall, check, live feed) are vanilla TS islands, or Preact if state grows. Shared logic is imported from `@mene/sdk`.
 - **SPIKE S7:** bundle `@arkiv-network/sdk` in the browser (it depends on `brotli-wasm`).
   - Fallback 1: `vite-plugin-wasm`.
@@ -19,6 +19,8 @@
    - Table/cards: id, package, affected, severity, status chip (ACTIVE / PENDING n/k / WITHDRAWN / MISSING), witnesses, inscribed block.
    - Filters: status, severity range (range query), date (`publishedAt` range).
    - Package-name search filters **client-side only**, so no package name ever goes on the wire. Show that as a small note.
+   - **Live strip** at the top: WebSocket events (inscriptions, confirmations, withdrawals, extensions); **deletion alarms in red**.
+   - Source tag per row: "OpenSSF mirror" or "Mene original".
 3. `/advisory/?key=0x…` **Advisory**
    - OSV summary, affected versions, recommended version, references, raw OSV JSON toggle.
    - **Witness timeline:** each attestation with creator address, verdict, block, tx link.
@@ -27,20 +29,9 @@
 4. `/check` **Check your lockfile**
    - Drag-drop `package-lock.json`; parsed and matched in the browser. "Your lockfile never leaves this page."
    - Result table plus a copyable CI snippet.
-5. `/witnesses` **Witnesses**
-   - Trusted issuers with display name, address, lease status (active/silent), attestation count.
-   - Trust settings editor (issuer list and threshold, stored in localStorage) that drives every page.
-6. `/live` **Live** — WebSocket feed of inscriptions, confirmations, withdrawals, extensions and **deletion alarms** (red).
-7. `/about` **The name & the trust model** — Daniel 5 story, threat model table (attacker → what happens), honest limitations.
-8. `/docs/*` (Starlight)
-   - Quickstart
-   - CLI reference
-   - GitHub Action
-   - Trust model & quorum
-   - Data contract (OSV + Arkiv attributes; mirrors arkiv/schema.md)
-   - Becoming a witness (publish/attest)
-   - Keepalive
-   - FAQ
+5. `/witnesses` **Witnesses** (read-only) — the 3 trusted witness addresses, attestation counts, links to the explorer, and how to change trust (the `mene.config.json` / Action inputs).
+
+Landing also carries the Daniel 5 story and a compact threat-model table (attacker → what happens). There are no `/live`, `/about` or `/docs` pages.
 
 ## Visual direction: "writing on the wall"
 - **Mood:** an inscription in lamplight. Daniel 5:5 has the hand writing opposite the lampstand.
@@ -63,7 +54,7 @@
 | **search.sigstore.dev** (source: github.com/sigstore/rekor-search-ui; Next.js deployed to GitHub Pages) | Transparency-log search UX: search by identifier, entry detail with verification data. Closest analogue to "verify it yourself" |
 | **GitHub advisory page** `github.com/debug-js/debug/security/advisories/GHSA-4x49-vf9v-38px` | Severity header, affected/patched versions block, references list |
 | **socket.dev/blog/npm-author-qix-compromised-in-major-supply-chain-attack** | Incident narrative and tone for the landing page's story section |
-| **docs.arkiv.network** (Starlight) | Docs structure judges already know; match its clarity |
+| **docs.arkiv.network** | Clarity standard for README and schema.md |
 | **tiramisu.explorer.arkiv.network** | Link targets for every key, tx and address |
 
 ## Copy rules

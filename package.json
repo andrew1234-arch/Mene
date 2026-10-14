@@ -1,0 +1,37 @@
+{
+  "name": "mene",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The writing on the wall for poisoned packages \u2014 quorum-witnessed npm compromise advisories on Arkiv.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/sdk",
+    "packages/cli",
+    "site"
+  ],
+  "scripts": {
+    "build": "npm run build -w @mene/sdk && npm run build -w @mene/cli && npm run build:action",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/sdk --noEmit && tsc -p packages/cli --noEmit && tsc -p action && tsc -p scripts",
+    "spike": "tsx scripts/spike.ts",
+    "seed": "tsx scripts/seed.ts",
+    "build:action": "tsup --config action/tsup.config.ts",
+    "site:dev": "npm run dev -w site",
+    "site:build": "npm run build -w site",
+    "attack": "tsx scripts/attack.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "mirror": "tsx scripts/mirror.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/semver": "^7.8.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

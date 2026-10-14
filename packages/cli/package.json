@@ -1,0 +1,20 @@
+{
+  "name": "@mene/cli",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "mene": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "mene.config.json"
+  ],
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@mene/sdk": "0.1.0",
+    "commander": "^12.1.0"
+  }
+}
