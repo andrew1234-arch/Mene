@@ -75,7 +75,7 @@ import Base from "../layouts/Base.astro"
 </style>
 
 <script>
-  import { OsvValidationError, parseOsv, publishAdvisory, type OsvAdvisory } from "@mene/sdk"
+  import { isAffected, OsvValidationError, parseOsv, publishAdvisory, type OsvAdvisory } from "@mene/sdk"
   import semver from "semver"
   import { advisoryUrl, esc, getTrust, pub, short, store, toast } from "../scripts/mene"
   import { connectedAddress, hasWallet, isWitness, onWallet, wallet, withTx } from "../scripts/wallet"
@@ -128,9 +128,14 @@ import Base from "../layouts/Base.astro"
     if (!/^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(a.package.name)) return bad("pkg", "Enter a valid npm package name.")
     for (const ver of a.versions ?? []) if (!semver.valid(ver)) return bad("versions", `“${ver}” isn't a valid version.`)
     if (!a.versions?.length && !a.ranges) return bad("versions", "List the compromised versions, or give a version range.")
+    const intro = field("introduced").value.trim()
+    const fix = field("fixed").value.trim()
+    if (intro && !semver.valid(intro)) return bad("introduced", `“${intro}” isn't a valid version.`)
+    if (fix && !semver.valid(fix)) return bad("fixed", `“${fix}” isn't a valid version.`)
+    if (intro && fix && !semver.lt(intro, fix)) return bad("fixed", "“Fixed in” must be later than “From”.")
     const safe = a.database_specific?.safe_version
     if (safe && !semver.valid(safe)) return bad("safe", `“${safe}” isn't a valid version.`)
-    if (safe && a.versions?.includes(safe)) return bad("safe", "The safe version can't also be a compromised one.")
+    if (safe && isAffected(a, safe)) return bad("safe", "The safe version can't be inside the compromised versions or range.")
     if (!osv.summary) return bad("summary", "Add a one-line summary.")
     try {
       parseOsv(osv)
@@ -190,7 +195,7 @@ import Base from "../layouts/Base.astro"
     void withTx(document.getElementById("go") as HTMLButtonElement, "Publishing", async () => {
       const w = await wallet()
       const r = await publishAdvisory(pub(), w, osv, { sealMode: field("seal").checked ? "batch" : "none" })
-      store.del("mene:wall", sessionStorage)
+      store.del("mene:wall", "session")
       f.hidden = true
       document.getElementById("done")!.innerHTML = `<div class="result good" style="margin-top:1.2rem">
         <p class="result-head">Inscribed.</p>

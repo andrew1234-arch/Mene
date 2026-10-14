@@ -74,7 +74,7 @@ const { compact = false } = Astro.props
     }
     const enforced = wall.statuses.filter((s) => s.enforced && s.advisory).map((s) => ({ key: s.key, status: s.label, advisory: s.advisory!.osv }))
     const matches = matchLockfile(installed, enforced)
-    const plan = planFixes(matches, directDependencies(text))
+    const plan = planFixes(matches, directDependencies(text), enforced)
     const meta = `<p class="small muted">${installed.length} packages · ${enforced.length} enforced advisories · ${wall.trust.threshold}-of-${wall.trust.issuers.length} witness quorum · Arkiv block ${esc(wall.blockNumber)}</p>`
     const actions = `<div class="row-actions"><button class="btn" id="again">Check another lockfile</button><button class="btn" id="report">Download report</button></div>`
 
@@ -107,7 +107,7 @@ const { compact = false } = Astro.props
       const blob = new Blob([JSON.stringify({ lockfile: name, checkedAt: new Date().toISOString(), arkivBlock: wall.blockNumber, quorum: `${wall.trust.threshold}/${wall.trust.issuers.length}`, witnesses: wall.trust.issuers, packages: installed.length, matches, fix: plan }, null, 2)], { type: "application/json" })
       const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "mene-report.json" })
       a.click()
-      URL.revokeObjectURL(a.href)
+      setTimeout(() => URL.revokeObjectURL(a.href), 60_000)
       toast("Report downloaded")
     })
   }
@@ -130,8 +130,13 @@ const { compact = false } = Astro.props
   document.getElementById("paste-go")!.addEventListener("click", () => void check((document.getElementById("paste-text") as HTMLTextAreaElement).value, "pasted lockfile"))
   for (const b of document.querySelectorAll<HTMLButtonElement>("[data-fixture]")) {
     b.addEventListener("click", async () => {
-      const r = await fetch(`${BASE}/fixtures/${b.dataset.fixture}.package-lock.json`)
-      await check(await r.text(), `example: ${b.dataset.fixture}`)
+      try {
+        const r = await fetch(`${BASE}/fixtures/${b.dataset.fixture}.package-lock.json`)
+        if (!r.ok) throw new Error(String(r.status))
+        await check(await r.text(), `example: ${b.dataset.fixture}`)
+      } catch {
+        toast("Couldn't load the example lockfile", "err")
+      }
     })
   }
 </script>

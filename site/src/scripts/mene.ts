@@ -17,25 +17,28 @@ export interface Trust {
   threshold: number
 }
 
+type Area = "local" | "session"
+// Touching window.localStorage itself can throw (blocked site data), so resolve it inside try.
+const area = (a: Area): Storage => (a === "session" ? window.sessionStorage : window.localStorage)
 export const store = {
-  get<T>(k: string, s: Storage = localStorage): T | undefined {
+  get<T>(k: string, a: Area = "local"): T | undefined {
     try {
-      const v = s.getItem(k)
+      const v = area(a).getItem(k)
       return v ? (JSON.parse(v) as T) : undefined
     } catch {
       return undefined
     }
   },
-  set(k: string, v: unknown, s: Storage = localStorage) {
+  set(k: string, v: unknown, a: Area = "local") {
     try {
-      s.setItem(k, JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x)))
+      area(a).setItem(k, JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x)))
     } catch {
       /* private mode: run stateless */
     }
   },
-  del(k: string, s: Storage = localStorage) {
+  del(k: string, a: Area = "local") {
     try {
-      s.removeItem(k)
+      area(a).removeItem(k)
     } catch {}
   },
 }
@@ -48,7 +51,7 @@ export function getTrust(): Trust {
 export function setTrust(t: Trust | null) {
   if (t === null) store.del("mene:trust")
   else store.set("mene:trust", t)
-  store.del("mene:wall", sessionStorage)
+  store.del("mene:wall", "session")
 }
 export const isTrusted = (a: string) => getTrust().issuers.some((i) => i.address.toLowerCase() === a.toLowerCase())
 
@@ -74,7 +77,7 @@ let inflight: Promise<Wall> | undefined
 /** Reads Arkiv and resolves quorum. Results are shared across pages for 20 s via sessionStorage. */
 export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
   if (!opts.fresh) {
-    const cached = store.get<Wall>("mene:wall", sessionStorage)
+    const cached = store.get<Wall>("mene:wall", "session")
     if (cached && Date.now() - cached.at < 20_000) return cached
   }
   inflight ??= (async () => {
@@ -91,7 +94,7 @@ export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
       })
       store.set("mene:state", out.state)
       const wall: Wall = { statuses: out.statuses, blockNumber: live.blockNumber.toString(), invalid: live.invalid, trust, at: Date.now() }
-      store.set("mene:wall", wall, sessionStorage)
+      store.set("mene:wall", wall, "session")
       setConnection({ ok: true, block: wall.blockNumber })
       return wall
     } catch (err) {
@@ -106,7 +109,7 @@ export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
 
 /** A wall that renders now and re-renders once a fresh read lands. Retries on failure. */
 export function watchWall(render: (w: Wall) => void, onError: (err: unknown, retry: () => void) => void) {
-  const cached = store.get<Wall>("mene:wall", sessionStorage)
+  const cached = store.get<Wall>("mene:wall", "session")
   if (cached) render(cached)
   let timer: ReturnType<typeof setTimeout> | undefined
   const run = () => {

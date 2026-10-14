@@ -109,26 +109,31 @@ export interface FixPlan {
   unresolved: string[]
 }
 
-/** Turns matches into copy-pasteable remediation: direct deps get pinned, transitive ones overridden. */
-export function planFixes(matches: Match[], direct: Set<string> | null): FixPlan {
+/**
+ * Turns matches into copy-pasteable remediation: direct deps get pinned, transitive ones overridden.
+ * Pass the enforced advisories so a suggested safe version is never one another advisory flags.
+ */
+export function planFixes(matches: Match[], direct: Set<string> | null, advisories: EnforcedAdvisory[] = []): FixPlan {
   const byPkg = new Map<string, Match[]>()
   for (const m of matches) byPkg.set(m.package, [...(byPkg.get(m.package) ?? []), m])
   const install: string[] = []
   const overrides: Record<string, string> = {}
   const unresolved: string[] = []
   for (const [pkg, ms] of byPkg) {
-    const safe = ms.find((m) => m.safeVersion)?.safeVersion
+    const flagged = (v: string) =>
+      advisories.some((a) => a.advisory.affected.some((aff) => aff.package.name === pkg && isAffected(aff, v)))
+    const candidates = [...new Set(ms.map((m) => m.safeVersion).filter((v): v is string => !!v))]
+    const safe = candidates.find((v) => !flagged(v))
     if (!safe) {
       unresolved.push(pkg)
       continue
     }
-    const isDirect = ms.some((m) => m.path === `node_modules/${pkg}`) && (direct === null || direct.has(pkg))
+    const topMatched = ms.some((m) => m.path === `node_modules/${pkg}`)
     const nested = ms.some((m) => m.path !== `node_modules/${pkg}`)
-    if (isDirect) {
-      install.push(`${pkg}@${safe}`)
-      // npm requires an override of a direct dependency to reference it with "$name".
-      if (nested) overrides[pkg] = `$${pkg}`
-    } else overrides[pkg] = safe
+    const isDirect = direct === null ? topMatched : direct.has(pkg)
+    if (topMatched) install.push(`${pkg}@${safe}`)
+    // npm rejects an override that conflicts with a direct dependency unless it is written "$name".
+    if (nested) overrides[pkg] = isDirect ? `$${pkg}` : safe
   }
   return { install: install.length ? `npm install ${install.join(" ")}` : null, overrides, unresolved }
 }

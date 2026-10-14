@@ -74,16 +74,25 @@ import Base from "../layouts/Base.astro"
    * Numeric range query on Arkiv, pinned per trusted witness with createdBy() like every read. It
    * decides for live advisories a witness created; anything else is decided from its OSV content.
    */
+  let rangeSeq = 0
   async function runRangeQuery() {
+    const seq = ++rangeSeq
     const fd = new FormData(form)
-    rangeSev = Number(fd.get("sev"))
-    const since = String(fd.get("since") || "")
-    rangeSince = since ? Math.floor(Date.parse(since) / 1000) : 0
-    if (rangeSev <= 1 && !rangeSince) return (rangeKeys = null)
+    const sev = Number(fd.get("sev"))
+    const sinceStr = String(fd.get("since") || "")
+    const since = sinceStr ? Math.floor(Date.parse(sinceStr) / 1000) : 0
+    if (sev <= 1 && !since) {
+      rangeKeys = null
+      return
+    }
+    // Before the wall has loaded we don't know the witnesses yet; the wall's render reruns this.
+    if (!wall) return
+    rangeSev = sev
+    rangeSince = since
     const preds = [eq("project", PROJECT), eq("type", "advisory"), gte("severity", i32(rangeSev))]
     if (rangeSince) preds.push(gte("publishedAt", u64(BigInt(rangeSince))))
     const keys = new Set<string>()
-    for (const w of wall?.trust.issuers ?? []) {
+    for (const w of wall.trust.issuers) {
       let page = await pub().select({ key: true }).where(and(preds)).createdBy(w.address as `0x${string}`).limit(200).fetch()
       for (;;) {
         for (const e of page.entities) keys.add(e.key.toLowerCase())
@@ -91,6 +100,7 @@ import Base from "../layouts/Base.astro"
         page = await page.next()
       }
     }
+    if (seq !== rangeSeq) return // a newer filter change superseded this query
     rangeKeys = keys
   }
   function inRangeFilter(s: AdvisoryStatus): boolean {
@@ -125,8 +135,10 @@ import Base from "../layouts/Base.astro"
   }
 
   watchWall(
-    (w) => {
+    async (w) => {
+      const first = !wall
       wall = w
+      if (first) await runRangeQuery().catch(() => {})
       meta.textContent = `Read live from Arkiv at block ${w.blockNumber} · ${w.trust.threshold}-of-${w.trust.issuers.length} witness quorum`
       alarms.innerHTML = w.statuses
         .flatMap((s) => [

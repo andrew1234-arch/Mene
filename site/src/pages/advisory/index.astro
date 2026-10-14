@@ -50,14 +50,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
   let head = 0n
   let adv: AdvisoryRecord | null = null
   let s: AdvisoryStatus | undefined
+  let retryTimer: ReturnType<typeof setTimeout> | undefined
+  let watching = false
 
   async function load(fresh = false) {
+    clearTimeout(retryTimer)
     if (!key || !/^0x[0-9a-f]{64}$/.test(key)) {
       out.innerHTML = `<div class="empty"><p><strong>No advisory selected.</strong></p><p class="muted">Open one from <a href="../wall">the wall</a>.</p></div>`
       return
     }
     try {
-      const [wall, h, a] = await Promise.all([loadWall({ fresh }), pub().getBlockNumber(), readAdvisory(pub(), key).catch(() => null)])
+      const [wall, h, a] = await Promise.all([loadWall({ fresh }), pub().getBlockNumber(), readAdvisory(pub(), key)])
       head = h
       adv = a
       s = wall.statuses.find((x) => x.key === key)
@@ -65,7 +68,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
     } catch (err) {
       out.innerHTML = errorHtml(err)
       out.querySelector("[data-retry]")?.addEventListener("click", () => void load(true))
-      setTimeout(() => void load(true), 10_000)
+      retryTimer = setTimeout(() => void load(true), 10_000)
     }
   }
 
@@ -178,7 +181,10 @@ curl -s ${TIRAMISU.rpcUrl} -H 'content-type: application/json' -d '{
       const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: "application/json" })), download: `${o!.id}.osv.json` })
       a.click()
     })
-    if (adv) keptAliveBy(adv)
+    if (adv && !watching) {
+      watching = true
+      keptAliveBy(adv)
+    }
   }
 
   function renderActions() {
@@ -203,7 +209,7 @@ curl -s ${TIRAMISU.rpcUrl} -H 'content-type: application/json' -d '{
       ${hasWallet() && me ? `<div class="row-actions"><button class="btn" id="act-keep">Keep alive 365 days</button></div><p class="small muted">Any wallet can pay for Lifetime Extension. Nobody can change the content.</p>` : ""}`
     const after = async (msg: string) => {
       toast(msg)
-      store.del("mene:wall", sessionStorage)
+      store.del("mene:wall", "session")
       await load(true)
     }
     document.getElementById("act-confirm")?.addEventListener("click", (e) =>
@@ -235,7 +241,10 @@ curl -s ${TIRAMISU.rpcUrl} -H 'content-type: application/json' -d '{
       if (!f || !adv && !s?.advisory) return
       try {
         const hits = matchLockfile(parseLockfile(await f.text()), [{ key: key!, status: s?.label ?? "ACTIVE", advisory: (adv ?? s!.advisory!).osv }])
-        res.innerHTML = hits.length
+        const enforced = !!s?.enforced
+        res.innerHTML = hits.length && !enforced
+          ? `<div class="result"><strong>Contains a listed version, but not blocked.</strong> ${hits.map((h) => `<code>${esc(h.package)}@${esc(h.installed)}</code>`).join(", ")} matches, but this advisory is ${esc(s?.label ?? "not attested by your witnesses")}, so Mene doesn't enforce it.</div>`
+          : hits.length
           ? `<div class="result bad"><strong>Affected.</strong> ${hits.map((h) => `<code>${esc(h.package)}@${esc(h.installed)}</code> at <code>${esc(h.path)}</code>`).join(", ")}${hits[0]!.safeVersion ? `. Upgrade to <code>${esc(hits[0]!.safeVersion)}</code>.` : ""}</div>`
           : `<div class="result good"><strong>Not affected.</strong> ${esc(f.name)} doesn't contain an affected version.</div>`
       } catch {
