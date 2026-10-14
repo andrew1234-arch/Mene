@@ -1,0 +1,97 @@
+import semver from "semver"
+import { type Severity, SEVERITIES } from "./constants"
+import type { InstalledPackage } from "./lockfile"
+import type { OsvAdvisory, OsvAffected, OsvRange } from "./osv"
+
+export interface Match {
+  advisoryId: string
+  advisoryKey: string
+  package: string
+  installed: string
+  path: string
+  severity: Severity
+  status: string
+  safeVersion?: string
+  summary: string
+}
+
+/** Whether `version` is affected by one OSV `affected` entry (exact versions list or SEMVER ranges). */
+export function isAffected(aff: OsvAffected, version: string): boolean {
+  if (aff.versions?.includes(version)) return true
+  if (!semver.valid(version)) return false
+  return (aff.ranges ?? []).some((r) => inRange(r, version))
+}
+
+/** Evaluates an OSV SEMVER range: sorted introduced/fixed/last_affected events. */
+export function inRange(range: OsvRange, version: string): boolean {
+  if (range.type !== "SEMVER") return false
+  let affected = false
+  const events = [...range.events].sort((a, b) => {
+    const va = eventVersion(a)
+    const vb = eventVersion(b)
+    return semver.compare(va, vb)
+  })
+  for (const ev of events) {
+    if (ev.introduced !== undefined) {
+      const v = ev.introduced === "0" ? "0.0.0" : ev.introduced
+      if (semver.gte(version, v)) affected = true
+    } else if (ev.fixed !== undefined) {
+      if (semver.gte(version, ev.fixed)) affected = false
+    } else if (ev.last_affected !== undefined) {
+      if (semver.gt(version, ev.last_affected)) affected = false
+    }
+  }
+  return affected
+}
+
+function eventVersion(ev: { introduced?: string; fixed?: string; last_affected?: string }): string {
+  const v = ev.introduced ?? ev.fixed ?? ev.last_affected ?? "0.0.0"
+  return v === "0" ? "0.0.0" : (semver.valid(v) ?? "0.0.0")
+}
+
+export interface EnforcedAdvisory {
+  key: string
+  status: string
+  advisory: OsvAdvisory
+}
+
+/**
+ * Matches installed packages against advisories that are enforced (ACTIVE or MISSING). Matching runs
+ * entirely locally: no package name ever leaves the machine.
+ */
+export function matchLockfile(
+  installed: InstalledPackage[],
+  advisories: EnforcedAdvisory[],
+  minSeverity: Severity = "low",
+): Match[] {
+  const min = SEVERITIES.indexOf(minSeverity)
+  const byName = new Map<string, InstalledPackage[]>()
+  for (const p of installed) {
+    const list = byName.get(p.name) ?? []
+    list.push(p)
+    byName.set(p.name, list)
+  }
+  const out: Match[] = []
+  for (const { key, status, advisory } of advisories) {
+    const severity = advisory.database_specific.severity
+    if (SEVERITIES.indexOf(severity) < min) continue
+    if (advisory.withdrawn) continue
+    for (const aff of advisory.affected) {
+      for (const p of byName.get(aff.package.name) ?? []) {
+        if (!isAffected(aff, p.version)) continue
+        out.push({
+          advisoryId: advisory.id,
+          advisoryKey: key,
+          package: p.name,
+          installed: p.version,
+          path: p.path,
+          severity,
+          status,
+          safeVersion: aff.database_specific?.safe_version,
+          summary: advisory.summary,
+        })
+      }
+    }
+  }
+  return out
+}
