@@ -30,7 +30,8 @@
     "seed": "tsx scripts/seed.ts",
     "attack": "tsx scripts/attack.ts",
     "smoke": "tsx scripts/smoke.ts",
-    "knip": "knip"
+    "knip": "knip",
+    "docs:links": "tsx scripts/check-doc-links.ts"
   },
   "devDependencies": {
     "@arkiv-network/sdk": "0.8.1",
