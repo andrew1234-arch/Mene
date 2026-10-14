@@ -1,0 +1,132 @@
+---
+import Base from "../layouts/Base.astro"
+---
+<Base title="The Wall" active="/wall" description="Every Mene advisory and its witness quorum, read live from Arkiv.">
+  <h1>The Wall</h1>
+  <p class="muted">Every advisory attested by your trusted witnesses, read straight from Arkiv. Status is decided by quorum, not by who wrote it.</p>
+
+  <form class="row card filters" id="filters" onsubmit="return false">
+    <label>Status
+      <select name="status">
+        <option value="all">All</option><option value="ACTIVE">Active</option><option value="PENDING">Pending</option><option value="WITHDRAWN">Withdrawn</option><option value="MISSING">Missing</option>
+      </select>
+    </label>
+    <label>Min severity <span class="tag">range query</span>
+      <select name="sev"><option value="1">Low</option><option value="2">Medium</option><option value="3">High</option><option value="4">Critical</option></select>
+    </label>
+    <label>Published since <span class="tag">range query</span>
+      <input type="date" name="since" />
+    </label>
+    <label class="grow">Package <span class="tag">local only</span>
+      <input type="search" name="q" placeholder="e.g. chalk" autocomplete="off" />
+    </label>
+  </form>
+  <p class="small muted">Severity and date filters run as numeric range queries on Arkiv attributes. The package search filters <strong>in your browser only</strong>, so no package name ever goes on the wire.</p>
+
+  <div id="alarms"></div>
+  <div id="out" class="table-wrap"><p class="skeleton">Reading the wall…</p></div>
+  <p id="meta" class="small muted"></p>
+</Base>
+
+<style>
+  .filters { margin: 1.5rem 0 .5rem; }
+  .grow { flex: 1 1 200px; }
+  .grow input { width: 100%; }
+  .tag { font: 500 .66rem var(--mono); color: var(--gold); border: 1px solid var(--line); border-radius: 4px; padding: 0 .3rem; margin-left: .2rem; }
+  #alarms { display: grid; gap: .6rem; margin: 1rem 0; }
+</style>
+
+<script>
+  import { and, eq, gte } from "@arkiv-network/sdk/query"
+  import { i32, u64 } from "@arkiv-network/sdk/attr"
+  import { PROJECT, type AdvisoryStatus } from "@mene/sdk"
+  import { addrHtml, advisoryUrl, chip, esc, loadWall, pub, showError, witnessName, type Wall } from "../scripts/mene"
+
+  const form = document.getElementById("filters") as HTMLFormElement
+  const out = document.getElementById("out")!
+  const meta = document.getElementById("meta")!
+  const alarms = document.getElementById("alarms")!
+  let wall: Wall | undefined
+  let rangeKeys: Set<string> | null = null
+
+  /** Server-side numeric range filter: which advisory keys satisfy severity/date. */
+  async function runRangeQuery() {
+    const fd = new FormData(form)
+    const sev = Number(fd.get("sev"))
+    const since = String(fd.get("since") || "")
+    if (sev <= 1 && !since) return (rangeKeys = null)
+    const preds = [eq("project", PROJECT), eq("type", "advisory"), gte("severity", i32(sev))]
+    if (since) preds.push(gte("publishedAt", u64(BigInt(Math.floor(Date.parse(since) / 1000)))))
+    const keys = new Set<string>()
+    let page = await pub().select({ key: true }).where(and(preds)).limit(200).fetch()
+    for (;;) {
+      for (const e of page.entities) keys.add(e.key.toLowerCase())
+      if (!page.hasNextPage()) break
+      page = await page.next()
+    }
+    rangeKeys = keys
+  }
+
+  function render() {
+    if (!wall) return
+    const fd = new FormData(form)
+    const status = String(fd.get("status"))
+    const q = String(fd.get("q") || "").trim().toLowerCase()
+    const rows = wall.statuses.filter((s: AdvisoryStatus) => {
+      if (status !== "all" && s.status !== status) return false
+      if (rangeKeys && !rangeKeys.has(s.key)) return false
+      if (q && !s.advisory?.osv.affected.some((a) => a.package.name.toLowerCase().includes(q))) return false
+      return true
+    })
+    if (!rows.length) {
+      out.innerHTML = `<p class="muted">Nothing on the wall matches.</p>`
+      return
+    }
+    out.innerHTML = `<table><thead><tr><th>Advisory</th><th>Package</th><th>Affected</th><th>Severity</th><th>Status</th><th>Witnesses</th><th>Inscribed</th></tr></thead><tbody>${rows
+      .map((s) => {
+        const o = s.advisory?.osv
+        const affected = o?.affected
+          .map((a) => [...(a.versions ?? []), ...(a.ranges ?? []).flatMap((r) => r.events.map((e) => Object.entries(e).map(([k, v]) => `${k} ${v}`).join("")))].join(", "))
+          .join("; ")
+        return `<tr>
+          <td><a href="${advisoryUrl(s.key)}">${esc(o?.id ?? s.key.slice(0, 10))}</a><div class="small muted">${esc(o?.summary ?? "content not readable")}</div></td>
+          <td class="mono">${esc(o?.affected.map((a) => a.package.name).join(", ") ?? "?")}</td>
+          <td class="mono small">${esc(affected ?? "?")}</td>
+          <td>${esc(o?.database_specific.severity ?? "?")}</td>
+          <td>${chip(s)}</td>
+          <td class="small">${s.witnesses.map((w) => `<div>${w.verdict === "confirm" ? "✓" : "✗"} ${esc(witnessName(w.issuer) ?? "")} ${addrHtml(w.issuer)}</div>`).join("")}</td>
+          <td class="mono small">${s.advisory ? `block ${s.advisory.createdAt}` : "—"}</td>
+        </tr>`
+      })
+      .join("")}</tbody></table>`
+  }
+
+  async function load() {
+    try {
+      wall = await loadWall()
+      meta.textContent = `Read at block ${wall.blockNumber} · quorum ${wall.trust.threshold} of ${wall.trust.issuers.length} witnesses · ${wall.statuses.length} advisories`
+      alarms.innerHTML = wall.statuses
+        .flatMap((s) => [
+          ...(s.status === "MISSING" ? [`<div class="alarm"><strong>Advisory deleted or expired:</strong> <a href="${advisoryUrl(s.key)}">${esc(s.advisory?.osv.id ?? s.key)}</a> is no longer on Arkiv. Mene still enforces it (${esc(s.label)}).</div>`] : []),
+          ...s.vanished.map((v) => `<div class="alarm"><strong>Attestation deleted:</strong> ${esc(witnessName(v.issuer) ?? "")} ${addrHtml(v.issuer)}'s ${v.verdict} on <a href="${advisoryUrl(s.key)}">${esc(s.advisory?.osv.id ?? s.key)}</a> vanished. This browser saw it, so it still counts.</div>`),
+        ])
+        .join("")
+      render()
+    } catch (err) {
+      showError(out, err)
+    }
+  }
+
+  form.addEventListener("input", async (e) => {
+    const name = (e.target as HTMLInputElement).name
+    if (name === "sev" || name === "since") {
+      try {
+        await runRangeQuery()
+      } catch (err) {
+        return showError(out, err)
+      }
+    }
+    render()
+  })
+  void load()
+</script>

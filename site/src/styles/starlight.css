@@ -1,0 +1,15 @@
+:root {
+  --sl-font: "Inter", system-ui, sans-serif;
+  --sl-font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --sl-color-accent-low: #3a2c12;
+  --sl-color-accent: #e3b45a;
+  --sl-color-accent-high: #f6dfae;
+  --sl-color-black: #16130f;
+}
+:root[data-theme="light"] {
+  --sl-color-accent-low: #f3e2bd;
+  --sl-color-accent: #8a5a00;
+  --sl-color-accent-high: #3d2800;
+  --sl-color-white: #1d1813;
+}
+.sl-markdown-content h1, .sl-markdown-content h2, h1#_top { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; }

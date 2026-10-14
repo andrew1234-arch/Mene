@@ -1,0 +1,26 @@
+# Demo: the same Mene Action run against a poisoned lockfile (expected RED) and a clean one (GREEN).
+# The fixtures are scanned, never installed.
+name: chalk-attack-demo
+on:
+  workflow_dispatch:
+  push:
+    paths: ["examples/**", "action/**", ".github/workflows/chalk-attack-demo.yml"]
+jobs:
+  scan:
+    strategy:
+      fail-fast: false
+      matrix:
+        fixture: [chalk-attack, clean]
+    runs-on: ubuntu-latest
+    name: mene · ${{ matrix.fixture }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/mene-cache
+          key: mene-cache-${{ github.run_id }}
+          restore-keys: mene-cache-
+      - uses: ./action
+        with:
+          lockfile: examples/${{ matrix.fixture }}/package-lock.json
+          threshold: 2

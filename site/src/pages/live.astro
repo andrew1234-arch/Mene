@@ -1,0 +1,89 @@
+---
+import Base from "../layouts/Base.astro"
+---
+<Base title="Live" active="/live">
+  <h1>Live</h1>
+  <p class="muted">A WebSocket feed of Arkiv entity events, filtered to Mene: inscriptions, confirmations, withdrawals, Lifetime Extensions, seals and deletions. Deleting a remembered advisory or attestation raises an alarm.</p>
+  <p id="status" class="small"><span class="chip PENDING">CONNECTING</span></p>
+  <ol id="feed" class="feed" aria-live="polite"></ol>
+</Base>
+
+<style>
+  .feed { list-style: none; padding: 0; display: grid; gap: .5rem; }
+  .feed li { padding: .7rem .9rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); animation: in .4s ease-out; }
+  .feed li.alarm { border-color: var(--red); background: color-mix(in srgb, var(--red) 12%, var(--surface)); }
+  .feed .when { float: right; color: var(--muted); font: .75rem var(--mono); }
+  @keyframes in { from { opacity: 0; transform: translateY(-4px); } }
+  @media (prefers-reduced-motion: reduce) { .feed li { animation: none; } }
+</style>
+
+<script>
+  import { BURN_ADDRESS, publicClient, PROJECT } from "@mene/sdk"
+  import { addrHtml, advisoryUrl, esc, getState, getTrust, pub, witnessName } from "../scripts/mene"
+
+  const feed = document.getElementById("feed")!
+  const status = document.getElementById("status")!
+  const trusted = new Set(getTrust().issuers.map((i) => i.address.toLowerCase()))
+
+  function push(html: string, block: bigint, alarm = false) {
+    const li = document.createElement("li")
+    if (alarm) li.className = "alarm"
+    li.innerHTML = `<span class="when">block ${block}</span>${html}`
+    feed.prepend(li)
+    while (feed.children.length > 100) feed.lastElementChild!.remove()
+  }
+
+  /** What Mene knows about a key, from the live entity or this browser's memory. */
+  async function describe(key: string) {
+    const k = key.toLowerCase()
+    try {
+      const e = await pub().getEntity(key as `0x${string}`)
+      const a = e.attributes ?? {}
+      if (a.project?.value !== PROJECT) return null
+      return { type: String(a.type?.value), creator: e.creator.toLowerCase(), verdict: a.verdict?.value as string | undefined, advisory: (a.advisory?.value as string | undefined)?.toLowerCase(), osvId: a.osvId?.value as string | undefined }
+    } catch {
+      const s = getState()
+      const adv = s?.advisories[k]
+      if (adv) return { type: "advisory", creator: adv.creator, osvId: adv.osv.id }
+      const att = s?.attestations[k]
+      if (att) return { type: "attestation", creator: att.issuer, verdict: att.verdict, advisory: att.advisory }
+      return null
+    }
+  }
+  const who = (a: string) => `${esc(witnessName(a) ?? (trusted.has(a) ? "witness" : "untrusted"))} ${addrHtml(a)}`
+
+  const ws = publicClient({ ws: true })
+  status.innerHTML = `<span class="chip ACTIVE">LISTENING</span> <span class="muted">wss://rpc.tiramisu.db-chain.testnet.arkiv.network</span>`
+  ws.watchEntityEvents({
+    onEntityCreated: async (ev) => {
+      const d = await describe(ev.entityKey)
+      if (!d) return
+      if (d.type === "advisory") push(`<strong>Inscribed</strong> <a href="${advisoryUrl(ev.entityKey)}">${esc(d.osvId)}</a> by ${who(d.creator)}${trusted.has(d.creator) ? "" : ` <span class="small muted">(not a trusted witness: ignored unless witnesses attest)</span>`}`, ev.blockNumber)
+      else if (d.type === "attestation" && trusted.has(d.creator)) push(`<strong>${d.verdict === "withdraw" ? "Withdrawal" : "Confirmation"}</strong> of <a href="${advisoryUrl(d.advisory!)}">${esc(d.advisory?.slice(0, 10))}…</a> by ${who(d.creator)}`, ev.blockNumber)
+      else if (d.type === "issuer") push(`<strong>Witness lease opened</strong> for ${who(d.creator)}`, ev.blockNumber)
+    },
+    onExpiryExtended: async (ev) => {
+      const d = await describe(ev.entityKey)
+      if (!d) return
+      let by = ""
+      try {
+        by = (await pub().getTransaction({ hash: ev.transactionHash })).from.toLowerCase()
+      } catch {}
+      push(`<strong>Lifetime Extension</strong> of ${esc(d.type)} ${addrHtml(ev.entityKey, "entity")} to block ${ev.expiresAt}${by ? ` · paid by ${who(by)}` : ""}`, ev.blockNumber)
+    },
+    onOwnershipTransferred: async (ev) => {
+      const d = await describe(ev.entityKey)
+      if (!d) return
+      const sealed = ev.newOwner.toLowerCase() === BURN_ADDRESS.toLowerCase()
+      push(`<strong>${sealed ? "Sealed" : "Ownership moved"}</strong> ${esc(d.type)} ${addrHtml(ev.entityKey, "entity")}${sealed ? " to the burn address. No one can delete it now." : ` to ${addrHtml(ev.newOwner)}`}`, ev.blockNumber)
+    },
+    onEntityDeleted: async (ev) => {
+      const d = await describe(ev.entityKey)
+      if (!d) return
+      push(`<strong>DELETION ALARM</strong>: ${esc(d.type)} ${addrHtml(ev.entityKey, "entity")} by ${who(ev.owner.toLowerCase())} was deleted. ${d.type === "attestation" ? "Mene keeps counting it from memory." : "Mene keeps enforcing it as MISSING."}`, ev.blockNumber, true)
+    },
+    onError: (err) => {
+      status.innerHTML = `<span class="chip MISSING">DISCONNECTED</span> <span class="error small">${esc(err.message.split("\n")[0])}</span>`
+    },
+  })
+</script>

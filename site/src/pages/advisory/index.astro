@@ -1,0 +1,133 @@
+---
+import Base from "../../layouts/Base.astro"
+---
+<Base title="Advisory" active="/wall">
+  <p><a href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/wall`}>← The Wall</a></p>
+  <div id="out"><p class="skeleton">Reading the advisory from Arkiv…</p></div>
+</Base>
+
+<style>
+  .head { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .head h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.2rem); }
+  .badges { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1rem 0 1.5rem; }
+  .timeline { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--line); }
+  .timeline li { position: relative; padding: .2rem 0 1rem 1.2rem; }
+  .timeline li::before { content: ""; position: absolute; left: -7px; top: .55rem; width: 12px; height: 12px; border-radius: 50%; background: var(--gold); }
+  .timeline li.withdraw::before { background: var(--muted); }
+  .timeline li.gone::before { background: var(--red); }
+  dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; margin: 0; }
+  dl.kv dt { color: var(--muted); }
+  dl.kv dd { margin: 0; overflow-wrap: anywhere; }
+  details pre { max-height: 420px; }
+  .cols { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+</style>
+
+<script>
+  import { NoEntityFoundError } from "@arkiv-network/sdk"
+  import { attestationQuery, BURN_ADDRESS, explorer, readAdvisory, TIRAMISU } from "@mene/sdk"
+  import { addrHtml, blocksToHuman, chip, esc, getTrust, loadWall, pub, showError, witnessName } from "../../scripts/mene"
+
+  const out = document.getElementById("out")!
+  const key = new URLSearchParams(location.search).get("key")?.toLowerCase()
+
+  async function main() {
+    if (!key || !/^0x[0-9a-f]{64}$/.test(key)) {
+      out.innerHTML = `<p class="error">Missing or malformed <code>?key=0x…</code>.</p>`
+      return
+    }
+    const [wall, head, adv] = await Promise.all([loadWall(), pub().getBlockNumber(), readAdvisory(pub(), key).catch((e) => (e instanceof NoEntityFoundError ? null : Promise.reject(e)))])
+    const s = wall.statuses.find((x) => x.key === key)
+    const rec = adv ?? s?.advisory
+    const o = rec?.osv
+    document.title = `${o?.id ?? "Advisory"} · Mene`
+    const sealed = adv && adv.owner.toLowerCase() === BURN_ADDRESS.toLowerCase()
+    const trust = getTrust()
+    const q = attestationQuery(pub(), trust.issuers[0]?.address ?? "0x0000000000000000000000000000000000000000").toString()
+
+    out.innerHTML = `
+      <div class="head"><h1>${esc(o?.id ?? "Unknown advisory")}</h1>${s ? chip(s) : `<span class="chip PENDING">NO TRUSTED WITNESS</span>`}</div>
+      <p style="font-size:1.15rem">${esc(o?.summary ?? "")}</p>
+      ${!adv ? `<div class="alarm"><strong>Not readable on Arkiv.</strong> This advisory was deleted or has expired. ${rec ? "The content below is this browser's remembered copy." : "Its original payload is still in chain history."}</div>` : ""}
+      <div class="badges">
+        ${adv?.readonly ? `<span class="seal" title="readonly creation flag: payload and attributes can never change">Inscribed — content frozen</span>` : `<span class="seal off">Not readonly</span>`}
+        ${sealed ? `<span class="seal" title="Owner is the burn address 0x…dEaD: no key can delete it">Sealed — no one can erase it</span>` : adv ? `<span class="seal off" title="Owner can still delete">Unsealed — owner ${esc(adv.owner)}</span>` : ""}
+        ${adv ? `<span class="seal ${adv.permissionlessExtension ? "" : "off"}">Expires in ${blocksToHuman(BigInt(adv.expiresAt) - head)} · block ${adv.expiresAt}</span>` : ""}
+        <span class="seal off" id="keeper" hidden></span>
+      </div>
+      <div class="cols">
+        <section class="card">
+          <h3>Affected</h3>
+          ${(o?.affected ?? []).map((a) => `
+            <dl class="kv">
+              <dt>Package</dt><dd class="mono">${esc(a.package.name)} <span class="muted">(${esc(a.package.ecosystem)})</span></dd>
+              ${a.versions?.length ? `<dt>Versions</dt><dd class="mono">${a.versions.map(esc).join(", ")}</dd>` : ""}
+              ${(a.ranges ?? []).map((r) => `<dt>Range</dt><dd class="mono">${r.events.map((e) => Object.entries(e).map(([k, v]) => `${k} ${esc(v)}`).join("")).join(" → ")}</dd>`).join("")}
+              ${a.database_specific?.safe_version ? `<dt>Use instead</dt><dd class="mono" style="color:var(--ok)">${esc(a.database_specific.safe_version)}</dd>` : ""}
+            </dl>`).join("<hr style='border:0;border-top:1px solid var(--line)'>")}
+          ${o?.details ? `<p class="small">${esc(o.details)}</p>` : ""}
+          ${o?.aliases?.length ? `<p class="small muted">Also known as ${o.aliases.map((a) => `<code>${esc(a)}</code>`).join(", ")}</p>` : ""}
+          ${o?.references?.length ? `<h3 style="margin-top:1rem">References</h3><ul class="small">${o.references.map((r) => `<li>${esc(r.type)}: <a href="${esc(r.url)}" rel="noopener" target="_blank">${esc(r.url)}</a></li>`).join("")}</ul>` : ""}
+        </section>
+        <section class="card">
+          <h3>Witness timeline</h3>
+          <p class="small muted">Quorum: ${s ? `${s.confirmers.length} confirm · ${s.withdrawers.length} withdraw · needs ${s.threshold}` : "none"}</p>
+          <ol class="timeline">
+            ${(s ? [...s.witnesses, ...s.vanished.filter((v) => !s.witnesses.includes(v))] : []).sort((a, b) => a.createdAt - b.createdAt).map((w) => {
+              const gone = s!.vanished.some((v) => v.key === w.key)
+              return `<li class="${w.verdict} ${gone ? "gone" : ""}">
+                <strong>${w.verdict === "confirm" ? "Confirmed" : "Withdrew"}</strong> by ${esc(witnessName(w.issuer, trust) ?? "")} ${addrHtml(w.issuer)}
+                <div class="small muted">block ${w.createdAt} · entity ${addrHtml(w.key, "entity")}${w.reason ? ` · “${esc(w.reason)}”` : ""}</div>
+                ${gone ? `<div class="small error">Deleted from Arkiv — still counted from this browser's memory.</div>` : ""}
+              </li>`
+            }).join("")}
+          </ol>
+          <dl class="kv small" style="margin-top:1rem">
+            <dt>Entity</dt><dd>${addrHtml(key, "entity", key)}</dd>
+            ${rec ? `<dt>Creator</dt><dd>${addrHtml(rec.creator)}</dd><dt>Created</dt><dd class="mono">block ${rec.createdAt}</dd>` : ""}
+          </dl>
+        </section>
+      </div>
+
+      <h2>Verify it yourself</h2>
+      <p class="muted">Don't trust this page. Run the same reads against Arkiv.</p>
+      <div class="cols">
+        <div><p class="small muted">TypeScript (@arkiv-network/sdk)</p>
+<pre><code>const adv = await pub.getEntity("${esc(key)}")
+// for each trusted witness:
+const atts = await pub.select("*")
+  .where(and(eq("project", "mene-v1"), eq("type", "attestation")))
+  .createdBy(WITNESS).limit(200).fetch()
+// keep atts whose attributes.advisory == "${esc(key.slice(0, 10))}…"</code></pre></div>
+        <div><p class="small muted">Raw JSON-RPC</p>
+<pre><code>curl -s ${TIRAMISU.rpcUrl} \\
+  -H 'content-type: application/json' -d '{
+  "jsonrpc":"2.0","id":1,"method":"arkiv_query",
+  "params":["${esc(q.replace(/'/g, "'\"'\"'"))}",
+    {"select":{"key":true,"creator":true,"attributes":true,"payload":true}}]}'</code></pre></div>
+      </div>
+      ${o ? `<details class="card"><summary>Raw OSV JSON</summary><pre><code>${esc(JSON.stringify(o, null, 2))}</code></pre></details>` : ""}
+    `
+
+    // "Kept alive by": replay ExpiryExtended events for this entity and read each tx sender.
+    if (adv) {
+      const el = document.getElementById("keeper")!
+      const seen = new Set<string>()
+      const stop = pub().watchEntityEvents({
+        fromBlock: BigInt(adv.createdAt),
+        onExpiryExtended: async (ev) => {
+          if (ev.entityKey.toLowerCase() !== key || seen.has(ev.transactionHash)) return
+          seen.add(ev.transactionHash)
+          try {
+            const tx = await pub().getTransaction({ hash: ev.transactionHash })
+            el.hidden = false
+            el.className = "seal"
+            el.innerHTML = `Kept alive by <a class="addr" href="${explorer.address(tx.from)}" target="_blank" rel="noopener">${tx.from.slice(0, 6)}…${tx.from.slice(-4)}</a>`
+          } catch {}
+        },
+        onError: () => stop(),
+      })
+      setTimeout(stop, 20000)
+    }
+  }
+  main().catch((err) => showError(out, err))
+</script>

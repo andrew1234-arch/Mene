@@ -1,0 +1,43 @@
+---
+import Base from "../layouts/Base.astro"
+const base = import.meta.env.BASE_URL.replace(/\/$/, "")
+---
+<Base title="About" active="/about">
+  <h1>The name & the trust model</h1>
+  <p class="triad">MENE · MENE · TEKEL · UPHARSIN</p>
+  <p>In the book of Daniel, chapter 5, King Belshazzar holds a feast. A hand appears and writes four words on the palace wall, opposite the lampstand. No one at the feast can read them, and no one can wipe them away. Daniel reads them: <em>numbered, numbered, weighed, divided.</em></p>
+  <p>A software supply-chain warning should work the same way. Everyone can read it, and no one can quietly erase it.</p>
+  <div class="grid3">
+    <div class="card"><p class="word">Mene — numbered</p><p>Every advisory is written to Arkiv and counted.</p></div>
+    <div class="card"><p class="word">Tekel — weighed</p><p>Independent witnesses weigh it. Two of three must confirm.</p></div>
+    <div class="card"><p class="word">Upharsin — divided</p><p>The poisoned version is cut from your build.</p></div>
+  </div>
+
+  <h2>What happened to chalk and debug</h2>
+  <p>On 8 September 2025 the npm maintainer <code>qix</code> received a fake 2FA reset email from <code>npmjs.help</code>. The attacker used the stolen login to publish malicious versions of 18 packages with more than 2.6 billion combined weekly downloads. They included <code>chalk@5.6.1</code> and <code>debug@4.4.2</code>. The payload hooked browser wallet and network APIs to redirect cryptocurrency transactions. The safe versions are <code>chalk@5.6.0</code> and <code>debug@4.4.1</code>. See <a href="https://github.com/debug-js/debug/security/advisories/GHSA-4x49-vf9v-38px">GHSA-4x49-vf9v-38px</a> and <a href="https://socket.dev/blog/npm-author-qix-compromised-in-major-supply-chain-attack">Socket's write-up</a>.</p>
+  <p>The warnings about it lived on websites that an operator, a takedown or another hijacked account could edit or delete.</p>
+
+  <h2>Threat model</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Attacker</th><th>Tries to</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td>Anyone</td><td>Write a fake advisory with Mene's labels</td><td>It never appears. Every read is pinned to trusted witnesses with <code>createdBy()</code>, and <code>$creator</code> can't be changed.</td></tr>
+      <tr><td>One stolen witness key</td><td>Force a false warning</td><td>It stays <em>PENDING 1/2</em>. It needs a second witness.</td></tr>
+      <tr><td>One stolen witness key</td><td>Withdraw a real warning</td><td>One withdrawal doesn't reach quorum. The advisory stays ACTIVE.</td></tr>
+      <tr><td>The advisory's author</td><td>Delete or edit the advisory</td><td>Edit is impossible: it's readonly. Delete fails: it's sealed to the burn address.</td></tr>
+      <tr><td>A witness</td><td>Delete their own confirmation</td><td>Clients that saw it keep counting it, and the site raises a deletion alarm. Chain history keeps the original transaction.</td></tr>
+      <tr><td>Mene's authors</td><td>Take the site down</td><td>There's no server. Anyone can rebuild the site or use the CLI against Arkiv directly.</td></tr>
+      <tr><td>Time</td><td>Let advisories expire</td><td>Any wallet can pay for Lifetime Extension with <code>mene keepalive</code>. You don't need permission.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">Details: <a href={`${base}/docs/trust-model`}>Trust model & quorum</a> · <a href={`${base}/docs/data-contract`}>Data contract</a></p>
+
+  <h2>Honest limitations</h2>
+  <ul>
+    <li>The demo witnesses are three testnet wallets controlled by the Mene team. In production they would be independent organisations.</li>
+    <li>This runs on the Tiramisu testnet only.</li>
+    <li>The anti-burial memory protects only clients that saw a confirmation before it was deleted. For everyone else, chain history is the backstop.</li>
+    <li>v1 covers the npm ecosystem and <code>package-lock.json</code>. It doesn't read yarn or pnpm lockfiles yet.</li>
+  </ul>
+</Base>
+<style>.word { font-family: var(--serif); font-style: italic; color: var(--gold); font-size: 1.4rem; margin: 0 0 .3rem; }</style>

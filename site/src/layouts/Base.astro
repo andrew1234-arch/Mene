@@ -1,0 +1,51 @@
+---
+import "../styles/global.css"
+interface Props { title: string; description?: string; active?: string }
+const { title, description = "The writing on the wall for poisoned packages.", active } = Astro.props
+const base = import.meta.env.BASE_URL.replace(/\/$/, "")
+const links = [
+  ["/wall", "The Wall"], ["/check", "Check"], ["/witnesses", "Witnesses"], ["/live", "Live"], ["/about", "About"], ["/docs/quickstart", "Docs"],
+]
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title === "Mene" ? "Mene — the writing on the wall" : `${title} · Mene`}</title>
+  <meta name="description" content={description} />
+  <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script is:inline>
+    try { const t = localStorage.getItem("mene:theme"); if (t) document.documentElement.dataset.theme = t } catch {}
+  </script>
+</head>
+<body>
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href={`${base}/`}>MENE</a>
+      <nav class="main" aria-label="Main">
+        {links.map(([href, label]) => <a href={`${base}${href}`} aria-current={active === href ? "page" : undefined}>{label}</a>)}
+        <button id="theme" aria-label="Toggle colour theme" title="Toggle theme">◐</button>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap"><slot /></main>
+  <footer class="site">
+    <div class="wrap">
+      <p>Mene reads Arkiv directly from your browser. There is no Mene server. · Tiramisu testnet · <a href="https://github.com/andrew1234-arch/Mene">Source (MIT)</a></p>
+      <p class="triad">MENE · MENE · TEKEL · UPHARSIN</p>
+    </div>
+  </footer>
+  <script>
+    document.getElementById("theme")?.addEventListener("click", () => {
+      const root = document.documentElement
+      const dark = root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches
+      root.dataset.theme = dark ? "light" : "dark"
+      try { localStorage.setItem("mene:theme", root.dataset.theme) } catch {}
+    })
+  </script>
+</body>
+</html>

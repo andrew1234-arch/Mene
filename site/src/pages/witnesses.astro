@@ -1,0 +1,86 @@
+---
+import Base from "../layouts/Base.astro"
+---
+<Base title="Witnesses" active="/witnesses">
+  <h1>Witnesses</h1>
+  <p class="muted">A witness is a wallet whose attestations you choose to count. Trust comes from the immutable <code>$creator</code> of each entity, never from labels anyone could write. Each witness keeps a 30-day profile lease on Arkiv. It is renewed every time they publish or attest. A lapsed lease shows them as silent.</p>
+  <div id="out" class="table-wrap"><p class="skeleton">Reading witness leases…</p></div>
+
+  <h2>Your trust settings</h2>
+  <p class="muted small">Stored in this browser only. They drive every page on this site. The CLI and Action read the same shape from <code>mene.config.json</code>.</p>
+  <form id="trust" class="card" onsubmit="return false">
+    <label class="small muted" for="issuers">Witness addresses, one per line: <code>0x… optional name</code></label>
+    <textarea id="issuers" rows="5" style="width:100%;font-family:var(--mono);font-size:.85rem"></textarea>
+    <div class="row" style="margin-top:.8rem">
+      <label>Threshold <input id="threshold" type="number" min="1" max="10" style="width:5rem" /></label>
+      <button class="btn primary" id="save">Save</button>
+      <button id="reset" type="button">Reset to demo witnesses</button>
+      <span id="msg" class="small"></span>
+    </div>
+  </form>
+</Base>
+
+<script>
+  import { and, eq } from "@arkiv-network/sdk/query"
+  import { PROJECT } from "@mene/sdk"
+  import { addrHtml, blocksToHuman, esc, getTrust, loadWall, pub, setTrust, showError } from "../scripts/mene"
+
+  const out = document.getElementById("out")!
+  const ta = document.getElementById("issuers") as HTMLTextAreaElement
+  const th = document.getElementById("threshold") as HTMLInputElement
+  const msg = document.getElementById("msg")!
+
+  function fill() {
+    const t = getTrust()
+    ta.value = t.issuers.map((i) => `${i.address} ${i.name}`).join("\n")
+    th.value = String(t.threshold)
+  }
+
+  async function render() {
+    const t = getTrust()
+    if (!t.issuers.length) {
+      out.innerHTML = `<p class="muted">No witnesses configured yet.</p>`
+      return
+    }
+    try {
+      const [head, wall] = await Promise.all([pub().getBlockNumber(), loadWall()])
+      const rows = await Promise.all(
+        t.issuers.map(async (i) => {
+          const page = await pub().select({ key: true, expiresAt: true, attributes: true }).where(and(eq("project", PROJECT), eq("type", "issuer"))).createdBy(i.address as `0x${string}`).limit(5).fetch()
+          const lease = page.entities.sort((a, b) => Number(b.expiresAt - a.expiresAt))[0]
+          const count = wall.statuses.reduce((n, s) => n + s.witnesses.filter((w) => w.issuer === i.address.toLowerCase()).length, 0)
+          return { i, lease, count }
+        }),
+      )
+      out.innerHTML = `<table><thead><tr><th>Witness</th><th>Address</th><th>Lease</th><th>Current verdicts</th></tr></thead><tbody>${rows
+        .map(({ i, lease, count }) => `<tr><td>${esc(i.name || (lease?.attributes?.name?.value as string) || "—")}</td><td>${addrHtml(i.address)}</td>
+          <td>${lease ? `<span class="chip ACTIVE">ACTIVE WITNESS</span> <span class="small muted">lease ends in ${blocksToHuman(lease.expiresAt - head)}</span>` : `<span class="chip PENDING">SILENT</span> <span class="small muted">no live lease</span>`}</td>
+          <td>${count}</td></tr>`)
+        .join("")}</tbody></table>`
+    } catch (err) {
+      showError(out, err)
+    }
+  }
+
+  document.getElementById("save")!.addEventListener("click", () => {
+    const issuers = ta.value.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+      const [address, ...rest] = l.split(/\s+/)
+      return { address: address!, name: rest.join(" ") }
+    })
+    const bad = issuers.find((i) => !/^0x[0-9a-fA-F]{40}$/.test(i.address))
+    const threshold = Number(th.value)
+    if (bad) return (msg.innerHTML = `<span class="error">Not an address: ${esc(bad.address)}</span>`)
+    if (!Number.isInteger(threshold) || threshold < 1 || threshold > issuers.length) return (msg.innerHTML = `<span class="error">Threshold must be between 1 and ${issuers.length}</span>`)
+    setTrust({ issuers, threshold })
+    msg.textContent = "Saved."
+    void render()
+  })
+  document.getElementById("reset")!.addEventListener("click", () => {
+    setTrust(null)
+    fill()
+    msg.textContent = "Reset."
+    void render()
+  })
+  fill()
+  void render()
+</script>

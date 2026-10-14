@@ -10,7 +10,8 @@
   },
   "workspaces": [
     "packages/sdk",
-    "packages/cli"
+    "packages/cli",
+    "site"
   ],
   "scripts": {
     "build": "npm run build -w @mene/sdk && npm run build -w @mene/cli && npm run build:action",
@@ -18,7 +19,9 @@
     "typecheck": "tsc -p packages/sdk --noEmit && tsc -p packages/cli --noEmit",
     "spike": "tsx scripts/spike.ts",
     "seed": "tsx scripts/seed.ts",
-    "build:action": "tsup --config action/tsup.config.ts"
+    "build:action": "tsup --config action/tsup.config.ts",
+    "site:dev": "npm run dev -w site",
+    "site:build": "npm run build -w site"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
