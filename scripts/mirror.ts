@@ -12,12 +12,13 @@
  * inscribed (matched by the advisoryId attribute, never by package name).
  */
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs"
-import { key } from "@arkiv-network/sdk/attr"
 import { and, eq } from "@arkiv-network/sdk/query"
 import {
   attest,
   CURATED,
   coversVersion,
+  ensureSealed,
+  latestVerdict,
   explorer,
   mirrorRecord,
   OSSF_RAW,
@@ -56,6 +57,7 @@ for (const c of CURATED.filter((c) => !only || only.has(c.name))) {
     const npm = await getJson<{ versions: Record<string, unknown> }>(`https://registry.npmjs.org/${c.name}`)
     const recommended = recommendedVersion(Object.keys(npm.versions), c.version)
     let found = false
+    let skipped = 0
     for (const path of paths) {
       const raw = await getJson<Parameters<typeof coversVersion>[0]>(`${OSSF_RAW}/${path}`)
       if (!coversVersion(raw, c.name, c.version)) continue
@@ -63,10 +65,14 @@ for (const c of CURATED.filter((c) => !only || only.has(c.name))) {
         prepared.push({ name: c.name, path, osv: mirrorRecord(raw, { path, recommended }) })
         found = true
       } catch (e) {
+        skipped++
         console.log(`! ${path}: ${(e as Error).message}`)
       }
     }
-    console.log(`${found ? "✓" : "·"} ${c.name}@${c.version}: ${found ? "record found" : "no OpenSSF record for this version"} (recommended ${recommended ?? "none"})`)
+    const status = found ? "record found" : skipped ? `skipped: ${skipped} matching record(s) contain personal data` : "no OpenSSF record for this version"
+    console.log(`${found ? "✓" : skipped ? "✗" : "·"} ${c.name}@${c.version}: ${status} (recommended ${recommended ?? "none"})`)
+    // A curated incident that couldn't be mirrored must not look like success.
+    if (!found && skipped) process.exitCode = 1
   } catch (e) {
     console.log(`✗ ${c.name}: ${(e as Error).message}`)
     process.exitCode = 1
@@ -99,7 +105,12 @@ for (const p of prepared) {
   let advisoryKey: string
   if (existing.entities.length) {
     advisoryKey = existing.entities[0]!.key
-    console.log(`${p.osv.id} (${p.name}): already inscribed as ${advisoryKey}; checking confirmations`)
+    console.log(`${p.osv.id} (${p.name}): already inscribed as ${advisoryKey}; checking seal and confirmations`)
+    // An interrupted run (or seal mode "separate") may have left it unsealed.
+    if (SEAL !== "none") {
+      const sealTx = await ensureSealed(pub, A, advisoryKey)
+      if (sealTx) note(`  - A seals ${p.osv.id} (resumed): [\`${sealTx}\`](${explorer.tx(sealTx)})`)
+    }
   } else {
     const r = await publishAdvisory(pub, A, p.osv, { sealMode: SEAL })
     advisoryKey = r.advisoryKey
@@ -108,14 +119,11 @@ for (const p of prepared) {
   // Resumable: add any confirmation a previous, interrupted run didn't get to.
   const confirmers = [B, ...(p.name === "chalk" || p.name === "debug" ? [C] : [])]
   for (const w of confirmers) {
-    const mine = await pub
-      .select({ key: true })
-      .where(and(eq("project", PROJECT), eq("type", "attestation"), eq("advisory", key(advisoryKey as `0x${string}`)), eq("verdict", "confirm")))
-      .createdBy(w.account!.address)
-      .limit(1)
-      .fetch()
-    if (mine.entities.length) continue
+    // Done only if the witness's latest verdict is confirm (a later withdrawal undoes it).
+    const latest = await latestVerdict(pub, w.account!.address, advisoryKey)
+    if (latest === "confirm") continue
     const label = w === B ? "B" : "C"
+    if (latest === "withdraw") console.log(`  ${label}'s latest verdict on ${p.osv.id} is withdraw; confirming again`)
     const t = await attest(w, advisoryKey, "confirm")
     note(`  - ${label} confirms ${p.osv.id}: [\`${t.txHash}\`](${explorer.tx(t.txHash)})`)
   }

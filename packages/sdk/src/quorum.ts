@@ -42,26 +42,62 @@ export function emptyState(): MeneState {
   return { version: 2, advisories: {}, attestations: {}, lastStatus: {}, wasStatus: {} }
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
+
 /**
- * Upgrades saved state. Version 1 stored advisories in the pre-`database_specific.mene` format:
- * those copies are dropped (they are re-read from Arkiv) while attestations, which carry the
- * anti-burial memory, are kept. Returns undefined for anything unrecognised.
+ * Converts a v1 advisory body (`database_specific: { mene_version, severity }`, per-package
+ * `safe_version`) to the current format. The cached copy is the anti-burial backstop for an
+ * advisory that may no longer exist on chain, so it is converted, never dropped.
+ */
+function upgradeOsv(osv: unknown): OsvAdvisory | undefined {
+  if (!isRecord(osv)) return undefined
+  const ds = isRecord(osv.database_specific) ? osv.database_specific : {}
+  if (isRecord(ds.mene)) return osv as unknown as OsvAdvisory
+  const sev = ds.severity === "medium" ? "moderate" : ds.severity
+  const affected = Array.isArray(osv.affected) ? (osv.affected as Record<string, unknown>[]) : []
+  const safe = affected.map((a) => (isRecord(a?.database_specific) ? a.database_specific.safe_version : undefined)).find((v) => typeof v === "string")
+  const { mene_version: _v, severity: _s, ...rest } = ds
+  return {
+    ...(osv as object),
+    affected: affected.map((a) => {
+      if (!isRecord(a?.database_specific)) return a
+      const { safe_version: _sv, ...keep } = a.database_specific
+      return { ...a, database_specific: keep }
+    }),
+    database_specific: { ...rest, mene: { severity: typeof sev === "string" ? sev : "critical", ...(safe ? { recommended: safe } : {}) } },
+  } as unknown as OsvAdvisory
+}
+
+/**
+ * Validates and upgrades saved state (CLI cache file or browser storage). Returns undefined for
+ * anything unrecognised or malformed, so callers fail closed instead of silently forgetting.
  */
 export function migrateState(raw: unknown): MeneState | undefined {
-  const s = raw as Partial<MeneState> & { version?: number }
-  if (!s || typeof s !== "object") return undefined
-  if (s.version === 2) return { ...emptyState(), ...s, version: 2 } as MeneState
-  if (s.version !== 1) return undefined
+  if (!isRecord(raw)) return undefined
+  const { version } = raw
+  if (version !== 1 && version !== 2) return undefined
+  for (const f of ["advisories", "attestations", "lastStatus", "wasStatus"] as const) {
+    if (raw[f] !== undefined && !isRecord(raw[f])) return undefined
+  }
   const advisories: MeneState["advisories"] = {}
-  for (const [k, a] of Object.entries(s.advisories ?? {})) {
-    if ((a?.osv?.database_specific as { mene?: unknown } | undefined)?.mene) advisories[k] = a
+  for (const [k, a] of Object.entries((raw.advisories as Record<string, AdvisoryRecord>) ?? {})) {
+    if (!isRecord(a)) return undefined
+    const osv = version === 1 ? upgradeOsv(a.osv) : (a.osv as OsvAdvisory)
+    if (!osv) return undefined
+    advisories[k] = { ...a, osv }
   }
   const attestations: MeneState["attestations"] = {}
-  for (const [k, a] of Object.entries(s.attestations ?? {})) {
-    const old = a as AttestationRecord & { issuedAt?: number }
-    attestations[k] = { ...old, attestedAt: old.attestedAt ?? old.issuedAt ?? 0 }
+  for (const [k, a] of Object.entries((raw.attestations as Record<string, AttestationRecord & { issuedAt?: number }>) ?? {})) {
+    if (!isRecord(a) || typeof a.advisory !== "string" || typeof a.issuer !== "string") return undefined
+    attestations[k] = { ...a, attestedAt: a.attestedAt ?? a.issuedAt ?? 0 }
   }
-  return { ...emptyState(), lastStatus: s.lastStatus ?? {}, wasStatus: s.wasStatus ?? {}, advisories, attestations }
+  return {
+    version: 2,
+    advisories,
+    attestations,
+    lastStatus: (raw.lastStatus as MeneState["lastStatus"]) ?? {},
+    wasStatus: (raw.wasStatus as MeneState["wasStatus"]) ?? {},
+  }
 }
 
 export type StatusKind = "ACTIVE" | "PENDING" | "WITHDRAWN" | "MISSING"

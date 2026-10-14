@@ -107,13 +107,14 @@ export function isSafeUrl(url: string): boolean {
   }
 }
 
-export const severityOf = (a: OsvAdvisory): Severity => a.database_specific?.mene?.severity ?? "critical"
+// OsvAdvisory values have passed parseOsv, which guarantees database_specific.mene.
+export const severityOf = (a: OsvAdvisory): Severity => a.database_specific.mene.severity
 /** The version to install instead of `pkg` (defaults to the advisory's primary package). */
 export const recommendedOf = (a: OsvAdvisory, pkg = primaryPackage(a)): string | undefined =>
-  pkg === primaryPackage(a) ? a.database_specific?.mene?.recommended : undefined
+  pkg === primaryPackage(a) ? a.database_specific.mene.recommended : undefined
 /** "OpenSSF mirror" when mirrored from ossf/malicious-packages, else "Mene original". */
 export const sourceLabel = (a: OsvAdvisory): string =>
-  a.database_specific?.mene?.source?.repo.includes("ossf/malicious-packages") ? "OpenSSF mirror" : a.database_specific?.mene?.source ? "Mirror" : "Mene original"
+  a.database_specific.mene.source?.repo.includes("ossf/malicious-packages") ? "OpenSSF mirror" : a.database_specific.mene.source ? "Mirror" : "Mene original"
 
 /** The first affected package — used for the `package` display attribute. */
 export function primaryPackage(a: OsvAdvisory): string {

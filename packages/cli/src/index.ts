@@ -14,7 +14,7 @@ import {
   resolveStatus,
   walletClient,
 } from "@mene/sdk"
-import { Command, Option } from "commander"
+import { Command, InvalidArgumentError, Option } from "commander"
 import { cachePath, loadConfig, loadState } from "./config"
 import { loadStatuses, matchTable, runCheck } from "./check"
 
@@ -43,13 +43,19 @@ program
   .command("check")
   .description("match a package-lock.json against ACTIVE/MISSING advisories (exit 1 on a match)")
   .option("--lockfile <path>", "lockfile to scan", "package-lock.json")
-  .addOption(new Option("--min-severity <level>", "lowest severity that fails").choices(["low", "moderate", "high", "critical", "medium"]))
+  .addOption(
+    new Option("--min-severity <level>", "lowest severity that fails: low, moderate, high or critical").argParser((v) => {
+      const s = normalizeSeverity(v)
+      if (!s) throw new InvalidArgumentError("use low, moderate, high or critical")
+      return s
+    }),
+  )
   .option("--json", "machine-readable output")
   .option("--offline", "use only the local cache")
   .action(async (o) => {
     try {
       const cfg = loadConfig(program.opts().config)
-      const r = await runCheck(cfg, o.lockfile, { offline: o.offline, minSeverity: o.minSeverity ? normalizeSeverity(o.minSeverity) : undefined })
+      const r = await runCheck(cfg, o.lockfile, { offline: o.offline, minSeverity: o.minSeverity })
       if (o.json) console.log(json(r))
       else {
         for (const w of r.warnings) console.error(`warning: ${w}`)

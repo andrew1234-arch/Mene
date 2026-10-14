@@ -72,6 +72,7 @@ import Base from "../layouts/Base.astro"
   const alarms = document.getElementById("alarms")!
   const tabs = document.getElementById("tabs")!
   let wall: Wall | undefined
+  let knownKeys = new Set<string>()
   let status = new URLSearchParams(location.search).get("status") ?? "all"
   let rangeKeys: Set<string> | null = null
   let rangeSev = 1
@@ -146,6 +147,7 @@ import Base from "../layouts/Base.astro"
     async (w) => {
       const first = !wall
       wall = w
+      rebuildKnown()
       if (first) await runRangeQuery().catch(() => {})
       meta.textContent = `Read live from Arkiv at block ${w.blockNumber} · ${w.trust.threshold}-of-${w.trust.issuers.length} witness quorum`
       alarms.innerHTML = w.statuses
@@ -198,13 +200,23 @@ import Base from "../layouts/Base.astro"
       return null
     }
   }
-  // Tiramisu is shared: drop other projects' events before making any RPC call.
-  function known(key: string) {
-    const k = key.toLowerCase()
-    if (wall?.statuses.some((s) => s.key === k || s.witnesses.some((w) => w.key === k) || s.vanished.some((v) => v.key === k))) return true
+  // Tiramisu is shared: drop other projects' events before making any RPC call. Known keys are
+  // collected once per wall render, not re-parsed from storage on every event.
+  function rebuildKnown() {
+    const ks = new Set<string>()
+    for (const s of wall?.statuses ?? []) {
+      ks.add(s.key)
+      for (const w of [...s.witnesses, ...s.vanished]) ks.add(w.key)
+    }
     const st = getState()
-    return !!(st?.advisories[k] || st?.attestations[k])
+    for (const k of Object.keys(st?.advisories ?? {})) ks.add(k)
+    for (const k of Object.keys(st?.attestations ?? {})) ks.add(k)
+    knownKeys = ks
   }
+  // Ours if the wall knows the key, or a trusted witness owns it (covers entities created since
+  // the last refresh). Sealed advisories are owned by the burn address.
+  const relevant = (key: string, owner: string) =>
+    knownKeys.has(key.toLowerCase()) || trusted.has(owner.toLowerCase())
   const who = (a: string) => `${esc(witnessName(a) ?? (trusted.has(a) ? "witness" : "untrusted wallet"))} <span class="addr">${esc(short(a))}</span>`
   // A new inscription, confirmation or deletion changes statuses: re-read the wall (debounced).
   let pending: ReturnType<typeof setTimeout> | undefined
@@ -221,7 +233,10 @@ import Base from "../layouts/Base.astro"
     liveStatus.textContent = "LIVE"
     ws.watchEntityEvents({
       onEntityCreated: async (ev) => {
-        if (!trusted.has(ev.owner.toLowerCase())) return
+        // A batch-sealed advisory may report the burn address as owner; describe() then checks
+        // the real creator, so only trusted witnesses' entities are shown.
+        const o = ev.owner.toLowerCase()
+        if (!trusted.has(o) && o !== BURN_ADDRESS.toLowerCase()) return
         const d = await describe(ev.entityKey)
         if (!d || !trusted.has(d.creator)) return
         if (d.type === "advisory") liveRow(`<strong>Inscribed</strong> <a href="${advisoryUrl(ev.entityKey)}">${esc(d.id)}</a> by ${who(d.creator)}`, ev.blockNumber)
@@ -229,7 +244,7 @@ import Base from "../layouts/Base.astro"
         refresh()
       },
       onExpiryExtended: async (ev) => {
-        if (!known(ev.entityKey)) return
+        if (!relevant(ev.entityKey, ev.owner)) return
         const d = await describe(ev.entityKey)
         if (!d) return
         let by = ""
@@ -244,9 +259,10 @@ import Base from "../layouts/Base.astro"
         if (d) liveRow(`<strong>Sealed</strong> ${esc(d.type)} ${esc(short(ev.entityKey))}: nobody can delete it now`, ev.blockNumber)
       },
       onEntityDeleted: async (ev) => {
-        if (!known(ev.entityKey)) return
-        const d = await describe(ev.entityKey)
-        if (!d) return
+        if (!relevant(ev.entityKey, ev.owner)) return
+        // A deleted entity can't be read back; if this page never saw it, fall back to the
+        // owner: a witness deleting anything of ours is worth an alarm.
+        const d = (await describe(ev.entityKey)) ?? { type: "entity", creator: ev.owner.toLowerCase() }
         liveRow(`DELETION ALARM: ${esc(d.type)} ${esc(short(ev.entityKey))} by ${who(ev.owner.toLowerCase())} was deleted. ${d.type === "attestation" ? "Mene keeps counting it." : "Mene keeps enforcing it as MISSING."}`, ev.blockNumber, true)
         refresh()
       },

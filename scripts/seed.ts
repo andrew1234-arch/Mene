@@ -8,7 +8,7 @@
 import { execSync } from "node:child_process"
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs"
 import { and, eq } from "@arkiv-network/sdk/query"
-import { attest, explorer, PROJECT, publicClient, publishAdvisory, walletClient } from "../packages/sdk/src/index"
+import { attest, ensureSealed, explorer, latestVerdict, PROJECT, publicClient, publishAdvisory, walletClient } from "../packages/sdk/src/index"
 import { loadEnv, need } from "./env"
 
 loadEnv()
@@ -44,16 +44,24 @@ async function inscribed(w: typeof A, id: string) {
 }
 
 const fa = JSON.parse(readFileSync("advisories/MENE-2026-0001-false-alarm.osv.json", "utf8"))
-const existingFake = await inscribed(C, fa.id)
-if (existingFake) {
-  out(`- MENE-2026-0001 already inscribed by C as \`${existingFake}\`; skipped`)
+// Every step is resumable: an interrupted run picks up where it stopped.
+let fakeKey = await inscribed(C, fa.id)
+if (fakeKey) {
+  out(`- MENE-2026-0001 already inscribed by C as \`${fakeKey}\`; resuming`)
+  if (SEAL !== "none") {
+    const sealTx = await ensureSealed(pub, C, fakeKey)
+    if (sealTx) note("C seals MENE-2026-0001 (resumed)", sealTx)
+  }
 } else {
   const fake = await publishAdvisory(pub, C, fa, { sealMode: SEAL })
+  fakeKey = fake.advisoryKey
   note(`C inscribes MENE-2026-0001 (synthetic false alarm) → \`${fake.advisoryKey}\``, fake.txHash)
-  note("A confirms MENE-2026-0001", (await attest(A, fake.advisoryKey, "confirm")).txHash)
-  note("A withdraws MENE-2026-0001", (await attest(A, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
-  note("C withdraws MENE-2026-0001", (await attest(C, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
 }
+const reason = "synthetic package, demo false alarm"
+// A confirms first (so the withdrawal has something to undo), then A and C withdraw.
+if ((await latestVerdict(pub, addr(A), fakeKey)) === undefined) note("A confirms MENE-2026-0001", (await attest(A, fakeKey, "confirm")).txHash)
+if ((await latestVerdict(pub, addr(A), fakeKey)) !== "withdraw") note("A withdraws MENE-2026-0001", (await attest(A, fakeKey, "withdraw", reason)).txHash)
+if ((await latestVerdict(pub, addr(C), fakeKey)) !== "withdraw") note("C withdraws MENE-2026-0001", (await attest(C, fakeKey, "withdraw", reason)).txHash)
 
 const now = new Date().toISOString().replace(/\.\d+Z$/, "Z")
 const existingForged = await inscribed(K, "FORGED-0001")

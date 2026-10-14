@@ -41,7 +41,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
 </style>
 
 <script>
-  import { attest, attestationQuery, BURN_ADDRESS, explorer, isSafeUrl, keepalive, readAdvisory, TIRAMISU, type AdvisoryStatus, type AdvisoryRecord, parseLockfile, matchLockfile, recommendedOf, severityOf, sourceLabel } from "@mene/sdk"
+  import { attest, attestationQuery, BURN_ADDRESS, explorer, isSafeUrl, keepalive, readAdvisory, TIRAMISU, type AdvisoryStatus, type AdvisoryRecord, parseLockfile, matchLockfile, primaryPackage, recommendedOf, severityOf, sourceLabel } from "@mene/sdk"
   import { addrHtml, affectedText, route, DOCS, blocksToHuman, chip, esc, errorHtml, fmtDate, getTrust, loadWall, pub, sevBadge, store, toast, witnessName } from "../../scripts/mene"
   import { connectedAddress, hasWallet, isWitness, onWallet, wallet, withTx } from "../../scripts/wallet"
 
@@ -83,7 +83,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
     const confirms = s?.confirmers.length ?? 0
     const k = s?.threshold ?? trust.threshold
     const rec = o ? recommendedOf(o) : undefined
-    const fixCmd = rec ? `${o!.affected[0]!.package.name}@${rec}` : ""
+    const fixCmd = rec ? `${primaryPackage(o!)}@${rec}` : ""
     const src = o?.database_specific.mene.source
     const q = attestationQuery(pub(), trust.issuers[0]?.address ?? "0x0000000000000000000000000000000000000000").toString()
     const statusText: Record<string, string> = {
@@ -107,7 +107,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
             ${(o?.affected ?? []).map((a) => `<dl class="kv">
               <dt>Package</dt><dd><code>${esc(a.package.name)}</code> <span class="muted small">npm</span></dd>
               <dt>Versions</dt><dd><code style="color:var(--red)">${esc(affectedText(a as never))}</code></dd>
-              ${rec && a.package.name === o!.affected[0]!.package.name ? `<dt>Install instead</dt><dd><code style="color:var(--ok)">${esc(rec)}</code></dd>` : ""}
+              ${recommendedOf(o!, a.package.name) ? `<dt>Install instead</dt><dd><code style="color:var(--ok)">${esc(recommendedOf(o!, a.package.name))}</code></dd>` : ""}
             </dl>`).join("<hr style='border:0;border-top:1px solid var(--line);margin:.8rem 0'>")}
             ${o?.details ? `<h3 style="margin-top:1.2rem">Details</h3><p class="details">${esc(o.details.split("\n---")[0])}</p>` : ""}
             ${src ? `<p class="small muted">Mirrored as-is from <a href="${esc(src.repo)}/blob/main/${esc(src.path)}" rel="noopener" target="_blank">${esc(src.path)}</a> in OpenSSF malicious-packages (${esc(src.license)}). Mene removed only the credits block, which holds personal contact details.</p>` : ""}

@@ -304,3 +304,31 @@ export async function keepalive(
   })
   return { txHash: r.txHash, extended: r.extendedEntities, skipped }
 }
+
+/** A witness's latest verdict on one advisory (by block, then attestedAt), or undefined. */
+export async function latestVerdict(pub: MenePublicClient, witness: string, advisoryKey: string): Promise<Verdict | undefined> {
+  let page = await pub
+    .select("*")
+    .where(and(eq("project", PROJECT), eq("type", "attestation"), eq("advisory", keyAttr(advisoryKey as Hex))))
+    .createdBy(witness as Hex)
+    .limit(PAGE)
+    .fetch()
+  const all: AttestationRecord[] = []
+  for (;;) {
+    for (const e of page.entities) {
+      const r = toAttestationRecord(e as AnyEntity)
+      if (r) all.push(r)
+    }
+    if (!page.hasNextPage()) break
+    page = await page.next()
+  }
+  all.sort((a, b) => a.createdAt - b.createdAt || a.attestedAt - b.attestedAt)
+  return all.at(-1)?.verdict
+}
+
+/** Seals an advisory to the burn address if it isn't already. Returns the tx hash if it sealed. */
+export async function ensureSealed(pub: MenePublicClient, wallet: MeneWalletClient, advisoryKey: string): Promise<Hex | undefined> {
+  const e = await pub.getEntity(advisoryKey as Hex)
+  if (e.owner.toLowerCase() === BURN_ADDRESS.toLowerCase()) return undefined
+  return (await wallet.changeOwnership({ entityKey: advisoryKey as Hex, newOwner: BURN_ADDRESS })).txHash
+}

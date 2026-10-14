@@ -54,7 +54,7 @@ export function loadState(): MeneState | undefined {
     throw new Error(`cache ${p} is corrupt; inspect or delete it deliberately (fail closed)`)
   }
   const migrated = migrateState(s)
-  if (!migrated) throw new Error(`cache ${p} has unknown version ${String((s as { version?: unknown }).version)} (fail closed)`)
+  if (!migrated) throw new Error(`cache ${p} is malformed or from an unknown version; inspect or delete it deliberately (fail closed)`)
   return migrated
 }
 

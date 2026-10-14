@@ -18,8 +18,11 @@ export const CURATED: { name: string; version: string; incident: string }[] = [
   ["chalk-template", "1.1.1"], ["backslash", "0.2.1"], ["error-ex", "1.3.3"],
 ].map(([name, version]) => ({ name: name!, version: version!, incident: "qix-2025-09-08" }))
 
-// An e-mail address: domain labels start with a letter, so `debug@4.4.2.tgz` is not one.
-const EMAIL = /[A-Z0-9._%+-]+@[A-Z][A-Z0-9-]*(\.[A-Z][A-Z0-9-]*)*\.[A-Z]{2,}/i
+// Any e-mail address, including digit-leading domains (`x@163.com`, `a@1und1.de`). The only
+// exclusion is a "name@version.ext" file reference such as `debug@4.4.2.tgz`, recognised by its
+// file-extension "TLD"; a false positive here only skips a record, it never alters one.
+const EMAIL = /[A-Z0-9._%+-]+@([A-Z0-9-]+\.)+([A-Z]{2,})/gi
+const FILE_EXT = new Set(["tgz", "gz", "tar", "zip", "js", "mjs", "cjs", "ts", "json", "md", "txt", "sh", "exe", "dll", "py", "node", "map", "lock", "yml", "yaml", "html", "css", "wasm"])
 // Not personal: git remotes and npm's own addresses.
 const NOT_PERSONAL = /^(git@github\.com|git@gitlab\.com|support@npmjs\.com|security@npmjs\.com)$/i
 
@@ -33,7 +36,10 @@ export class PersonalDataError extends Error {
 /** Finds an e-mail-like string anywhere in a JSON value (path for the error message). */
 function findEmail(v: unknown, path = "$"): string | undefined {
   if (typeof v === "string") {
-    for (const m of v.matchAll(new RegExp(EMAIL.source, "gi"))) if (!NOT_PERSONAL.test(m[0])) return `${path}: ${m[0]}`
+    for (const m of v.matchAll(EMAIL)) {
+      if (NOT_PERSONAL.test(m[0]) || FILE_EXT.has(m[2]!.toLowerCase())) continue
+      return `${path}: ${m[0]}`
+    }
     return undefined
   }
   if (Array.isArray(v)) {

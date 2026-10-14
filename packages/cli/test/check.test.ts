@@ -45,6 +45,12 @@ describe("mene check exit codes (offline, from cache)", { timeout: 60_000 }, () 
     // chalk is critical, so even the strictest threshold still fails
     expect(mene(["check", "--offline", "--min-severity", "critical", "--lockfile", "examples/chalk-attack/package-lock.json"], cache).status).toBe(1)
   })
+  it("accepts the old word 'medium' and rejects unknown severities", () => {
+    expect(mene(["check", "--offline", "--min-severity", "medium", "--lockfile", "examples/chalk-attack/package-lock.json"], cache).status).toBe(1)
+    const bad = mene(["check", "--offline", "--min-severity", "urgent", "--lockfile", "examples/clean/package-lock.json"], cache)
+    expect(bad.status).not.toBe(0)
+    expect(bad.stderr).toContain("low, moderate, high or critical")
+  })
   it("--json output is machine-readable", () => {
     const r = mene(["check", "--offline", "--json", "--lockfile", "examples/chalk-attack/package-lock.json"], cache)
     expect(JSON.parse(r.stdout).matches).toHaveLength(1)

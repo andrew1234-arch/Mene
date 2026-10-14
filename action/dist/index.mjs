@@ -2252,8 +2252,8 @@ function isSafeUrl(url) {
     return false;
   }
 }
-var severityOf = (a) => a.database_specific?.mene?.severity ?? "critical";
-var recommendedOf = (a, pkg = primaryPackage(a)) => pkg === primaryPackage(a) ? a.database_specific?.mene?.recommended : void 0;
+var severityOf = (a) => a.database_specific.mene.severity;
+var recommendedOf = (a, pkg = primaryPackage(a)) => pkg === primaryPackage(a) ? a.database_specific.mene.recommended : void 0;
 function primaryPackage(a) {
   return a.affected[0].package.name;
 }
@@ -2383,21 +2383,51 @@ function matchLockfile(installed, advisories, minSeverity = "low") {
 function emptyState() {
   return { version: 2, advisories: {}, attestations: {}, lastStatus: {}, wasStatus: {} };
 }
+var isRecord = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+function upgradeOsv(osv) {
+  if (!isRecord(osv)) return void 0;
+  const ds = isRecord(osv.database_specific) ? osv.database_specific : {};
+  if (isRecord(ds.mene)) return osv;
+  const sev = ds.severity === "medium" ? "moderate" : ds.severity;
+  const affected = Array.isArray(osv.affected) ? osv.affected : [];
+  const safe = affected.map((a) => isRecord(a?.database_specific) ? a.database_specific.safe_version : void 0).find((v) => typeof v === "string");
+  const { mene_version: _v, severity: _s, ...rest } = ds;
+  return {
+    ...osv,
+    affected: affected.map((a) => {
+      if (!isRecord(a?.database_specific)) return a;
+      const { safe_version: _sv, ...keep } = a.database_specific;
+      return { ...a, database_specific: keep };
+    }),
+    database_specific: { ...rest, mene: { severity: typeof sev === "string" ? sev : "critical", ...safe ? { recommended: safe } : {} } }
+  };
+}
 function migrateState(raw) {
-  const s = raw;
-  if (!s || typeof s !== "object") return void 0;
-  if (s.version === 2) return { ...emptyState(), ...s, version: 2 };
-  if (s.version !== 1) return void 0;
+  if (!isRecord(raw)) return void 0;
+  const { version } = raw;
+  if (version !== 1 && version !== 2) return void 0;
+  for (const f of ["advisories", "attestations", "lastStatus", "wasStatus"]) {
+    if (raw[f] !== void 0 && !isRecord(raw[f])) return void 0;
+  }
   const advisories = {};
-  for (const [k, a] of Object.entries(s.advisories ?? {})) {
-    if (a?.osv?.database_specific?.mene) advisories[k] = a;
+  for (const [k, a] of Object.entries(raw.advisories ?? {})) {
+    if (!isRecord(a)) return void 0;
+    const osv = version === 1 ? upgradeOsv(a.osv) : a.osv;
+    if (!osv) return void 0;
+    advisories[k] = { ...a, osv };
   }
   const attestations = {};
-  for (const [k, a] of Object.entries(s.attestations ?? {})) {
-    const old = a;
-    attestations[k] = { ...old, attestedAt: old.attestedAt ?? old.issuedAt ?? 0 };
+  for (const [k, a] of Object.entries(raw.attestations ?? {})) {
+    if (!isRecord(a) || typeof a.advisory !== "string" || typeof a.issuer !== "string") return void 0;
+    attestations[k] = { ...a, attestedAt: a.attestedAt ?? a.issuedAt ?? 0 };
   }
-  return { ...emptyState(), lastStatus: s.lastStatus ?? {}, wasStatus: s.wasStatus ?? {}, advisories, attestations };
+  return {
+    version: 2,
+    advisories,
+    attestations,
+    lastStatus: raw.lastStatus ?? {},
+    wasStatus: raw.wasStatus ?? {}
+  };
 }
 var lc = (s) => s.toLowerCase();
 function newer(a, b) {
@@ -12184,7 +12214,7 @@ function loadState() {
     throw new Error(`cache ${p} is corrupt; inspect or delete it deliberately (fail closed)`);
   }
   const migrated = migrateState(s);
-  if (!migrated) throw new Error(`cache ${p} has unknown version ${String(s.version)} (fail closed)`);
+  if (!migrated) throw new Error(`cache ${p} is malformed or from an unknown version; inspect or delete it deliberately (fail closed)`);
   return migrated;
 }
 function saveState(s) {
