@@ -1,0 +1,48 @@
+# On-chain spikes and demo seeding, run from GitHub (which can reach Tiramisu).
+# Needs repository secrets: MENE_ISSUER_A_KEY, MENE_ISSUER_B_KEY, MENE_ISSUER_C_KEY,
+# MENE_FORGER_KEY, MENE_KEEPER_KEY — funded Tiramisu testnet keys only.
+name: arkiv-onchain
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "spike, seed, or attack"
+        required: true
+        default: spike
+        type: choice
+        options: [spike, seed, attack]
+      seal_mode:
+        description: "seed only: batch | separate | none (use separate if spike S1 fails)"
+        required: false
+        default: batch
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      MENE_ISSUER_A_KEY: ${{ secrets.MENE_ISSUER_A_KEY }}
+      MENE_ISSUER_B_KEY: ${{ secrets.MENE_ISSUER_B_KEY }}
+      MENE_ISSUER_C_KEY: ${{ secrets.MENE_ISSUER_C_KEY }}
+      MENE_FORGER_KEY: ${{ secrets.MENE_FORGER_KEY }}
+      MENE_KEEPER_KEY: ${{ secrets.MENE_KEEPER_KEY }}
+      MENE_SEAL_MODE: ${{ github.event.inputs.seal_mode }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Addresses (public only)
+        run: npx tsx scripts/addresses.ts
+      - name: Run ${{ github.event.inputs.task }}
+        run: npm run ${{ github.event.inputs.task }} 2>&1 | tee onchain.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: onchain-${{ github.event.inputs.task }}, path: onchain.log }
+      - name: Commit results (evidence + witness addresses)
+        if: github.event.inputs.task != 'spike'
+        run: |
+          git config user.name "mene-seed"
+          git config user.email "mene-seed@users.noreply.github.com"
+          git add arkiv/evidence.md packages/cli/src/witnesses.ts site/src/data/witnesses.json action/dist
+          git commit -m "chore: record ${{ github.event.inputs.task }} run (evidence)" && git push || echo "nothing to commit"

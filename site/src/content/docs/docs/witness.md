@@ -30,4 +30,4 @@ One atomic `executeBatch`:
 Either all four happen or none do. There is never a half-published advisory.
 
 ## Withdrawing
-Withdrawals are new attestations. They never edit or delete anything. Once *k* witnesses' latest verdicts are `withdraw`, the advisory shows as WITHDRAWN. Its history stays on the wall.
+Withdrawals are new attestations. They never edit or delete anything. A single withdrawal doesn't un-enforce an active advisory. Once *k* witnesses' latest verdicts are `withdraw`, the advisory shows as WITHDRAWN. Its history stays on the wall.

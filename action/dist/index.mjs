@@ -2411,7 +2411,7 @@ function resolveStatus(input2) {
       if (!cur || newer(a, cur)) latest.set(a.issuer, a);
     }
     const witnesses = [...latest.values()].sort((a, b) => a.createdAt - b.createdAt);
-    const confirmers = witnesses.filter((w) => w.verdict === "confirm").map((w) => w.issuer);
+    const confirmers = [...new Set(atts.filter((a) => a.verdict === "confirm").map((a) => a.issuer))];
     const withdrawers = witnesses.filter((w) => w.verdict === "withdraw").map((w) => w.issuer);
     const vanished = atts.filter((a) => !liveKeys.has(a.key));
     let quorum;

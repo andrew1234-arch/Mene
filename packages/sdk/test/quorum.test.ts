@@ -47,6 +47,14 @@ describe("resolveStatus", () => {
     })
     expect(statuses[0]).toMatchObject({ status: "WITHDRAWN", enforced: false })
   })
+  it("one stolen key cannot bury an ACTIVE advisory by withdrawing", () => {
+    const { statuses } = resolveStatus({
+      issuers, threshold: 2,
+      liveAttestations: [att(A, "confirm", 1), att(B, "confirm", 2), att(A, "withdraw", 3)],
+      liveAdvisories: live,
+    })
+    expect(statuses[0]).toMatchObject({ status: "ACTIVE", enforced: true, withdrawers: [A] })
+  })
   it("a deleted confirm still counts from the cache (anti-burial)", () => {
     const a = att(A, "confirm", 1)
     const b = att(B, "confirm", 2)

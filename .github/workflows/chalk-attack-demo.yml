@@ -1,26 +1,35 @@
-# Demo: the same Mene Action run against a poisoned lockfile (expected RED) and a clean one (GREEN).
-# The fixtures are scanned, never installed.
+# Demo: the Mene Action against a poisoned lockfile (must FAIL) and a clean one (must PASS).
+# The fixtures are scanned, never installed. Runs on demand, once the demo witnesses are seeded.
 name: chalk-attack-demo
 on:
   workflow_dispatch:
-  push:
-    paths: ["examples/**", "action/**", ".github/workflows/chalk-attack-demo.yml"]
 jobs:
   scan:
     strategy:
       fail-fast: false
       matrix:
-        fixture: [chalk-attack, clean]
+        include:
+          - fixture: chalk-attack
+            expect: failure
+          - fixture: clean
+            expect: success
     runs-on: ubuntu-latest
-    name: mene · ${{ matrix.fixture }}
+    name: mene · ${{ matrix.fixture }} (expect ${{ matrix.expect }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/mene-cache
-          key: mene-cache-${{ github.run_id }}
+          key: mene-cache-${{ github.run_id }}-${{ matrix.fixture }}
           restore-keys: mene-cache-
-      - uses: ./action
+      - id: mene
+        uses: ./action
+        continue-on-error: true
         with:
           lockfile: examples/${{ matrix.fixture }}/package-lock.json
-          threshold: 2
+      - name: Check the outcome
+        run: |
+          echo "Mene step: ${{ steps.mene.outcome }} (matches: ${{ steps.mene.outputs.matches }}), expected: ${{ matrix.expect }}"
+          test "${{ steps.mene.outcome }}" = "${{ matrix.expect }}"
+          # A poisoned run must fail because of matches, not because Mene couldn't verify (exit 2).
+          if [ "${{ matrix.expect }}" = "failure" ]; then test "${{ steps.mene.outputs.matches }}" -ge 1; fi

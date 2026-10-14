@@ -1,0 +1,25 @@
+# Read-only checks against the live Tiramisu node. No keys needed.
+name: arkiv-smoke
+on:
+  workflow_dispatch:
+    inputs:
+      witnesses:
+        description: "Witness addresses to read (space-separated). Default: the configured demo witnesses."
+        required: false
+  push:
+    paths: ["packages/sdk/src/**", "scripts/smoke.ts", ".github/workflows/arkiv-smoke.yml"]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Query Tiramisu
+        run: |
+          W="${{ github.event.inputs.witnesses }}"
+          if [ -z "$W" ]; then W=$(node -e "const s=require('fs').readFileSync('site/src/data/witnesses.json','utf8');console.log(JSON.parse(s).map(w=>w.address).join(' '))"); fi
+          npx tsx scripts/smoke.ts $W | tee smoke.log
+      - uses: actions/upload-artifact@v4
+        with: { name: smoke-log, path: smoke.log }

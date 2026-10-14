@@ -14,8 +14,10 @@ A forged advisory from an unknown wallet is never returned, because no trusted w
 ## Quorum
 With trusted witnesses *T* and threshold *k* (default 2 of 3):
 1. Read every attestation created by each witness in *T*.
-2. Keep each witness's **latest** attestation per advisory (by block, then `issuedAt`).
-3. **WITHDRAWN** if at least *k* latest verdicts are `withdraw`. Otherwise **ACTIVE** if at least *k* are `confirm`. Otherwise **PENDING n/k**.
+2. Take each witness's **latest** verdict per advisory (by block, then `issuedAt`).
+3. **WITHDRAWN** if at least *k* latest verdicts are `withdraw`. Otherwise **ACTIVE** if at least *k* witnesses have ever confirmed. Otherwise **PENDING n/k**.
+
+Confirmations are sticky on purpose. Suppose A and B confirm and C stays silent. If a thief withdraws with A's stolen key, the advisory stays ACTIVE, because undoing a warning needs a withdrawal quorum, just like creating one needs a confirmation quorum.
 4. Read the advisory entity by key. Its own creator need not be trusted. It is readonly, and the attestations commit to its key, so its content can't change after witnesses sign off on it. Mene rejects advisories that aren't readonly or aren't valid OSV.
 
 ## Anti-burial

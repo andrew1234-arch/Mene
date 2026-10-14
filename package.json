@@ -21,7 +21,9 @@
     "seed": "tsx scripts/seed.ts",
     "build:action": "tsup --config action/tsup.config.ts",
     "site:dev": "npm run dev -w site",
-    "site:build": "npm run build -w site"
+    "site:build": "npm run build -w site",
+    "attack": "tsx scripts/attack.ts",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

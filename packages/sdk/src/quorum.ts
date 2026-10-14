@@ -49,7 +49,9 @@ export interface AdvisoryStatus {
   status: StatusKind
   /** For MISSING: the status the advisory had before it disappeared. */
   was?: StatusKind
+  /** Trusted witnesses that have ever confirmed (sticky until a withdrawal quorum). */
   confirmers: string[]
+  /** Trusted witnesses whose latest verdict is withdraw. */
   withdrawers: string[]
   threshold: number
   /** Latest attestation per trusted issuer. */
@@ -134,7 +136,9 @@ export function resolveStatus(input: ResolveInput): ResolveOutput {
       if (!cur || newer(a, cur)) latest.set(a.issuer, a)
     }
     const witnesses = [...latest.values()].sort((a, b) => a.createdAt - b.createdAt)
-    const confirmers = witnesses.filter((w) => w.verdict === "confirm").map((w) => w.issuer)
+    // Confirmations are sticky: a witness that ever confirmed keeps counting until a withdrawal
+    // quorum exists. Otherwise one stolen key could un-enforce a real warning by withdrawing.
+    const confirmers = [...new Set(atts.filter((a) => a.verdict === "confirm").map((a) => a.issuer))]
     const withdrawers = witnesses.filter((w) => w.verdict === "withdraw").map((w) => w.issuer)
     const vanished = atts.filter((a) => !liveKeys.has(a.key))
 
