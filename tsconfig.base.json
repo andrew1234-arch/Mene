@@ -10,6 +10,14 @@
     "resolveJsonModule": true,
     "declaration": true,
     "isolatedModules": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@mene/sdk": [
+        "packages/sdk/src/index.ts"
+      ]
+    }
   }
 }

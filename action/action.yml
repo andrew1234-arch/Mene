@@ -1,0 +1,28 @@
+name: "Mene — poisoned package check"
+description: "Fails the build when package-lock.json contains a version that a quorum of trusted witnesses has flagged on Arkiv."
+author: "Mene"
+branding:
+  icon: "shield"
+  color: "yellow"
+inputs:
+  lockfile:
+    description: "Path to package-lock.json"
+    default: "package-lock.json"
+  issuers:
+    description: "Comma-separated trusted witness addresses (defaults to the Mene demo witnesses)"
+    default: ""
+  threshold:
+    description: "How many witnesses must confirm"
+    default: "2"
+  min-severity:
+    description: "low | medium | high | critical"
+    default: "low"
+  rpc-url:
+    description: "Arkiv RPC URL"
+    default: "https://rpc.tiramisu.db-chain.testnet.arkiv.network"
+outputs:
+  matches:
+    description: "Number of poisoned packages found"
+runs:
+  using: "node20"
+  main: "dist/index.mjs"
