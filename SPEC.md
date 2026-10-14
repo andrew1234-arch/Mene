@@ -33,7 +33,7 @@ npm workspaces, TypeScript strict, Node ≥ 20, vitest, tsup.
 ```
 packages/sdk     @mene/sdk  — OSV payload types, attributes, Arkiv read/write, quorum, lockfile, matcher
 packages/cli     @mene/cli  — bin: mene
-action/          GitHub Action (action.yml + bundled dist/, node20)
+action/          GitHub Action (action.yml + bundled dist/, node24)
 site/            Astro + Starlight static site → GitHub Pages (see DESIGN.md)
 examples/chalk-attack/package-lock.json   fixture, never installed
 examples/clean/package-lock.json          control fixture
