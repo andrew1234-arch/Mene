@@ -16,18 +16,6 @@ import defaultWitnessesJson from "../data/witnesses.json"
 
 const PREVIEW = import.meta.env.PUBLIC_MENE_PREVIEW === "1"
 
-/** The README and arkiv/schema.md are the docs. */
-const REPO = "https://github.com/andrew1234-arch/Mene"
-export const DOCS = {
-  quickstart: `${REPO}#quickstart`,
-  cli: `${REPO}#cli`,
-  action: `${REPO}#github-action`,
-  trust: `${REPO}#trust-model`,
-  threats: `${REPO}#threat-model`,
-  schema: `${REPO}/blob/main/arkiv/schema.md`,
-  friction: `${REPO}/blob/main/arkiv/friction.md`,
-  evidence: `${REPO}/blob/main/arkiv/evidence.md`,
-}
 const defaultWitnesses = PREVIEW ? SAMPLE_WITNESSES : defaultWitnessesJson
 
 /** Site root. Preview builds use relative files, so the root is found from this chunk's URL. */

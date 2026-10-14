@@ -1,4 +1,5 @@
 ---
+import { DOCS, REPO } from "../config"
 import "../styles/global.css"
 interface Props {
   title: string
@@ -18,7 +19,6 @@ const links = [
   ["/check", "Check"],
   ["/witnesses", "Witnesses"],
 ]
-const REPO = "https://github.com/andrew1234-arch/Mene"
 ---
 <!doctype html>
 <html lang="en">
@@ -68,9 +68,9 @@ const REPO = "https://github.com/andrew1234-arch/Mene"
         <p>Advisories live on Arkiv, the Web3 database. This site reads them straight from your browser. There is no Mene server.</p>
       </div>
       <nav aria-label="Footer">
-        <a href={`${REPO}#trust-model`}>Trust model</a>
-        <a href={`${REPO}/blob/main/arkiv/schema.md`}>Data contract (schema.md)</a>
-        <a href={`${REPO}#github-action`}>GitHub Action</a>
+        <a href={DOCS.trust}>Trust model</a>
+        <a href={DOCS.schema}>Data contract (schema.md)</a>
+        <a href={DOCS.action}>GitHub Action</a>
         <a href={REPO}>Source (MIT)</a>
         <span class="muted">Tiramisu testnet</span>
       </nav>

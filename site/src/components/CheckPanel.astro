@@ -45,7 +45,8 @@ const { compact = false } = Astro.props
   import { directDependencies, LockfileError, matchLockfile, parseLockfile, planFixes, type Match } from "@mene/sdk"
   import chalkAttackLock from "../../../examples/chalk-attack/package-lock.json?raw"
   import cleanLock from "../../../examples/clean/package-lock.json?raw"
-  import { advisoryUrl, DOCS, esc, loadWall, sevBadge, showError, chip, toast } from "../scripts/mene"
+  import { DOCS } from "../config"
+  import { advisoryUrl, esc, loadWall, sevBadge, showError, chip, toast } from "../scripts/mene"
 
   const out = document.getElementById("check-out")!
   const input = document.getElementById("check-input")!

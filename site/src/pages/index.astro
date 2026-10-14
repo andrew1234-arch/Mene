@@ -1,8 +1,8 @@
 ---
 import CheckPanel from "../components/CheckPanel.astro"
+import { DOCS, REPO } from "../config"
 import Base from "../layouts/Base.astro"
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
-const REPO = "https://github.com/andrew1234-arch/Mene"
 ---
 <Base title="Mene">
   <section class="hero">
@@ -13,7 +13,7 @@ const REPO = "https://github.com/andrew1234-arch/Mene"
       <div class="cta">
         <a class="btn primary" href={`${base}/wall`}>Read the wall</a>
         <a class="btn" href={`${base}/check`}>Check your lockfile</a>
-        <a class="btn" href={`${REPO}#github-action`}>Add to CI</a>
+        <a class="btn" href={DOCS.action}>Add to CI</a>
       </div>
       <dl class="counters" aria-live="polite">
         <div><dt>Active advisories</dt><dd id="c-active">…</dd></div>
@@ -27,15 +27,15 @@ const REPO = "https://github.com/andrew1234-arch/Mene"
   <section class="grid3 panels">
     <article class="card">
       <p class="word">Mene — numbered</p>
-      <p>Every advisory is written to Arkiv and counted. It is a readonly entity, sealed to the burn address in the same transaction, so not even its author can delete it. <a href={`${REPO}#trust-model`}>How</a></p>
+      <p>Every advisory is written to Arkiv and counted. It is a readonly entity, sealed to the burn address in the same transaction, so not even its author can delete it. <a href={DOCS.trust}>How</a></p>
     </article>
     <article class="card">
       <p class="word">Tekel — weighed</p>
-      <p>Independent witnesses weigh it, and 2 of 3 must confirm. Mene counts a confirmation by the wallet that signed it, so one hacked witness can neither forge a warning nor bury one. <a href={`${REPO}#trust-model`}>Why</a></p>
+      <p>Independent witnesses weigh it, and 2 of 3 must confirm. Mene counts a confirmation by the wallet that signed it, so one hacked witness can neither forge a warning nor bury one. <a href={DOCS.trust}>Why</a></p>
     </article>
     <article class="card">
       <p class="word">Upharsin — divided</p>
-      <p>The poisoned version is cut from your build. Your lockfile is matched on your machine, and CI fails until you install the safe version. <a href={`${REPO}#github-action`}>Setup</a></p>
+      <p>The poisoned version is cut from your build. Your lockfile is matched on your machine, and CI fails until you install the safe version. <a href={DOCS.action}>Setup</a></p>
     </article>
   </section>
 
@@ -96,7 +96,7 @@ node packages/cli/dist/index.js check --lockfile ../app/package-lock.json
       <tr><td>Time</td><td>Let advisories expire</td><td>Any wallet can pay for a Lifetime Extension with <code>mene keepalive</code>. No permission needed.</td></tr>
     </tbody>
   </table></div>
-  <p class="small"><a href={`${REPO}#threat-model`}>Threat model and limitations in the README →</a></p>
+  <p class="small"><a href={DOCS.threats}>Threat model and limitations in the README →</a></p>
 </Base>
 
 <style>
