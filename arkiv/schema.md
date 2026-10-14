@@ -94,7 +94,7 @@ curl -s https://rpc.tiramisu.db-chain.testnet.arkiv.network -H 'content-type: ap
 ```
 
 ## Status rule
-See SPEC.md "Quorum algorithm". `WITHDRAWN` if ≥ k trusted witnesses' latest verdict is withdraw; else `ACTIVE` if ≥ k trusted witnesses have ever confirmed (a confirmation stays counted until a withdrawal quorum); else `PENDING n/k`. An attested advisory that is no longer readable is `MISSING (was …)` and stays enforced when it was ACTIVE.
+See SPEC.md "Quorum algorithm". `WITHDRAWN` if ≥ k trusted witnesses' latest verdict is withdraw; else `ACTIVE` once k trusted witnesses have confirmed at the same time (replaying verdicts in chain order), after which only a withdrawal quorum undoes it; else `PENDING n/k`. An attested advisory that is no longer readable is `MISSING (was …)` and stays enforced when it was ACTIVE.
 
 ## What is deliberately NOT on Arkiv
 Lockfiles, dependency lists, which packages a user runs, trust lists, private keys.

@@ -137,7 +137,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
             <h3>Witnesses</h3>
             <p class="small muted">${s ? statusText[s.status] : "No trusted witness has attested to this advisory."}</p>
             <div class="meter" aria-label="${confirms} of ${k} confirmations">${Array.from({ length: Math.max(k, trust.issuers.length) }, (_, i) => `<i class="${i < confirms ? "on" : ""}"></i>`).join("")}</div>
-            <p class="small">${confirms} of ${k} confirmations needed</p>
+            <p class="small">${confirms} confirm now · ${k} needed${s?.activated && confirms < k && s.status === "ACTIVE" ? " · stays active until a withdrawal quorum" : ""}</p>
             <ul class="wlist">${trust.issuers.map((i) => {
               const w = latest.get(i.address.toLowerCase())
               return `<li><span>${esc(i.name || "Witness")} ${addrHtml(i.address)}</span><span class="v-${w?.verdict ?? "none"}">${w ? (w.verdict === "confirm" ? "✓ confirmed" : "✗ withdrew") : "—"}</span></li>`

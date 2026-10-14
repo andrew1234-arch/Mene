@@ -2411,12 +2411,18 @@ function resolveStatus(input2) {
       if (!cur || newer(a, cur)) latest.set(a.issuer, a);
     }
     const witnesses = [...latest.values()].sort((a, b) => a.createdAt - b.createdAt);
-    const confirmers = [...new Set(atts.filter((a) => a.verdict === "confirm").map((a) => a.issuer))];
+    const confirmers = witnesses.filter((w) => w.verdict === "confirm").map((w) => w.issuer);
     const withdrawers = witnesses.filter((w) => w.verdict === "withdraw").map((w) => w.issuer);
+    const replay = /* @__PURE__ */ new Map();
+    let activated = false;
+    for (const a of [...atts].sort((x, y) => newer(x, y) ? 1 : newer(y, x) ? -1 : 0)) {
+      replay.set(a.issuer, a.verdict);
+      if ([...replay.values()].filter((v) => v === "confirm").length >= k) activated = true;
+    }
     const vanished = atts.filter((a) => !liveKeys.has(a.key));
     let quorum;
     if (withdrawers.length >= k) quorum = "WITHDRAWN";
-    else if (confirmers.length >= k) quorum = "ACTIVE";
+    else if (activated) quorum = "ACTIVE";
     else quorum = "PENDING";
     const advisoryGone = !input2.liveAdvisories[advKey];
     const advisory = state.advisories[advKey];
@@ -2439,6 +2445,7 @@ function resolveStatus(input2) {
       was,
       confirmers,
       withdrawers,
+      activated,
       threshold: k,
       witnesses,
       vanished,

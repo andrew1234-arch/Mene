@@ -24,7 +24,7 @@ One hacked witness can neither forge a warning nor bury a real one.
 
 ### Challenges I ran into *
 - **Making "nobody can delete it" true.** `readonly` freezes content, but the owner can still delete. We transfer ownership to the burn address in the same atomic batch that creates the advisory. Keys are predicted with `predictEntityKeys` so the confirmation can point at the advisory in that same transaction.
-- **A quorum hole we found while writing the attack demo.** With "latest verdict per witness", one stolen key could withdraw and drop an ACTIVE advisory below quorum. Confirmations are now sticky until a withdrawal quorum exists (regression test in `packages/sdk/test/quorum.test.ts`).
+- **A quorum hole we found while writing the attack demo.** With "latest verdict per witness", one stolen key could withdraw and drop an ACTIVE advisory below quorum. Now verdicts are replayed in chain order: once k witnesses confirm at the same time the advisory is active, and only a withdrawal quorum undoes it. A witness can still retract its own mistaken confirmation before that (tests in `packages/sdk/test/quorum.test.ts`).
 - **Anti-burial.** A witness can still delete its own confirmation. Clients remember what they've seen and keep counting it, and the site raises a deletion alarm.
 - **No backend, on purpose.** Everything, including browser-wallet publishing, runs from a static site straight against Tiramisu.
 
@@ -72,7 +72,7 @@ https://github.com/andrew1234-arch/Mene/blob/main/arkiv/friction.md
 TODO: copy from [arkiv/evidence.md](https://github.com/andrew1234-arch/Mene/blob/main/arkiv/evidence.md) after seeding:
 - Witness A: publishes the chalk and debug advisories, confirms the false alarm, then withdraws it
 - Witness B: confirms chalk and debug
-- Witness C: publishes the synthetic false alarm and withdraws it
+- Witness C: confirms chalk and debug; publishes the synthetic false alarm and withdraws it
 - Forger (untrusted): publishes forged advisories that must never appear
 - Keeper: any wallet; demonstrates permissionless Lifetime Extension
 
@@ -80,7 +80,7 @@ TODO: copy from [arkiv/evidence.md](https://github.com/andrew1234-arch/Mene/blob
 https://github.com/andrew1234-arch/Mene/blob/main/arkiv/schema.md
 
 ### 8. How can judges reproduce your Arkiv usage? *
-1. Open the live app, then **The Wall**. chalk 5.6.1 and debug 4.4.2 show **ACTIVE** (2 of 2 confirmations); the false alarm shows **WITHDRAWN**.
+1. Open the live app, then **The Wall**. chalk 5.6.1 and debug 4.4.2 show **ACTIVE** (3 of 3 witnesses confirm); the false alarm shows **WITHDRAWN**.
 2. On the home page, click **Try an example: poisoned**. It finds chalk 5.6.1 and debug 4.4.2 and gives `npm install debug@4.4.1 chalk@5.6.0`.
 3. Open an advisory and expand **Verify it yourself**. It shows the exact query; run it with the SDK or the `curl` shown:
    `project = str('mene-v1') AND type = str('attestation') AND $creator = addr(<witness>)`

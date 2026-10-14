@@ -1,6 +1,6 @@
 /**
  * Seeds the demo state on Tiramisu and records every address/tx in arkiv/evidence.md.
- *   A publishes chalk + debug (sealed) → B confirms both → ACTIVE
+ *   A publishes chalk + debug (sealed) → B and C confirm both → ACTIVE (3 of 3)
  *   C publishes the synthetic false alarm → A confirms (ACTIVE) → A and C withdraw → WITHDRAWN
  *   Forger publishes a fake advisory → never appears (not a trusted creator)
  * Run: `npm run seed` (needs .env from `npx tsx scripts/keys.ts`, funded).
@@ -18,7 +18,8 @@ import {
 import { loadEnv, need } from "./env"
 
 loadEnv()
-const SEAL = (process.env.MENE_SEAL_MODE ?? "batch") as "batch" | "separate" | "none"
+const SEAL = (process.env.MENE_SEAL_MODE || "batch") as "batch" | "separate" | "none"
+if (!["batch", "separate", "none"].includes(SEAL)) throw new Error(`MENE_SEAL_MODE must be batch, separate or none, got ${SEAL}`)
 const pub = publicClient()
 const A = walletClient(need("MENE_ISSUER_A_KEY"))
 const B = walletClient(need("MENE_ISSUER_B_KEY"))
@@ -53,6 +54,9 @@ const debug = await publishAdvisory(pub, A, osv("MENE-2025-0002-debug.osv.json")
 note(`A publishes debug advisory ${debug.advisoryKey}`, debug.txHash)
 note("B confirms chalk", (await attest(pub, B, chalk.advisoryKey, "confirm")).txHash)
 note("B confirms debug", (await attest(pub, B, debug.advisoryKey, "confirm")).txHash)
+// C confirms too (3 of 3), so after the stolen-key demo removes A's support chalk stays 2 of 3.
+note("C confirms chalk", (await attest(pub, C, chalk.advisoryKey, "confirm")).txHash)
+note("C confirms debug", (await attest(pub, C, debug.advisoryKey, "confirm")).txHash)
 
 const fake = await publishAdvisory(pub, C, osv("MENE-2026-9001-false-alarm.osv.json"), { sealMode: SEAL })
 note(`C publishes false alarm ${fake.advisoryKey}`, fake.txHash)

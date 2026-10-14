@@ -74,8 +74,8 @@ The advisory payload follows the OpenSSF **OSV schema** (the format used by osv.
 Inputs: trusted issuers T, threshold k (default 2).
 1. For each t ∈ T, page `select("*").where(and(eq("project","mene-v1"), eq("type","attestation"))).createdBy(t)`.
 2. Group by `advisory` key. Keep each issuer's **latest** attestation per advisory (highest `createdAt`).
-3. confirmers = distinct issuers that have **ever** confirmed (sticky); withdrawers = issuers whose latest verdict is `withdraw`. Sticky confirmations mean one stolen key can't un-enforce an advisory by withdrawing: only a withdrawal quorum can.
-4. Status: `WITHDRAWN` if |withdrawers| ≥ k; else `ACTIVE` if |confirmers| ≥ k; else `PENDING n/k`.
+3. confirmers = issuers whose latest verdict is `confirm`; withdrawers = those with `withdraw`. Replaying verdicts in chain order, the advisory is **activated** once k witnesses confirm at the same time.
+4. Status: `WITHDRAWN` if |withdrawers| ≥ k; else `ACTIVE` if activated; else `PENDING n/k` (n = |confirmers|). After activation only a withdrawal quorum undoes it, so one stolen key can't bury a live warning; before activation a witness can retract its own confirm.
 5. `getEntity(key)` for each advisory. Its creator need not be trusted: readonly plus key-pinned attestations make that safe. Reject it if not readonly or schema-invalid.
 6. **Anti-burial cache** (`~/.cache/mene/state.json`; `actions/cache` in CI):
    - Store every advisory and confirm ever seen.

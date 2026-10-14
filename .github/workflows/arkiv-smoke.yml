@@ -17,9 +17,16 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - name: Query Tiramisu
+        shell: bash
+        env:
+          WITNESSES: ${{ github.event.inputs.witnesses }}
         run: |
-          W="${{ github.event.inputs.witnesses }}"
+          set -o pipefail
+          W="$WITNESSES"
           if [ -z "$W" ]; then W=$(node -e "const s=require('fs').readFileSync('site/src/data/witnesses.json','utf8');console.log(JSON.parse(s).map(w=>w.address).join(' '))"); fi
-          npx tsx scripts/smoke.ts $W | tee smoke.log
+          # Only pass well-formed addresses through to the script.
+          ARGS=()
+          for a in $W; do [[ "$a" =~ ^0x[0-9a-fA-F]{40}$ ]] && ARGS+=("$a") || echo "skipping invalid address: $a"; done
+          npx tsx scripts/smoke.ts "${ARGS[@]}" | tee smoke.log
       - uses: actions/upload-artifact@v4
         with: { name: smoke-log, path: smoke.log }

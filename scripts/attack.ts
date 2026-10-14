@@ -4,6 +4,7 @@
  *   1. delete the sealed chalk advisory with A's key   -> must revert (owner is the burn address)
  *   2. delete A's own chalk confirmation               -> succeeds; clients that saw it keep counting it
  *   3. withdraw chalk with A's key                     -> one withdrawal is not a quorum: still ACTIVE
+ * Seed has B and C confirm chalk as well, so it stays ACTIVE (2 of 3) even for readers with no memory.
  *   4. forger publishes "chalk 5.6.0 is malicious"     -> never appears for trusted readers
  */
 import { appendFileSync } from "node:fs"
@@ -25,10 +26,11 @@ const B = walletClient(need("MENE_ISSUER_B_KEY"))
 const C = walletClient(need("MENE_ISSUER_C_KEY"))
 const F = walletClient(need("MENE_FORGER_KEY"))
 const issuers = [A, B, C].map((w) => w.account!.address)
-const log: string[] = [`\n## Attack demo ${new Date().toISOString()}\n`]
+// Evidence is appended line by line, so tx hashes of irreversible steps survive a later failure.
+appendFileSync("arkiv/evidence.md", `\n## Attack demo ${new Date().toISOString()}\n\n`)
 const say = (s: string) => {
   console.log(s)
-  log.push(s)
+  appendFileSync("arkiv/evidence.md", `${s}\n`)
 }
 const status = async (state?: Parameters<typeof resolveStatus>[0]["state"]) => {
   const live = await readLive(pub, issuers)
@@ -73,4 +75,3 @@ say(`- Forger ${F.account!.address} publishes a fake advisory ${forged.advisoryK
 const visible = (await status()).statuses.some((s) => s.key === forged.advisoryKey.toLowerCase())
 say(`- Visible to readers who trust A, B, C: **${visible ? "YES (bug!)" : "no"}**`)
 
-appendFileSync("arkiv/evidence.md", `${log.join("\n")}\n`)

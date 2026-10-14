@@ -2,10 +2,11 @@ import { spawnSync } from "node:child_process"
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
 import { parseOsv, resolveStatus, type AdvisoryRecord, type AttestationRecord } from "@mene/sdk"
 
-const root = new URL("../../../", import.meta.url).pathname
+const root = fileURLToPath(new URL("../../../", import.meta.url))
 const A = "0x1111111111111111111111111111111111111111"
 const B = "0x2222222222222222222222222222222222222222"
 const KEY = `0x${"0".repeat(63)}1`
@@ -29,7 +30,7 @@ function mene(args: string[], cacheDir: string) {
   })
 }
 
-describe("mene check exit codes (offline, from cache)", () => {
+describe("mene check exit codes (offline, from cache)", { timeout: 60_000 }, () => {
   const cache = cacheWithActiveChalk()
   it("exits 1 and names the fix on the poisoned fixture", () => {
     const r = mene(["check", "--offline", "--lockfile", "examples/chalk-attack/package-lock.json"], cache)

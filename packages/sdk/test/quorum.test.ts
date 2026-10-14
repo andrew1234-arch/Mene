@@ -53,7 +53,15 @@ describe("resolveStatus", () => {
       liveAttestations: [att(A, "confirm", 1), att(B, "confirm", 2), att(A, "withdraw", 3)],
       liveAdvisories: live,
     })
-    expect(statuses[0]).toMatchObject({ status: "ACTIVE", enforced: true, withdrawers: [A] })
+    expect(statuses[0]).toMatchObject({ status: "ACTIVE", enforced: true, withdrawers: [A], confirmers: [B] })
+  })
+  it("a witness can retract its own confirmation before the quorum is reached", () => {
+    const { statuses } = resolveStatus({
+      issuers, threshold: 2,
+      liveAttestations: [att(A, "confirm", 1), att(A, "withdraw", 2), att(B, "confirm", 3)],
+      liveAdvisories: live,
+    })
+    expect(statuses[0]).toMatchObject({ status: "PENDING", label: "PENDING 1/2", enforced: false })
   })
   it("a deleted confirm still counts from the cache (anti-burial)", () => {
     const a = att(A, "confirm", 1)

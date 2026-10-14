@@ -268,7 +268,7 @@ export function advCard(s: AdvisoryStatus): string {
   const confirms = s.confirmers.length
   return `<li><a class="adv ${s.status === "WITHDRAWN" ? "withdrawn" : ""}" href="${advisoryUrl(s.key)}">
     <div class="t"><span class="pk">${esc(pkgs)}</span>${sevBadge(o?.database_specific.severity)}</div>
-    <div class="right">${chip(s)}<span class="wit">${confirms}/${s.threshold} confirmations</span></div>
+    <div class="right">${chip(s)}<span class="wit">${confirms} of ${getTrust().issuers.length} witnesses confirm</span></div>
     <div class="sum"><span class="id">${esc(o?.id ?? short(s.key))}</span> · ${esc(o?.summary ?? "")}${o?.published ? ` · ${esc(fmtDate(o.published))}` : ""}</div>
   </a></li>`
 }

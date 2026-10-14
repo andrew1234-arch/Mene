@@ -49,10 +49,12 @@ export interface AdvisoryStatus {
   status: StatusKind
   /** For MISSING: the status the advisory had before it disappeared. */
   was?: StatusKind
-  /** Trusted witnesses that have ever confirmed (sticky until a withdrawal quorum). */
+  /** Trusted witnesses whose latest verdict is confirm. */
   confirmers: string[]
   /** Trusted witnesses whose latest verdict is withdraw. */
   withdrawers: string[]
+  /** Reached k simultaneous confirmations at some point; stays ACTIVE until a withdrawal quorum. */
+  activated: boolean
   threshold: number
   /** Latest attestation per trusted issuer. */
   witnesses: AttestationRecord[]
@@ -136,15 +138,22 @@ export function resolveStatus(input: ResolveInput): ResolveOutput {
       if (!cur || newer(a, cur)) latest.set(a.issuer, a)
     }
     const witnesses = [...latest.values()].sort((a, b) => a.createdAt - b.createdAt)
-    // Confirmations are sticky: a witness that ever confirmed keeps counting until a withdrawal
-    // quorum exists. Otherwise one stolen key could un-enforce a real warning by withdrawing.
-    const confirmers = [...new Set(atts.filter((a) => a.verdict === "confirm").map((a) => a.issuer))]
+    const confirmers = witnesses.filter((w) => w.verdict === "confirm").map((w) => w.issuer)
     const withdrawers = witnesses.filter((w) => w.verdict === "withdraw").map((w) => w.issuer)
+    // Replay verdicts in chain order. Once k witnesses confirm at the same time the advisory is
+    // activated, and from then on only a withdrawal quorum undoes it: one stolen key can't bury a
+    // live warning by withdrawing. Before activation, a witness may freely retract its confirm.
+    const replay = new Map<string, Verdict>()
+    let activated = false
+    for (const a of [...atts].sort((x, y) => (newer(x, y) ? 1 : newer(y, x) ? -1 : 0))) {
+      replay.set(a.issuer, a.verdict)
+      if ([...replay.values()].filter((v) => v === "confirm").length >= k) activated = true
+    }
     const vanished = atts.filter((a) => !liveKeys.has(a.key))
 
     let quorum: StatusKind
     if (withdrawers.length >= k) quorum = "WITHDRAWN"
-    else if (confirmers.length >= k) quorum = "ACTIVE"
+    else if (activated) quorum = "ACTIVE"
     else quorum = "PENDING"
 
     const advisoryGone = !input.liveAdvisories[advKey]
@@ -176,6 +185,7 @@ export function resolveStatus(input: ResolveInput): ResolveOutput {
       was,
       confirmers,
       withdrawers,
+      activated,
       threshold: k,
       witnesses,
       vanished,
