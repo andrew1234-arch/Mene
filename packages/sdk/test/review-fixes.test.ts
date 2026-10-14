@@ -36,3 +36,39 @@ describe("review fixes", () => {
     ])
   })
 })
+
+import { migrateState } from "../src/quorum"
+import { normalizeSeverity } from "../src/constants"
+import { mirrorRecord, PersonalDataError } from "../src/mirror"
+import { recommendedOf } from "../src/osv"
+
+describe("review fixes (hand-off v2)", () => {
+  it("migrates v1 state: keeps attestations, drops old-format advisories", () => {
+    const v1 = {
+      version: 1,
+      advisories: { "0xa": { osv: { database_specific: { mene_version: 1, severity: "critical" } } }, "0xb": { osv: { database_specific: { mene: { severity: "high" } } } } },
+      attestations: { "0xc": { key: "0xc", advisory: "0xa", issuer: "0x1", verdict: "confirm", createdAt: 5, issuedAt: 7 } },
+      lastStatus: { "0xa": "ACTIVE" },
+    }
+    const s = migrateState(v1)!
+    expect(s.version).toBe(2)
+    expect(Object.keys(s.advisories)).toEqual(["0xb"])
+    expect(s.attestations["0xc"]!.attestedAt).toBe(7)
+    expect(migrateState({ version: 9 })).toBeUndefined()
+  })
+  it("accepts 'medium' as 'moderate'", () => {
+    expect(normalizeSeverity("medium")).toBe("moderate")
+    expect(normalizeSeverity("bogus")).toBeUndefined()
+  })
+  it("never rewrites mirrored text: skips records that contain an e-mail address", () => {
+    const raw = JSON.parse(readFileSync(new URL("./fixtures/ossf-MAL-2025-46974.json", import.meta.url), "utf8"))
+    const ok = mirrorRecord({ ...raw, details: "install debug@4.4.2.tgz from git@github.com:x/y" }, { path: "p" })
+    expect(ok.details).toBe("install debug@4.4.2.tgz from git@github.com:x/y")
+    expect(() => mirrorRecord({ ...raw, details: "contact jane.doe@example.org" }, { path: "p" })).toThrow(PersonalDataError)
+  })
+  it("recommended version applies only to the primary package", () => {
+    const a = { ...chalk, affected: [...chalk.affected, { package: { ecosystem: "npm", name: "chalk-template" }, versions: ["1.1.1"] }] }
+    expect(recommendedOf(a, "chalk")).toBe("5.6.0")
+    expect(recommendedOf(a, "chalk-template")).toBeUndefined()
+  })
+})

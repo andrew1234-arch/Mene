@@ -1,7 +1,7 @@
 import {
   type AdvisoryStatus,
   DEFAULT_THRESHOLD,
-  emptyState,
+  migrateState,
   explorer,
   type MeneState,
   publicClient,
@@ -77,8 +77,7 @@ export const isTrusted = (a: string) => getTrust().issuers.some((i) => i.address
 
 /** The browser's own anti-burial memory: what this browser has seen before. */
 export function getState(): MeneState | undefined {
-  const s = store.get<MeneState>("mene:state")
-  return s?.version === 1 ? { ...emptyState(), ...s } : undefined
+  return migrateState(store.get<unknown>("mene:state"))
 }
 
 let _pub: ReturnType<typeof publicClient> | undefined
@@ -90,6 +89,7 @@ export interface Wall {
   invalid: Record<string, string>
   trust: Trust
   at: number
+  v: 2
 }
 
 let inflight: Promise<Wall> | undefined
@@ -98,7 +98,7 @@ let inflight: Promise<Wall> | undefined
 export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
   if (!opts.fresh) {
     const cached = store.get<Wall>("mene:wall", "session")
-    if (cached && Date.now() - cached.at < 20_000) return cached
+    if (cached && cached.v === 2 && Date.now() - cached.at < 20_000) return cached
   }
   inflight ??= (async () => {
     try {
@@ -113,7 +113,7 @@ export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
         state: getState(),
       })
       store.set("mene:state", out.state)
-      const wall: Wall = { statuses: out.statuses, blockNumber: live.blockNumber.toString(), invalid: live.invalid, trust, at: Date.now() }
+      const wall: Wall = { statuses: out.statuses, blockNumber: live.blockNumber.toString(), invalid: live.invalid, trust, at: Date.now(), v: 2 }
       store.set("mene:wall", wall, "session")
       setConnection({ ok: true, block: wall.blockNumber })
       return wall
@@ -129,7 +129,8 @@ export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
 
 /** A wall that renders now and re-renders once a fresh read lands. Retries on failure. */
 export function watchWall(render: (w: Wall) => void, onError: (err: unknown, retry: () => void) => void) {
-  const cached = store.get<Wall>("mene:wall", "session")
+  const c = store.get<Wall>("mene:wall", "session")
+  const cached = c?.v === 2 ? c : undefined
   if (cached) render(cached)
   let timer: ReturnType<typeof setTimeout> | undefined
   const run = () => {

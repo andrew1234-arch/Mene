@@ -2184,6 +2184,10 @@ var SEVERITIES = ["low", "moderate", "high", "critical"];
 function isSeverity(s) {
   return SEVERITIES.includes(s);
 }
+function normalizeSeverity(s) {
+  const v = s === "medium" ? "moderate" : s;
+  return isSeverity(v) ? v : void 0;
+}
 
 // packages/sdk/src/osv.ts
 var import_semver = __toESM(require_semver2(), 1);
@@ -2248,8 +2252,11 @@ function isSafeUrl(url) {
     return false;
   }
 }
-var severityOf = (a) => a.database_specific.mene.severity;
-var recommendedOf = (a) => a.database_specific.mene.recommended;
+var severityOf = (a) => a.database_specific?.mene?.severity ?? "critical";
+var recommendedOf = (a, pkg = primaryPackage(a)) => pkg === primaryPackage(a) ? a.database_specific?.mene?.recommended : void 0;
+function primaryPackage(a) {
+  return a.affected[0].package.name;
+}
 
 // packages/sdk/src/lockfile.ts
 var LockfileError = class extends Error {
@@ -2363,7 +2370,7 @@ function matchLockfile(installed, advisories, minSeverity = "low") {
           path: p.path,
           severity,
           status,
-          safeVersion: recommendedOf(advisory),
+          safeVersion: recommendedOf(advisory, p.name),
           summary: advisory.summary
         });
       }
@@ -2374,7 +2381,23 @@ function matchLockfile(installed, advisories, minSeverity = "low") {
 
 // packages/sdk/src/quorum.ts
 function emptyState() {
-  return { version: 1, advisories: {}, attestations: {}, lastStatus: {}, wasStatus: {} };
+  return { version: 2, advisories: {}, attestations: {}, lastStatus: {}, wasStatus: {} };
+}
+function migrateState(raw) {
+  const s = raw;
+  if (!s || typeof s !== "object") return void 0;
+  if (s.version === 2) return { ...emptyState(), ...s, version: 2 };
+  if (s.version !== 1) return void 0;
+  const advisories = {};
+  for (const [k, a] of Object.entries(s.advisories ?? {})) {
+    if (a?.osv?.database_specific?.mene) advisories[k] = a;
+  }
+  const attestations = {};
+  for (const [k, a] of Object.entries(s.attestations ?? {})) {
+    const old = a;
+    attestations[k] = { ...old, attestedAt: old.attestedAt ?? old.issuedAt ?? 0 };
+  }
+  return { ...emptyState(), lastStatus: s.lastStatus ?? {}, wasStatus: s.wasStatus ?? {}, advisories, attestations };
 }
 var lc = (s) => s.toLowerCase();
 function newer(a, b) {
@@ -2387,7 +2410,7 @@ function resolveStatus(input2) {
   const k = input2.threshold;
   const prev = input2.state ?? emptyState();
   const state = {
-    version: 1,
+    version: 2,
     advisories: { ...prev.advisories },
     attestations: { ...prev.attestations },
     lastStatus: { ...prev.lastStatus },
@@ -12143,8 +12166,8 @@ function loadConfig(path, overrides = {}) {
   const threshold = Number(raw.threshold ?? process.env.MENE_THRESHOLD ?? DEFAULT_THRESHOLD);
   if (!Number.isInteger(threshold) || threshold < 1) throw new Error("threshold must be a positive integer");
   if (issuers.length > 0 && threshold > issuers.length) throw new Error("threshold exceeds the number of issuers");
-  const minSeverity = raw.minSeverity ?? "low";
-  if (!isSeverity(minSeverity)) throw new Error(`invalid minSeverity: ${minSeverity}`);
+  const minSeverity = normalizeSeverity(raw.minSeverity ?? "low");
+  if (!minSeverity) throw new Error(`invalid minSeverity: ${raw.minSeverity} (use low, moderate, high or critical)`);
   return { issuers, threshold, minSeverity, rpcUrl: raw.rpcUrl ?? process.env.MENE_RPC_URL };
 }
 function cachePath() {
@@ -12160,8 +12183,9 @@ function loadState() {
   } catch {
     throw new Error(`cache ${p} is corrupt; inspect or delete it deliberately (fail closed)`);
   }
-  if (s.version !== 1) throw new Error(`cache ${p} has unknown version ${String(s.version)} (fail closed)`);
-  return { ...emptyState(), ...s };
+  const migrated = migrateState(s);
+  if (!migrated) throw new Error(`cache ${p} has unknown version ${String(s.version)} (fail closed)`);
+  return migrated;
 }
 function saveState(s) {
   const p = cachePath();
@@ -12236,8 +12260,9 @@ var output = (k, v) => process.env.GITHUB_OUTPUT && appendFileSync(process.env.G
 `);
 async function main() {
   process.env.MENE_CACHE_DIR ??= `${process.env.RUNNER_TEMP ?? "/tmp"}/mene-cache`;
-  const sev = input("min-severity") || void 0;
-  if (sev !== void 0 && !isSeverity(sev)) throw new Error(`invalid min-severity ${sev}`);
+  const sevInput = input("min-severity");
+  const sev = sevInput ? normalizeSeverity(sevInput) : void 0;
+  if (sevInput && !sev) throw new Error(`invalid min-severity ${sevInput} (use low, moderate, high or critical)`);
   const lockfile = input("lockfile") || "package-lock.json";
   const cfg = loadConfig(void 0, {
     issuers: input("issuers") ? input("issuers").split(/[\s,]+/).filter(Boolean) : void 0,

@@ -15,7 +15,7 @@ inputs:
     description: "How many witnesses must confirm (default: mene.config.json, else 2)"
     default: ""
   min-severity:
-    description: "low | medium | high | critical (default: mene.config.json, else low)"
+    description: "low | moderate | high | critical (default: mene.config.json, else low)"
     default: ""
   rpc-url:
     description: "Arkiv RPC URL (default: Tiramisu)"

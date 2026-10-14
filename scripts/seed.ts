@@ -7,7 +7,8 @@
  */
 import { execSync } from "node:child_process"
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs"
-import { attest, explorer, publicClient, publishAdvisory, walletClient } from "../packages/sdk/src/index"
+import { and, eq } from "@arkiv-network/sdk/query"
+import { attest, explorer, PROJECT, publicClient, publishAdvisory, walletClient } from "../packages/sdk/src/index"
 import { loadEnv, need } from "./env"
 
 loadEnv()
@@ -36,15 +37,28 @@ out("| Role | Address |\n|---|---|")
 for (const w of witnesses) out(`| ${w.name} (trusted) | [\`${w.address}\`](${explorer.address(w.address)}) |`)
 out(`| Keeper (untrusted: Lifetime Extension, forgery demo) | [\`${addr(K)}\`](${explorer.address(addr(K))}) |\n`)
 
+/** Already inscribed by this wallet? Re-runs must not create duplicate (sealed, undeletable) copies. */
+async function inscribed(w: typeof A, id: string) {
+  const page = await pub.select({ key: true }).where(and(eq("project", PROJECT), eq("type", "advisory"), eq("advisoryId", id))).createdBy(addr(w)).limit(1).fetch()
+  return page.entities[0]?.key
+}
+
 const fa = JSON.parse(readFileSync("advisories/MENE-2026-0001-false-alarm.osv.json", "utf8"))
-fa.published = fa.modified = new Date().toISOString().replace(/\.\d+Z$/, "Z")
-const fake = await publishAdvisory(pub, C, fa, { sealMode: SEAL })
-note(`C inscribes MENE-2026-0001 (synthetic false alarm) → \`${fake.advisoryKey}\``, fake.txHash)
-note("A confirms MENE-2026-0001", (await attest(A, fake.advisoryKey, "confirm")).txHash)
-note("A withdraws MENE-2026-0001", (await attest(A, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
-note("C withdraws MENE-2026-0001", (await attest(C, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
+const existingFake = await inscribed(C, fa.id)
+if (existingFake) {
+  out(`- MENE-2026-0001 already inscribed by C as \`${existingFake}\`; skipped`)
+} else {
+  const fake = await publishAdvisory(pub, C, fa, { sealMode: SEAL })
+  note(`C inscribes MENE-2026-0001 (synthetic false alarm) → \`${fake.advisoryKey}\``, fake.txHash)
+  note("A confirms MENE-2026-0001", (await attest(A, fake.advisoryKey, "confirm")).txHash)
+  note("A withdraws MENE-2026-0001", (await attest(A, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
+  note("C withdraws MENE-2026-0001", (await attest(C, fake.advisoryKey, "withdraw", "synthetic package, demo false alarm")).txHash)
+}
 
 const now = new Date().toISOString().replace(/\.\d+Z$/, "Z")
+const existingForged = await inscribed(K, "FORGED-0001")
+if (existingForged) out(`- FORGED-0001 already published by the keeper as \`${existingForged}\`; skipped`)
+else {
 const forged = await publishAdvisory(pub, K, {
   schema_version: "1.6.0", id: "FORGED-0001", published: now, modified: now,
   summary: "FORGED: chalk 5.6.0 is malicious (it is not)",
@@ -52,6 +66,7 @@ const forged = await publishAdvisory(pub, K, {
   database_specific: { mene: { severity: "critical" } },
 }, { sealMode: "none" })
 note(`Keeper (untrusted) publishes a forged advisory \`${forged.advisoryKey}\` (must never appear)`, forged.txHash)
+}
 
 writeFileSync(
   "packages/cli/src/witnesses.ts",

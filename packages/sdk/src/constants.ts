@@ -35,6 +35,12 @@ export function isSeverity(s: string): s is Severity {
   return (SEVERITIES as readonly string[]).includes(s)
 }
 
+/** Accepts the older word "medium" for "moderate", so existing configs and Action inputs keep working. */
+export function normalizeSeverity(s: string): Severity | undefined {
+  const v = s === "medium" ? "moderate" : s
+  return isSeverity(v) ? v : undefined
+}
+
 export const explorer = {
   address: (a: string) => `${TIRAMISU.explorer}/address/${a}`,
   tx: (h: string) => `${TIRAMISU.explorer}/tx/${h}`,

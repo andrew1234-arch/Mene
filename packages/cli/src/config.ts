@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join, resolve } from "node:path"
-import { DEFAULT_THRESHOLD, emptyState, isSeverity, type MeneState, type Severity } from "@mene/sdk"
+import { DEFAULT_THRESHOLD, emptyState, migrateState, type MeneState, normalizeSeverity, type Severity } from "@mene/sdk"
 import { DEMO_WITNESSES } from "./witnesses"
 
 export interface MeneConfig {
@@ -33,8 +33,8 @@ export function loadConfig(path?: string, overrides: Partial<MeneConfig> = {}): 
   const threshold = Number(raw.threshold ?? process.env.MENE_THRESHOLD ?? DEFAULT_THRESHOLD)
   if (!Number.isInteger(threshold) || threshold < 1) throw new Error("threshold must be a positive integer")
   if (issuers.length > 0 && threshold > issuers.length) throw new Error("threshold exceeds the number of issuers")
-  const minSeverity = raw.minSeverity ?? "low"
-  if (!isSeverity(minSeverity)) throw new Error(`invalid minSeverity: ${minSeverity}`)
+  const minSeverity = normalizeSeverity(raw.minSeverity ?? "low")
+  if (!minSeverity) throw new Error(`invalid minSeverity: ${raw.minSeverity} (use low, moderate, high or critical)`)
   return { issuers, threshold, minSeverity, rpcUrl: raw.rpcUrl ?? process.env.MENE_RPC_URL }
 }
 
@@ -53,8 +53,9 @@ export function loadState(): MeneState | undefined {
     // Never silently drop the anti-burial memory: that would un-count deleted confirmations.
     throw new Error(`cache ${p} is corrupt; inspect or delete it deliberately (fail closed)`)
   }
-  if (s.version !== 1) throw new Error(`cache ${p} has unknown version ${String(s.version)} (fail closed)`)
-  return { ...emptyState(), ...s }
+  const migrated = migrateState(s)
+  if (!migrated) throw new Error(`cache ${p} has unknown version ${String((s as { version?: unknown }).version)} (fail closed)`)
+  return migrated
 }
 
 export function saveState(s: MeneState): void {

@@ -29,7 +29,7 @@ export interface AdvisoryRecord {
 
 /** Persistent client-side memory of everything ever seen; see SPEC "Anti-burial cache". */
 export interface MeneState {
-  version: 1
+  version: 2
   advisories: Record<string, AdvisoryRecord>
   attestations: Record<string, AttestationRecord>
   /** Last status computed per advisory, so a disappearance can be reported as "was ACTIVE". */
@@ -39,7 +39,29 @@ export interface MeneState {
 }
 
 export function emptyState(): MeneState {
-  return { version: 1, advisories: {}, attestations: {}, lastStatus: {}, wasStatus: {} }
+  return { version: 2, advisories: {}, attestations: {}, lastStatus: {}, wasStatus: {} }
+}
+
+/**
+ * Upgrades saved state. Version 1 stored advisories in the pre-`database_specific.mene` format:
+ * those copies are dropped (they are re-read from Arkiv) while attestations, which carry the
+ * anti-burial memory, are kept. Returns undefined for anything unrecognised.
+ */
+export function migrateState(raw: unknown): MeneState | undefined {
+  const s = raw as Partial<MeneState> & { version?: number }
+  if (!s || typeof s !== "object") return undefined
+  if (s.version === 2) return { ...emptyState(), ...s, version: 2 } as MeneState
+  if (s.version !== 1) return undefined
+  const advisories: MeneState["advisories"] = {}
+  for (const [k, a] of Object.entries(s.advisories ?? {})) {
+    if ((a?.osv?.database_specific as { mene?: unknown } | undefined)?.mene) advisories[k] = a
+  }
+  const attestations: MeneState["attestations"] = {}
+  for (const [k, a] of Object.entries(s.attestations ?? {})) {
+    const old = a as AttestationRecord & { issuedAt?: number }
+    attestations[k] = { ...old, attestedAt: old.attestedAt ?? old.issuedAt ?? 0 }
+  }
+  return { ...emptyState(), lastStatus: s.lastStatus ?? {}, wasStatus: s.wasStatus ?? {}, advisories, attestations }
 }
 
 export type StatusKind = "ACTIVE" | "PENDING" | "WITHDRAWN" | "MISSING"
@@ -102,7 +124,7 @@ export function resolveStatus(input: ResolveInput): ResolveOutput {
   const k = input.threshold
   const prev = input.state ?? emptyState()
   const state: MeneState = {
-    version: 1,
+    version: 2,
     advisories: { ...prev.advisories },
     attestations: { ...prev.attestations },
     lastStatus: { ...prev.lastStatus },

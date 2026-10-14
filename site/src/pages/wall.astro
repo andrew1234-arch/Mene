@@ -198,6 +198,13 @@ import Base from "../layouts/Base.astro"
       return null
     }
   }
+  // Tiramisu is shared: drop other projects' events before making any RPC call.
+  function known(key: string) {
+    const k = key.toLowerCase()
+    if (wall?.statuses.some((s) => s.key === k || s.witnesses.some((w) => w.key === k) || s.vanished.some((v) => v.key === k))) return true
+    const st = getState()
+    return !!(st?.advisories[k] || st?.attestations[k])
+  }
   const who = (a: string) => `${esc(witnessName(a) ?? (trusted.has(a) ? "witness" : "untrusted wallet"))} <span class="addr">${esc(short(a))}</span>`
   // A new inscription, confirmation or deletion changes statuses: re-read the wall (debounced).
   let pending: ReturnType<typeof setTimeout> | undefined
@@ -214,6 +221,7 @@ import Base from "../layouts/Base.astro"
     liveStatus.textContent = "LIVE"
     ws.watchEntityEvents({
       onEntityCreated: async (ev) => {
+        if (!trusted.has(ev.owner.toLowerCase())) return
         const d = await describe(ev.entityKey)
         if (!d || !trusted.has(d.creator)) return
         if (d.type === "advisory") liveRow(`<strong>Inscribed</strong> <a href="${advisoryUrl(ev.entityKey)}">${esc(d.id)}</a> by ${who(d.creator)}`, ev.blockNumber)
@@ -221,6 +229,7 @@ import Base from "../layouts/Base.astro"
         refresh()
       },
       onExpiryExtended: async (ev) => {
+        if (!known(ev.entityKey)) return
         const d = await describe(ev.entityKey)
         if (!d) return
         let by = ""
@@ -230,11 +239,12 @@ import Base from "../layouts/Base.astro"
         liveRow(`<strong>Lifetime Extension</strong> of ${esc(d.type)} ${esc(short(ev.entityKey))}${by ? ` paid by ${who(by)}` : ""}`, ev.blockNumber)
       },
       onOwnershipTransferred: async (ev) => {
-        if (ev.newOwner.toLowerCase() !== BURN_ADDRESS.toLowerCase()) return
+        if (ev.newOwner.toLowerCase() !== BURN_ADDRESS.toLowerCase() || !trusted.has(ev.previousOwner.toLowerCase())) return
         const d = await describe(ev.entityKey)
         if (d) liveRow(`<strong>Sealed</strong> ${esc(d.type)} ${esc(short(ev.entityKey))}: nobody can delete it now`, ev.blockNumber)
       },
       onEntityDeleted: async (ev) => {
+        if (!known(ev.entityKey)) return
         const d = await describe(ev.entityKey)
         if (!d) return
         liveRow(`DELETION ALARM: ${esc(d.type)} ${esc(short(ev.entityKey))} by ${who(ev.owner.toLowerCase())} was deleted. ${d.type === "attestation" ? "Mene keeps counting it." : "Mene keeps enforcing it as MISSING."}`, ev.blockNumber, true)

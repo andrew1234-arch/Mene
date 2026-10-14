@@ -91,7 +91,7 @@ export function matchLockfile(
           path: p.path,
           severity,
           status,
-          safeVersion: recommendedOf(advisory),
+          safeVersion: recommendedOf(advisory, p.name),
           summary: advisory.summary,
         })
       }

@@ -18,25 +18,52 @@ export const CURATED: { name: string; version: string; incident: string }[] = [
   ["chalk-template", "1.1.1"], ["backslash", "0.2.1"], ["error-ex", "1.3.3"],
 ].map(([name, version]) => ({ name: name!, version: version!, incident: "qix-2025-09-08" }))
 
-const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi
+// An e-mail address: domain labels start with a letter, so `debug@4.4.2.tgz` is not one.
+const EMAIL = /[A-Z0-9._%+-]+@[A-Z][A-Z0-9-]*(\.[A-Z][A-Z0-9-]*)*\.[A-Z]{2,}/i
+// Not personal: git remotes and npm's own addresses.
+const NOT_PERSONAL = /^(git@github\.com|git@gitlab\.com|support@npmjs\.com|security@npmjs\.com)$/i
 
-/** Redacts e-mail addresses in every string of a JSON value. */
-function scrub(v: unknown): unknown {
-  if (typeof v === "string") return v.replace(EMAIL, "[redacted]")
-  if (Array.isArray(v)) return v.map(scrub)
-  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrub(x)]))
-  return v
+export class PersonalDataError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "PersonalDataError"
+  }
+}
+
+/** Finds an e-mail-like string anywhere in a JSON value (path for the error message). */
+function findEmail(v: unknown, path = "$"): string | undefined {
+  if (typeof v === "string") {
+    for (const m of v.matchAll(new RegExp(EMAIL.source, "gi"))) if (!NOT_PERSONAL.test(m[0])) return `${path}: ${m[0]}`
+    return undefined
+  }
+  if (Array.isArray(v)) {
+    for (const [i, x] of v.entries()) {
+      const f = findEmail(x, `${path}[${i}]`)
+      if (f) return f
+    }
+    return undefined
+  }
+  if (v && typeof v === "object") {
+    for (const [k, x] of Object.entries(v)) {
+      const f = findEmail(x, `${path}.${k}`)
+      if (f) return f
+    }
+  }
+  return undefined
 }
 
 /**
  * Turns an OpenSSF malicious-packages record into a Mene advisory: the original OSV JSON, minus
  * `credits` (finder names and contact e-mails are personal data, and Arkiv entities are public and
  * can't be erased), plus `database_specific.mene` with severity, recommended version and source.
+ * Nothing else is rewritten: if an e-mail address appears anywhere else, it throws
+ * {@link PersonalDataError} and the record is skipped rather than altered.
  */
 export function mirrorRecord(raw: unknown, opts: { path: string; recommended?: string }): OsvAdvisory {
-  const rec = structuredClone(raw) as Record<string, unknown>
-  delete rec.credits
-  const clean = scrub(rec) as Record<string, unknown>
+  const clean = structuredClone(raw) as Record<string, unknown>
+  delete clean.credits
+  const found = findEmail(clean)
+  if (found) throw new PersonalDataError(`record contains an e-mail address (${found}); not mirrored`)
   const ds = (clean.database_specific ?? {}) as Record<string, unknown>
   clean.database_specific = {
     ...ds,

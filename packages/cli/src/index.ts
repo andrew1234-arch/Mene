@@ -6,6 +6,7 @@ import {
   BURN_ADDRESS,
   explorer,
   keepalive,
+  normalizeSeverity,
   publicClient,
   publishAdvisory,
   readAdvisory,
@@ -42,13 +43,13 @@ program
   .command("check")
   .description("match a package-lock.json against ACTIVE/MISSING advisories (exit 1 on a match)")
   .option("--lockfile <path>", "lockfile to scan", "package-lock.json")
-  .addOption(new Option("--min-severity <level>", "lowest severity that fails").choices(["low", "moderate", "high", "critical"]))
+  .addOption(new Option("--min-severity <level>", "lowest severity that fails").choices(["low", "moderate", "high", "critical", "medium"]))
   .option("--json", "machine-readable output")
   .option("--offline", "use only the local cache")
   .action(async (o) => {
     try {
       const cfg = loadConfig(program.opts().config)
-      const r = await runCheck(cfg, o.lockfile, { offline: o.offline, minSeverity: o.minSeverity })
+      const r = await runCheck(cfg, o.lockfile, { offline: o.offline, minSeverity: o.minSeverity ? normalizeSeverity(o.minSeverity) : undefined })
       if (o.json) console.log(json(r))
       else {
         for (const w of r.warnings) console.error(`warning: ${w}`)

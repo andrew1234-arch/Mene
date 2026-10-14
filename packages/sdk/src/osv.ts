@@ -20,7 +20,7 @@ export interface OsvAffected {
 /** Mene's own fields, under `database_specific.mene`. Everything else in the record is plain OSV. */
 export interface MeneMeta {
   severity: Severity
-  /** The version users should install instead (applies to every affected package entry). */
+  /** The version to install instead of the primary (first) affected package. */
   recommended?: string
   /** Set on records mirrored from another OSV database. */
   source?: { repo: string; path: string; license: string }
@@ -107,11 +107,13 @@ export function isSafeUrl(url: string): boolean {
   }
 }
 
-export const severityOf = (a: OsvAdvisory): Severity => a.database_specific.mene.severity
-export const recommendedOf = (a: OsvAdvisory): string | undefined => a.database_specific.mene.recommended
+export const severityOf = (a: OsvAdvisory): Severity => a.database_specific?.mene?.severity ?? "critical"
+/** The version to install instead of `pkg` (defaults to the advisory's primary package). */
+export const recommendedOf = (a: OsvAdvisory, pkg = primaryPackage(a)): string | undefined =>
+  pkg === primaryPackage(a) ? a.database_specific?.mene?.recommended : undefined
 /** "OpenSSF mirror" when mirrored from ossf/malicious-packages, else "Mene original". */
 export const sourceLabel = (a: OsvAdvisory): string =>
-  a.database_specific.mene.source?.repo.includes("ossf/malicious-packages") ? "OpenSSF mirror" : a.database_specific.mene.source ? "Mirror" : "Mene original"
+  a.database_specific?.mene?.source?.repo.includes("ossf/malicious-packages") ? "OpenSSF mirror" : a.database_specific?.mene?.source ? "Mirror" : "Mene original"
 
 /** The first affected package — used for the `package` display attribute. */
 export function primaryPackage(a: OsvAdvisory): string {

@@ -12,6 +12,7 @@
  * inscribed (matched by the advisoryId attribute, never by package name).
  */
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs"
+import { key } from "@arkiv-network/sdk/attr"
 import { and, eq } from "@arkiv-network/sdk/query"
 import {
   attest,
@@ -58,8 +59,12 @@ for (const c of CURATED.filter((c) => !only || only.has(c.name))) {
     for (const path of paths) {
       const raw = await getJson<Parameters<typeof coversVersion>[0]>(`${OSSF_RAW}/${path}`)
       if (!coversVersion(raw, c.name, c.version)) continue
-      prepared.push({ name: c.name, path, osv: mirrorRecord(raw, { path, recommended }) })
-      found = true
+      try {
+        prepared.push({ name: c.name, path, osv: mirrorRecord(raw, { path, recommended }) })
+        found = true
+      } catch (e) {
+        console.log(`! ${path}: ${(e as Error).message}`)
+      }
     }
     console.log(`${found ? "✓" : "·"} ${c.name}@${c.version}: ${found ? "record found" : "no OpenSSF record for this version"} (recommended ${recommended ?? "none"})`)
   } catch (e) {
@@ -91,16 +96,27 @@ for (const p of prepared) {
     .createdBy(A.account!.address)
     .limit(1)
     .fetch()
+  let advisoryKey: string
   if (existing.entities.length) {
-    console.log(`skip ${p.osv.id} (${p.name}): already inscribed as ${existing.entities[0]!.key}`)
-    continue
+    advisoryKey = existing.entities[0]!.key
+    console.log(`${p.osv.id} (${p.name}): already inscribed as ${advisoryKey}; checking confirmations`)
+  } else {
+    const r = await publishAdvisory(pub, A, p.osv, { sealMode: SEAL })
+    advisoryKey = r.advisoryKey
+    note(`- A inscribes ${p.osv.id} (${p.name}) → \`${r.advisoryKey}\`: [\`${r.txHash}\`](${explorer.tx(r.txHash)})`)
   }
-  const r = await publishAdvisory(pub, A, p.osv, { sealMode: SEAL })
-  note(`- A inscribes ${p.osv.id} (${p.name}) → \`${r.advisoryKey}\`: [\`${r.txHash}\`](${explorer.tx(r.txHash)})`)
-  const b = await attest(B, r.advisoryKey, "confirm")
-  note(`  - B confirms: [\`${b.txHash}\`](${explorer.tx(b.txHash)})`)
-  if (p.name === "chalk" || p.name === "debug") {
-    const c = await attest(C, r.advisoryKey, "confirm")
-    note(`  - C confirms: [\`${c.txHash}\`](${explorer.tx(c.txHash)})`)
+  // Resumable: add any confirmation a previous, interrupted run didn't get to.
+  const confirmers = [B, ...(p.name === "chalk" || p.name === "debug" ? [C] : [])]
+  for (const w of confirmers) {
+    const mine = await pub
+      .select({ key: true })
+      .where(and(eq("project", PROJECT), eq("type", "attestation"), eq("advisory", key(advisoryKey as `0x${string}`)), eq("verdict", "confirm")))
+      .createdBy(w.account!.address)
+      .limit(1)
+      .fetch()
+    if (mine.entities.length) continue
+    const label = w === B ? "B" : "C"
+    const t = await attest(w, advisoryKey, "confirm")
+    note(`  - ${label} confirms ${p.osv.id}: [\`${t.txHash}\`](${explorer.tx(t.txHash)})`)
   }
 }

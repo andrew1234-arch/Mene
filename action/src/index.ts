@@ -1,5 +1,5 @@
 import { appendFileSync } from "node:fs"
-import { isSeverity } from "@mene/sdk"
+import { normalizeSeverity } from "@mene/sdk"
 import { matchTable, runCheck } from "../../packages/cli/src/check"
 import { loadConfig } from "../../packages/cli/src/config"
 
@@ -9,8 +9,9 @@ const output = (k: string, v: string) => process.env.GITHUB_OUTPUT && appendFile
 
 async function main() {
   process.env.MENE_CACHE_DIR ??= `${process.env.RUNNER_TEMP ?? "/tmp"}/mene-cache`
-  const sev = input("min-severity") || undefined
-  if (sev !== undefined && !isSeverity(sev)) throw new Error(`invalid min-severity ${sev}`)
+  const sevInput = input("min-severity")
+  const sev = sevInput ? normalizeSeverity(sevInput) : undefined
+  if (sevInput && !sev) throw new Error(`invalid min-severity ${sevInput} (use low, moderate, high or critical)`)
   const lockfile = input("lockfile") || "package-lock.json"
 
   const cfg = loadConfig(undefined, {

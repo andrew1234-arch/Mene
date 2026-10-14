@@ -98,14 +98,15 @@ await spike("S4 createdBy, range, cursor", "look-alike from keeper excluded; gte
   await A.createEntity(base())
   const q = () => pub.select({ key: true, creator: true }).where(and(eq("project", "mene-spike"), gte("severity", i32(3)))).createdBy(me).limit(1)
   let page = await q().fetch()
-  let n = page.entities.length
+  const all = [...page.entities]
   let pages = 1
   while (page.hasNextPage() && pages < 5) {
     page = await page.next()
-    n += page.entities.length
+    all.push(...page.entities)
     pages++
   }
-  const foreign = page.entities.some((e) => e.creator.toLowerCase() !== me.toLowerCase())
+  const n = all.length
+  const foreign = all.some((e) => e.creator.toLowerCase() !== me.toLowerCase())
   if (foreign) throw new Error("a foreign creator leaked through createdBy()")
   if (pages < 2) throw new Error("expected more than one page at limit(1)")
   return `${n} rows over ${pages} pages (limit 1), all created by A`

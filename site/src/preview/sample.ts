@@ -3,7 +3,7 @@
  * clearly-labelled sample data so the site can be tried where Arkiv isn't reachable. Never part
  * of the production build: every page shows a "sample data" banner while this is active.
  */
-import { mirrorRecord } from "@mene/sdk"
+import { mirrorRecord, severityOf, severityToInt } from "@mene/sdk"
 import fake from "../../../advisories/MENE-2026-0001-false-alarm.osv.json"
 import chalk from "../../../packages/sdk/test/fixtures/chalk.osv.json"
 // A real OpenSSF malicious-packages record, converted exactly as scripts/mirror.ts does.
@@ -46,7 +46,6 @@ const atts = (
 ).map(([creator, adv, verdict, at], i) => ({ key: k(100 + i), creator, adv, verdict, at }))
 
 const S = (name: string, value: unknown) => ({ name, type: "str", value })
-const SEV = ["low", "moderate", "high", "critical"]
 const flags = { readonly: true, permissionlessExtension: true, raw: 3 }
 const blk = (n: number) => `0x${n.toString(16)}`
 
@@ -58,7 +57,7 @@ function advEntity(a: (typeof advs)[number]) {
     attributes: [
       S("project", "mene-v1"), S("type", "advisory"), { name: "schemaVersion", type: "i32", value: 1 }, S("advisoryId", a.osv.id),
       S("ecosystem", "npm"), S("pkg", a.osv.affected[0]!.package.name),
-      { name: "severity", type: "i32", value: SEV.indexOf(a.osv.database_specific.mene.severity) + 1 },
+      { name: "severity", type: "i32", value: severityToInt(severityOf(a.osv as never)) },
       { name: "publishedAt", type: "u64", value: String(Math.floor(Date.parse(a.osv.published) / 1000)) },
     ],
   }

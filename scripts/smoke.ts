@@ -32,10 +32,6 @@ await step("query: attestations per witness (exact Mene query)", async () => {
   const page = await q.fetch()
   return { query: q.toString(), rows: page.entities.length, block: page.blockNumber, cursor: page.cursor ?? null }
 })
-await step("query: issuer lease", async () => {
-  const page = await pub.select({ key: true, expiresAt: true }).where(and(eq("project", PROJECT), eq("type", "issuer"))).createdBy(ws[0]!).limit(1).fetch()
-  return { rows: page.entities.length }
-})
 await step("query: wall range filter (severity i32 + publishedAt u64)", async () => {
   const q = pub.select({ key: true }).where(and(eq("project", PROJECT), eq("type", "advisory"), gte("severity", i32(3)), gte("publishedAt", u64(1_700_000_000n)))).createdBy(ws[0]!).limit(200)
   const page = await q.fetch()
