@@ -1,8 +1,8 @@
-import { i32, u64 } from "@arkiv-network/sdk/attr"
 /**
  * Read-only check against the live Tiramisu node: runs every query Mene sends and prints what the
  * node returns. Needs no keys. Run: `npx tsx scripts/smoke.ts [witness addresses...]`.
  */
+import { i32, u64 } from "@arkiv-network/sdk/attr"
 import { and, eq, gte } from "@arkiv-network/sdk/query"
 import { PROJECT, TIRAMISU, attestationQuery, publicClient, readLive, resolveStatus } from "../packages/sdk/src/index"
 
