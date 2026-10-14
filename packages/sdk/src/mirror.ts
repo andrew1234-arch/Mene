@@ -11,18 +11,56 @@ export const OSSF_RAW = "https://raw.githubusercontent.com/ossf/malicious-packag
  * deliberately skipped: they add volume, not value, and each entity costs gas.
  */
 export const CURATED: { name: string; version: string; incident: string }[] = [
-  ["chalk", "5.6.1"], ["debug", "4.4.2"], ["ansi-styles", "6.2.2"], ["supports-color", "10.2.1"],
-  ["strip-ansi", "7.1.1"], ["ansi-regex", "6.2.1"], ["wrap-ansi", "9.0.1"], ["color-convert", "3.1.1"],
-  ["color-name", "2.0.1"], ["is-arrayish", "0.3.3"], ["slice-ansi", "7.1.1"], ["color", "5.0.1"],
-  ["color-string", "2.1.1"], ["simple-swizzle", "0.2.3"], ["supports-hyperlinks", "4.1.1"], ["has-ansi", "6.0.1"],
-  ["chalk-template", "1.1.1"], ["backslash", "0.2.1"], ["error-ex", "1.3.3"],
+  ["chalk", "5.6.1"],
+  ["debug", "4.4.2"],
+  ["ansi-styles", "6.2.2"],
+  ["supports-color", "10.2.1"],
+  ["strip-ansi", "7.1.1"],
+  ["ansi-regex", "6.2.1"],
+  ["wrap-ansi", "9.0.1"],
+  ["color-convert", "3.1.1"],
+  ["color-name", "2.0.1"],
+  ["is-arrayish", "0.3.3"],
+  ["slice-ansi", "7.1.1"],
+  ["color", "5.0.1"],
+  ["color-string", "2.1.1"],
+  ["simple-swizzle", "0.2.3"],
+  ["supports-hyperlinks", "4.1.1"],
+  ["has-ansi", "6.0.1"],
+  ["chalk-template", "1.1.1"],
+  ["backslash", "0.2.1"],
+  ["error-ex", "1.3.3"],
 ].map(([name, version]) => ({ name: name!, version: version!, incident: "qix-2025-09-08" }))
 
 // Any e-mail address, including digit-leading domains (`x@163.com`, `a@1und1.de`). The only
 // exclusion is a "name@version.ext" file reference such as `debug@4.4.2.tgz`, recognised by its
 // file-extension "TLD"; a false positive here only skips a record, it never alters one.
 const EMAIL = /[A-Z0-9._%+-]+@([A-Z0-9-]+\.)+([A-Z]{2,})/gi
-const FILE_EXT = new Set(["tgz", "gz", "tar", "zip", "js", "mjs", "cjs", "ts", "json", "md", "txt", "sh", "exe", "dll", "py", "node", "map", "lock", "yml", "yaml", "html", "css", "wasm"])
+const FILE_EXT = new Set([
+  "tgz",
+  "gz",
+  "tar",
+  "zip",
+  "js",
+  "mjs",
+  "cjs",
+  "ts",
+  "json",
+  "md",
+  "txt",
+  "sh",
+  "exe",
+  "dll",
+  "py",
+  "node",
+  "map",
+  "lock",
+  "yml",
+  "yaml",
+  "html",
+  "css",
+  "wasm",
+])
 // Not personal: git remotes and npm's own addresses.
 const NOT_PERSONAL = /^(git@github\.com|git@gitlab\.com|support@npmjs\.com|security@npmjs\.com)$/i
 
@@ -66,8 +104,7 @@ function findEmail(v: unknown, path = "$"): string | undefined {
  * {@link PersonalDataError} and the record is skipped rather than altered.
  */
 export function mirrorRecord(raw: unknown, opts: { path: string; recommended?: string }): OsvAdvisory {
-  const clean = structuredClone(raw) as Record<string, unknown>
-  delete clean.credits
+  const { credits: _credits, ...clean } = structuredClone(raw) as Record<string, unknown>
   const found = findEmail(clean)
   if (found) throw new PersonalDataError(`record contains an e-mail address (${found}); not mirrored`)
   const ds = (clean.database_specific ?? {}) as Record<string, unknown>
@@ -84,11 +121,20 @@ export function mirrorRecord(raw: unknown, opts: { path: string; recommended?: s
 }
 
 /** Does this OpenSSF record cover the curated compromised version? */
-export function coversVersion(raw: { affected?: { package?: { name?: string }; versions?: string[] }[] }, name: string, version: string) {
+export function coversVersion(
+  raw: { affected?: { package?: { name?: string }; versions?: string[] }[] },
+  name: string,
+  version: string,
+) {
   return (raw.affected ?? []).some((a) => a.package?.name === name && (a.versions ?? []).includes(version))
 }
 
 /** Highest published version below the compromised one: the version to install instead. */
 export function recommendedVersion(published: string[], compromised: string): string | undefined {
-  return semver.maxSatisfying(published.filter((v) => semver.valid(v) && !semver.prerelease(v)), `<${compromised}`) ?? undefined
+  return (
+    semver.maxSatisfying(
+      published.filter((v) => semver.valid(v) && !semver.prerelease(v)),
+      `<${compromised}`,
+    ) ?? undefined
+  )
 }

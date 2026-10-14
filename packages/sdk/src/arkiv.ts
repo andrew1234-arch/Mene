@@ -1,16 +1,16 @@
 import {
-  createPublicClient,
-  createWalletClient,
   ExpirationTime,
-  jsonToPayload,
   NoEntityFoundError,
   type PublicArkivClient,
   type WalletArkivClient,
+  createPublicClient,
+  createWalletClient,
+  jsonToPayload,
 } from "@arkiv-network/sdk"
 import { bytes32, i32, key as keyAttr, str, u64 } from "@arkiv-network/sdk/attr"
 import { tiramisu } from "@arkiv-network/sdk/chains"
 import { and, eq } from "@arkiv-network/sdk/query"
-import { type Hex, http, keccak256, toBytes, webSocket } from "viem"
+import { http, type Hex, keccak256, toBytes, webSocket } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import {
   ADVISORY_LIFETIME_DAYS,
@@ -18,8 +18,8 @@ import {
   BURN_ADDRESS,
   PROJECT,
   SCHEMA_VERSION,
-  severityToInt,
   TIRAMISU,
+  severityToInt,
 } from "./constants"
 import { type OsvAdvisory, parseOsv, primaryPackage, severityOf } from "./osv"
 import type { AdvisoryRecord, AttestationRecord, Verdict } from "./quorum"
@@ -28,9 +28,7 @@ export type MenePublicClient = PublicArkivClient
 export type MeneWalletClient = WalletArkivClient
 
 export function publicClient(opts: { rpcUrl?: string; ws?: boolean } = {}): MenePublicClient {
-  const transport = opts.ws
-    ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl)
-    : http(opts.rpcUrl ?? TIRAMISU.rpcUrl)
+  const transport = opts.ws ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl) : http(opts.rpcUrl ?? TIRAMISU.rpcUrl)
   return createPublicClient({ chain: tiramisu, transport }) as MenePublicClient
 }
 
@@ -306,7 +304,11 @@ export async function keepalive(
 }
 
 /** A witness's latest verdict on one advisory (by block, then attestedAt), or undefined. */
-export async function latestVerdict(pub: MenePublicClient, witness: string, advisoryKey: string): Promise<Verdict | undefined> {
+export async function latestVerdict(
+  pub: MenePublicClient,
+  witness: string,
+  advisoryKey: string,
+): Promise<Verdict | undefined> {
   let page = await pub
     .select("*")
     .where(and(eq("project", PROJECT), eq("type", "attestation"), eq("advisory", keyAttr(advisoryKey as Hex))))
@@ -327,7 +329,11 @@ export async function latestVerdict(pub: MenePublicClient, witness: string, advi
 }
 
 /** Seals an advisory to the burn address if it isn't already. Returns the tx hash if it sealed. */
-export async function ensureSealed(pub: MenePublicClient, wallet: MeneWalletClient, advisoryKey: string): Promise<Hex | undefined> {
+export async function ensureSealed(
+  pub: MenePublicClient,
+  wallet: MeneWalletClient,
+  advisoryKey: string,
+): Promise<Hex | undefined> {
   const e = await pub.getEntity(advisoryKey as Hex)
   if (e.owner.toLowerCase() === BURN_ADDRESS.toLowerCase()) return undefined
   return (await wallet.changeOwnership({ entityKey: advisoryKey as Hex, newOwner: BURN_ADDRESS })).txHash

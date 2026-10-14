@@ -23,9 +23,11 @@ describe("matchLockfile", () => {
     expect(matchLockfile(parseLockfile(read("examples/clean/package-lock.json")), enforced)).toEqual([])
   })
   it("respects min severity", () => {
-    const m = matchLockfile([{ name: "mene-demo-false-alarm", version: "1.0.1", path: "x" }], [
-      { key: "0x03", status: "ACTIVE", advisory: fake },
-    ], "high")
+    const m = matchLockfile(
+      [{ name: "mene-demo-false-alarm", version: "1.0.1", path: "x" }],
+      [{ key: "0x03", status: "ACTIVE", advisory: fake }],
+      "high",
+    )
     expect(m).toEqual([])
   })
 })

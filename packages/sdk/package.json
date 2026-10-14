@@ -5,8 +5,19 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "files": ["dist"],
-  "scripts": { "build": "tsup src/index.ts --format esm --dts --clean" },
-  "dependencies": { "@arkiv-network/sdk": "0.8.1", "semver": "^7.6.3", "viem": "^2.21.0" }
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@arkiv-network/sdk": "0.8.1",
+    "semver": "^7.6.3",
+    "viem": "^2.21.0"
+  }
 }

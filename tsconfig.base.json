@@ -10,14 +10,11 @@
     "resolveJsonModule": true,
     "declaration": true,
     "isolatedModules": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@mene/sdk": [
-        "packages/sdk/src/index.ts"
-      ]
+      "@mene/sdk": ["packages/sdk/src/index.ts"],
+      "@mene/cli/lib": ["packages/cli/src/lib.ts"]
     }
   }
 }

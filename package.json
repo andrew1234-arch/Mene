@@ -2,7 +2,7 @@
   "name": "mene",
   "private": true,
   "version": "0.1.0",
-  "description": "The writing on the wall for poisoned packages \u2014 quorum-witnessed npm compromise advisories on Arkiv.",
+  "description": "The writing on the wall for poisoned packages: quorum-witnessed npm compromise advisories on Arkiv.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -11,27 +11,37 @@
   "workspaces": [
     "packages/sdk",
     "packages/cli",
+    "action",
     "site"
   ],
   "scripts": {
-    "build": "npm run build -w @mene/sdk && npm run build -w @mene/cli && npm run build:action",
+    "build": "npm run build -w @mene/sdk && npm run build -w @mene/cli && npm run build -w @mene/action",
+    "build:action": "npm run build -w @mene/action",
+    "typecheck": "tsc -p packages/sdk && tsc -p packages/cli && tsc -p action && tsc -p .",
     "test": "vitest run",
-    "typecheck": "tsc -p packages/sdk --noEmit && tsc -p packages/cli --noEmit && tsc -p action && tsc -p scripts",
-    "spike": "tsx scripts/spike.ts",
-    "seed": "tsx scripts/seed.ts",
-    "build:action": "tsup --config action/tsup.config.ts",
+    "lint": "biome check .",
+    "format": "biome check --write .",
     "site:dev": "npm run dev -w site",
     "site:build": "npm run build -w site",
+    "site:check": "npm run check -w site",
+    "keys": "tsx scripts/keys.ts",
+    "spike": "tsx scripts/spike.ts",
+    "mirror": "tsx scripts/mirror.ts",
+    "seed": "tsx scripts/seed.ts",
     "attack": "tsx scripts/attack.ts",
     "smoke": "tsx scripts/smoke.ts",
-    "mirror": "tsx scripts/mirror.ts"
+    "knip": "knip"
   },
   "devDependencies": {
+    "@arkiv-network/sdk": "0.8.1",
+    "@biomejs/biome": "1.9.4",
     "@types/node": "^20.19.43",
     "@types/semver": "^7.8.0",
+    "knip": "5.88.1",
     "tsup": "^8.5.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
+    "viem": "^2.21.0",
     "vitest": "^2.1.9"
   }
 }

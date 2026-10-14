@@ -1,5 +1,5 @@
 import semver from "semver"
-import { isSeverity, type Severity } from "./constants"
+import { type Severity, isSeverity } from "./constants"
 
 /**
  * The subset of the OpenSSF OSV schema (https://ossf.github.io/osv-schema/) that Mene writes and
@@ -66,12 +66,15 @@ export function parseOsv(raw: unknown): OsvAdvisory {
       fail(`affected[${i}].package must be an npm package`)
     }
     for (const [j, r] of ((aff as OsvAffected).ranges ?? []).entries()) {
-      if (!r || !Array.isArray(r.events) || r.events.length === 0) fail(`affected[${i}].ranges[${j}].events must be a non-empty array`)
+      if (!r || !Array.isArray(r.events) || r.events.length === 0)
+        fail(`affected[${i}].ranges[${j}].events must be a non-empty array`)
       if (r.type !== "SEMVER") continue
       for (const ev of r.events) {
         for (const [k, v] of Object.entries(ev ?? {})) {
-          if (!["introduced", "fixed", "last_affected"].includes(k)) fail(`affected[${i}].ranges[${j}] has unknown event "${k}"`)
-          if (typeof v !== "string" || (v !== "0" && !semver.valid(v))) fail(`affected[${i}].ranges[${j}] event ${k}="${String(v)}" is not semver`)
+          if (!["introduced", "fixed", "last_affected"].includes(k))
+            fail(`affected[${i}].ranges[${j}] has unknown event "${k}"`)
+          if (typeof v !== "string" || (v !== "0" && !semver.valid(v)))
+            fail(`affected[${i}].ranges[${j}] event ${k}="${String(v)}" is not semver`)
         }
       }
     }
@@ -89,9 +92,13 @@ export function parseOsv(raw: unknown): OsvAdvisory {
   const mene = (a.database_specific as { mene?: MeneMeta } | undefined)?.mene
   if (!mene || typeof mene !== "object") fail("database_specific.mene is required")
   if (!isSeverity(String(mene!.severity))) fail("database_specific.mene.severity must be low|moderate|high|critical")
-  if (mene!.recommended !== undefined && !semver.valid(mene!.recommended)) fail("database_specific.mene.recommended must be a version")
+  if (mene!.recommended !== undefined && !semver.valid(mene!.recommended))
+    fail("database_specific.mene.recommended must be a version")
   const src = mene!.source
-  if (src !== undefined && (typeof src.repo !== "string" || typeof src.path !== "string" || typeof src.license !== "string")) {
+  if (
+    src !== undefined &&
+    (typeof src.repo !== "string" || typeof src.path !== "string" || typeof src.license !== "string")
+  ) {
     fail("database_specific.mene.source must have repo, path and license")
   }
   return raw as OsvAdvisory
@@ -114,7 +121,11 @@ export const recommendedOf = (a: OsvAdvisory, pkg = primaryPackage(a)): string |
   pkg === primaryPackage(a) ? a.database_specific.mene.recommended : undefined
 /** "OpenSSF mirror" when mirrored from ossf/malicious-packages, else "Mene original". */
 export const sourceLabel = (a: OsvAdvisory): string =>
-  a.database_specific.mene.source?.repo.includes("ossf/malicious-packages") ? "OpenSSF mirror" : a.database_specific.mene.source ? "Mirror" : "Mene original"
+  a.database_specific.mene.source?.repo.includes("ossf/malicious-packages")
+    ? "OpenSSF mirror"
+    : a.database_specific.mene.source
+      ? "Mirror"
+      : "Mene original"
 
 /** The first affected package — used for the `package` display attribute. */
 export function primaryPackage(a: OsvAdvisory): string {

@@ -91,7 +91,7 @@ The Action writes a table of matches and safe versions to the job summary, annot
 All on-chain steps can run from GitHub Actions (**arkiv-onchain** workflow, tasks `spike` → `mirror` → `seed` → `attack`) with four funded testnet keys stored as repository secrets, or locally:
 ```bash
 cp .env.example .env
-npx tsx scripts/keys.ts      # generates 4 testnet wallets into .env, prints addresses only
+npm run keys                 # generates 4 testnet wallets into .env, prints addresses only
 # fund them at the faucet linked from https://docs.arkiv.network/networks/tiramisu/
 npm run spike                # S0–S6 on-chain checks; results appended to arkiv/friction.md
 npm run mirror -- --dry-run  # preview the OpenSSF records that will be inscribed (mirror-out/)
@@ -103,14 +103,30 @@ npm run smoke                # read-only checks against the live node
 
 ## Repo layout
 ```
-packages/sdk   @mene/sdk: OSV types, attributes, Arkiv read/write, quorum, lockfile, matcher, OpenSSF mirror
-packages/cli   mene CLI
-action/        GitHub Action (bundled)
-site/          Astro static site → GitHub Pages
-examples/      fixture lockfiles: scanned, never installed
-advisories/    Mene-original advisories (the synthetic false alarm)
-arkiv/         schema.md · friction.md · evidence.md
-scripts/       keys · spike · mirror · seed · attack · smoke
+packages/
+  sdk/           @mene/sdk: OSV types, Arkiv reads/writes, quorum, lockfile parser, matcher, OpenSSF mirror
+  cli/           @mene/cli: the `mene` binary, plus `@mene/cli/lib` (check + config) used by the Action
+action/          @mene/action: GitHub Action (action.yml + committed bundle in dist/)
+site/            Astro static site → GitHub Pages
+  src/pages/     landing · wall · advisory · check · witnesses
+  tools/         preview-build helpers
+arkiv/           schema.md · friction.md · evidence.md (hackathon deliverables)
+docs/            SPEC · DESIGN · TASKS · SUBMISSION (Devfolio answers) · VIDEO (demo script)
+scripts/         on-chain tooling: keys · spike · mirror · seed · attack · smoke
+advisories/      Mene-original advisories (the synthetic false alarm)
+examples/        demo lockfiles: scanned, never installed
 ```
+
+## Development
+```bash
+npm ci
+npm run lint        # Biome: formatting + lint
+npm run knip        # unused files, exports and dependencies
+npm run typecheck
+npm test
+npm run build       # sdk → cli → action bundle
+npm run site:build
+```
+CI runs all of these, plus actionlint on the workflows and a check that the committed Action bundle matches its source.
 
 MIT licensed. Mirrored records come from OpenSSF malicious-packages under Apache-2.0; each keeps its source path in `database_specific.mene.source`.

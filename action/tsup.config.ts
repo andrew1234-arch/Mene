@@ -1,7 +1,9 @@
 import { defineConfig } from "tsup"
+
+// The Action runs from the committed dist/ with nothing installed, so everything is bundled.
 export default defineConfig({
-  entry: { index: "action/src/index.ts" },
-  outDir: "action/dist",
+  entry: { index: "src/index.ts" },
+  outDir: "dist",
   format: ["esm"],
   platform: "node",
   target: "node20",

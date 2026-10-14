@@ -6,15 +6,15 @@
   "bin": {
     "mene": "./dist/index.js"
   },
-  "files": [
-    "dist",
-    "mene.config.json"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup"
   },
   "dependencies": {
     "@mene/sdk": "0.1.0",
     "commander": "^12.1.0"
+  },
+  "exports": {
+    "./lib": "./dist/lib.js"
   }
 }

@@ -19,7 +19,8 @@ export const SAMPLE_WITNESSES = [
 const [A, B, C] = SAMPLE_WITNESSES.map((w) => w.address) as [string, string, string]
 const HEAD = 1_500_000
 const k = (n: number) => `0x${n.toString(16).padStart(64, "0")}`
-const hex = (s: string) => `0x${Array.from(new TextEncoder().encode(s), (b) => b.toString(16).padStart(2, "0")).join("")}`
+const hex = (s: string) =>
+  `0x${Array.from(new TextEncoder().encode(s), (b) => b.toString(16).padStart(2, "0")).join("")}`
 const pending = {
   ...chalk,
   id: "SAMPLE-2026-0042",
@@ -38,9 +39,16 @@ const advs = [
 ]
 const atts = (
   [
-    [A, k(1), "confirm", 1_000_100], [B, k(1), "confirm", 1_000_400], [C, k(1), "confirm", 1_000_450],
-    [A, k(2), "confirm", 1_000_200], [B, k(2), "confirm", 1_000_500], [C, k(2), "confirm", 1_000_550],
-    [C, k(3), "confirm", 1_400_000], [A, k(3), "confirm", 1_400_100], [A, k(3), "withdraw", 1_400_500], [C, k(3), "withdraw", 1_400_600],
+    [A, k(1), "confirm", 1_000_100],
+    [B, k(1), "confirm", 1_000_400],
+    [C, k(1), "confirm", 1_000_450],
+    [A, k(2), "confirm", 1_000_200],
+    [B, k(2), "confirm", 1_000_500],
+    [C, k(2), "confirm", 1_000_550],
+    [C, k(3), "confirm", 1_400_000],
+    [A, k(3), "confirm", 1_400_100],
+    [A, k(3), "withdraw", 1_400_500],
+    [C, k(3), "withdraw", 1_400_600],
     [B, k(4), "confirm", 1_490_000],
   ] as const
 ).map(([creator, adv, verdict, at], i) => ({ key: k(100 + i), creator, adv, verdict, at }))
@@ -51,12 +59,22 @@ const blk = (n: number) => `0x${n.toString(16)}`
 
 function advEntity(a: (typeof advs)[number]) {
   return {
-    key: a.key, owner: "0x000000000000000000000000000000000000dead", creator: a.creator,
-    createdAt: blk(a.at), updatedAt: blk(a.at), expiresAt: blk(a.at + 15_768_000), creationFlags: flags,
-    contentType: "application/json", payload: hex(JSON.stringify(a.osv)),
+    key: a.key,
+    owner: "0x000000000000000000000000000000000000dead",
+    creator: a.creator,
+    createdAt: blk(a.at),
+    updatedAt: blk(a.at),
+    expiresAt: blk(a.at + 15_768_000),
+    creationFlags: flags,
+    contentType: "application/json",
+    payload: hex(JSON.stringify(a.osv)),
     attributes: [
-      S("project", "mene-v1"), S("type", "advisory"), { name: "schemaVersion", type: "i32", value: 1 }, S("advisoryId", a.osv.id),
-      S("ecosystem", "npm"), S("pkg", a.osv.affected[0]!.package.name),
+      S("project", "mene-v1"),
+      S("type", "advisory"),
+      { name: "schemaVersion", type: "i32", value: 1 },
+      S("advisoryId", a.osv.id),
+      S("ecosystem", "npm"),
+      S("pkg", a.osv.affected[0]!.package.name),
       { name: "severity", type: "i32", value: severityToInt(severityOf(a.osv as never)) },
       { name: "publishedAt", type: "u64", value: String(Math.floor(Date.parse(a.osv.published) / 1000)) },
     ],
@@ -64,10 +82,22 @@ function advEntity(a: (typeof advs)[number]) {
 }
 function attEntity(t: (typeof atts)[number]) {
   return {
-    key: t.key, owner: t.creator, creator: t.creator, createdAt: blk(t.at), updatedAt: blk(t.at), expiresAt: blk(t.at + 15_768_000),
-    creationFlags: flags, contentType: "application/json",
+    key: t.key,
+    owner: t.creator,
+    creator: t.creator,
+    createdAt: blk(t.at),
+    updatedAt: blk(t.at),
+    expiresAt: blk(t.at + 15_768_000),
+    creationFlags: flags,
+    contentType: "application/json",
     payload: hex(JSON.stringify(t.verdict === "withdraw" ? { reason: "synthetic package, demo false alarm" } : {})),
-    attributes: [S("project", "mene-v1"), S("type", "attestation"), { name: "advisory", type: "key", value: t.adv }, S("verdict", t.verdict), { name: "attestedAt", type: "u64", value: String(t.at) }],
+    attributes: [
+      S("project", "mene-v1"),
+      S("type", "attestation"),
+      { name: "advisory", type: "key", value: t.adv },
+      S("verdict", t.verdict),
+      { name: "attestedAt", type: "u64", value: String(t.at) },
+    ],
   }
 }
 
@@ -75,10 +105,14 @@ type Req = { id: number; method: string; params?: unknown[] }
 function answer({ id, method, params = [] }: Req) {
   const ok = (result: unknown) => ({ jsonrpc: "2.0", id, result })
   switch (method) {
-    case "eth_chainId": return ok("0x7614d1")
-    case "eth_blockNumber": return ok(blk(HEAD))
-    case "eth_call": return ok(`0x${"00".repeat(32)}`)
-    case "arkiv_getBlockTiming": return ok({ current_block: HEAD, current_block_time: Math.floor(Date.now() / 1000), duration: 2 })
+    case "eth_chainId":
+      return ok("0x7614d1")
+    case "eth_blockNumber":
+      return ok(blk(HEAD))
+    case "eth_call":
+      return ok(`0x${"00".repeat(32)}`)
+    case "arkiv_getBlockTiming":
+      return ok({ current_block: HEAD, current_block_time: Math.floor(Date.now() / 1000), duration: 2 })
     case "arkiv_query": {
       const q = String(params[0])
       const creator = q.match(/\$creator = addr\((0x[0-9a-fA-F]+)\)/)?.[1]?.toLowerCase()
@@ -89,8 +123,14 @@ function answer({ id, method, params = [] }: Req) {
       else if (q.includes("'advisory'")) {
         const sev = Number(q.match(/severity >= i32\((\d+)\)/)?.[1] ?? 0)
         const since = Number(q.match(/publishedAt >= u64\((\d+)\)/)?.[1] ?? 0)
-        data = advs.filter((a) => a.creator === creator).map(advEntity)
-          .filter((e) => (e.attributes.find((x) => x.name === "severity")!.value as number) >= sev && Number(e.attributes.find((x) => x.name === "publishedAt")!.value) >= since)
+        data = advs
+          .filter((a) => a.creator === creator)
+          .map(advEntity)
+          .filter(
+            (e) =>
+              (e.attributes.find((x) => x.name === "severity")!.value as number) >= sev &&
+              Number(e.attributes.find((x) => x.name === "publishedAt")!.value) >= since,
+          )
       }
       return ok({ data, blockNumber: blk(HEAD) })
     }

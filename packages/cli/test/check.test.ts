@@ -3,8 +3,8 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { type AdvisoryRecord, type AttestationRecord, parseOsv, resolveStatus } from "@mene/sdk"
 import { describe, expect, it } from "vitest"
-import { parseOsv, resolveStatus, type AdvisoryRecord, type AttestationRecord } from "@mene/sdk"
 
 const root = fileURLToPath(new URL("../../../", import.meta.url))
 const A = "0x1111111111111111111111111111111111111111"
@@ -15,9 +15,30 @@ const KEY = `0x${"0".repeat(63)}1`
 function cacheWithActiveChalk(): string {
   const dir = mkdtempSync(join(tmpdir(), "mene-cli-"))
   const osv = parseOsv(JSON.parse(readFileSync(join(root, "packages/sdk/test/fixtures/chalk.osv.json"), "utf8")))
-  const adv: AdvisoryRecord = { key: KEY, creator: A, owner: "0x000000000000000000000000000000000000dead", createdAt: 1, expiresAt: 9e9, readonly: true, permissionlessExtension: true, osv }
-  const att = (issuer: string, n: number): AttestationRecord => ({ key: `0x${"0".repeat(62)}a${n}`, advisory: KEY, issuer, verdict: "confirm", createdAt: n, attestedAt: n })
-  const { state } = resolveStatus({ issuers: [A, B], threshold: 2, liveAttestations: [att(A, 1), att(B, 2)], liveAdvisories: { [KEY]: adv } })
+  const adv: AdvisoryRecord = {
+    key: KEY,
+    creator: A,
+    owner: "0x000000000000000000000000000000000000dead",
+    createdAt: 1,
+    expiresAt: 9e9,
+    readonly: true,
+    permissionlessExtension: true,
+    osv,
+  }
+  const att = (issuer: string, n: number): AttestationRecord => ({
+    key: `0x${"0".repeat(62)}a${n}`,
+    advisory: KEY,
+    issuer,
+    verdict: "confirm",
+    createdAt: n,
+    attestedAt: n,
+  })
+  const { state } = resolveStatus({
+    issuers: [A, B],
+    threshold: 2,
+    liveAttestations: [att(A, 1), att(B, 2)],
+    liveAdvisories: { [KEY]: adv },
+  })
   writeFileSync(join(dir, "state.json"), JSON.stringify(state))
   return dir
 }
@@ -43,11 +64,24 @@ describe("mene check exit codes (offline, from cache)", { timeout: 60_000 }, () 
   })
   it("respects --min-severity", () => {
     // chalk is critical, so even the strictest threshold still fails
-    expect(mene(["check", "--offline", "--min-severity", "critical", "--lockfile", "examples/chalk-attack/package-lock.json"], cache).status).toBe(1)
+    expect(
+      mene(
+        ["check", "--offline", "--min-severity", "critical", "--lockfile", "examples/chalk-attack/package-lock.json"],
+        cache,
+      ).status,
+    ).toBe(1)
   })
   it("accepts the old word 'medium' and rejects unknown severities", () => {
-    expect(mene(["check", "--offline", "--min-severity", "medium", "--lockfile", "examples/chalk-attack/package-lock.json"], cache).status).toBe(1)
-    const bad = mene(["check", "--offline", "--min-severity", "urgent", "--lockfile", "examples/clean/package-lock.json"], cache)
+    expect(
+      mene(
+        ["check", "--offline", "--min-severity", "medium", "--lockfile", "examples/chalk-attack/package-lock.json"],
+        cache,
+      ).status,
+    ).toBe(1)
+    const bad = mene(
+      ["check", "--offline", "--min-severity", "urgent", "--lockfile", "examples/clean/package-lock.json"],
+      cache,
+    )
     expect(bad.status).not.toBe(0)
     expect(bad.stderr).toContain("low, moderate, high or critical")
   })
