@@ -51,7 +51,7 @@ import Base from "../layouts/Base.astro"
 <script>
   import { and, eq } from "@arkiv-network/sdk/query"
   import { PROJECT, upsertIssuerProfile } from "@mene/sdk"
-  import { addrHtml, blocksToHuman, copyText, esc, errorHtml, getTrust, loadWall, pub, setTrust, toast, type Trust } from "../scripts/mene"
+  import { addrHtml, blocksToHuman, copyText, NoWitnessesError, esc, errorHtml, getTrust, loadWall, pub, setTrust, toast, type Trust } from "../scripts/mene"
   import { connectedAddress, hasWallet, onWallet, wallet, withTx } from "../scripts/wallet"
 
   const cards = document.getElementById("cards")!
@@ -103,7 +103,7 @@ import Base from "../layouts/Base.astro"
   async function drawCards() {
     const t = getTrust()
     if (!t.issuers.length) {
-      cards.innerHTML = errorHtml(new (await import("../scripts/mene")).NoWitnessesError())
+      cards.innerHTML = errorHtml(new NoWitnessesError())
       return
     }
     try {

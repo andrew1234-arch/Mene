@@ -75,14 +75,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
 </style>
 
 <script>
-  import { advCard, esc, watchWall, BASE, errorHtml } from "../scripts/mene"
+  import { advCard, watchWall, route, errorHtml } from "../scripts/mene"
   const el = document.getElementById("latest")!
   watchWall(
     (w) => {
       const rows = w.statuses.filter((s) => s.status !== "WITHDRAWN").slice(0, 5)
       el.innerHTML = rows.length
         ? `<ul class="adv-list">${rows.map(advCard).join("")}</ul>`
-        : `<div class="empty"><p><strong>The wall is clean.</strong></p><p class="muted">No active advisories from your witnesses. <a href="${esc(BASE)}/publish">Publish one</a>.</p></div>`
+        : `<div class="empty"><p><strong>The wall is clean.</strong></p><p class="muted">No active advisories from your witnesses. <a href="${route("publish")}">Publish one</a>.</p></div>`
     },
     (err, retry) => {
       el.innerHTML = errorHtml(err)

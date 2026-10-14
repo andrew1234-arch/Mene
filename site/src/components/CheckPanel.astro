@@ -41,7 +41,7 @@ const { compact = false } = Astro.props
 
 <script>
   import { directDependencies, LockfileError, matchLockfile, parseLockfile, planFixes, type Match } from "@mene/sdk"
-  import { advisoryUrl, BASE, esc, loadWall, sevBadge, showError, chip, toast } from "../scripts/mene"
+  import { advisoryUrl, BASE, route, esc, loadWall, sevBadge, showError, chip, toast } from "../scripts/mene"
 
   const out = document.getElementById("check-out")!
   const input = document.getElementById("check-input")!
@@ -79,7 +79,7 @@ const { compact = false } = Astro.props
     const actions = `<div class="row-actions"><button class="btn" id="again">Check another lockfile</button><button class="btn" id="report">Download report</button></div>`
 
     if (!matches.length) {
-      out.innerHTML = `<div class="result good"><p class="result-head">✓ No poisoned packages</p><p>None of the ${installed.length} packages in <code>${esc(name)}</code> matches an active advisory.</p>${meta}${actions}<p class="small"><a href="${BASE}/docs/action">Keep it that way in CI →</a></p></div>`
+      out.innerHTML = `<div class="result good"><p class="result-head">✓ No poisoned packages</p><p>None of the ${installed.length} packages in <code>${esc(name)}</code> matches an active advisory.</p>${meta}${actions}<p class="small"><a href="${route("docs/action")}">Keep it that way in CI →</a></p></div>`
     } else {
       const byPkg = new Map<string, Match[]>()
       for (const m of matches) byPkg.set(`${m.package}@${m.installed}`, [...(byPkg.get(`${m.package}@${m.installed}`) ?? []), m])

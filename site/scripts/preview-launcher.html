@@ -1,0 +1,17 @@
+<title>Mene</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  :root { --bg: #16130f; --fg: #efe7da; --muted: #b3a794; --gold: #e3b45a; color-scheme: dark; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f3ecdf; --fg: #1d1813; --muted: #5c5141; --gold: #8a5a00; color-scheme: light; } }
+  :root[data-theme="light"] { --bg: #f3ecdf; --fg: #1d1813; --muted: #5c5141; --gold: #8a5a00; color-scheme: light; }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.5 Georgia, serif; display: grid; place-items: center; min-height: 60vh;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); text-align: center; }
+  p { color: var(--muted); font-family: system-ui, sans-serif; font-size: .9rem; }
+  a { color: var(--gold); }
+  .t { letter-spacing: .3em; color: var(--gold); font-size: 1.1rem; }
+</style>
+<div>
+  <p class="t">MENE · TEKEL · UPHARSIN</p>
+  <p>Opening the Mene preview… <a href="home.html">Continue</a></p>
+</div>
+<script>location.replace("home.html")</script>

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "build:preview": "PUBLIC_MENE_PREVIEW=1 astro build && node scripts/relativize-preview.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.42.6",

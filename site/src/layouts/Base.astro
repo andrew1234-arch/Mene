@@ -3,6 +3,7 @@ import "../styles/global.css"
 interface Props { title: string; description?: string; active?: string; wide?: boolean }
 const { title, description = "Quorum-witnessed npm compromise advisories on Arkiv. Check your lockfile for poisoned packages.", active } = Astro.props
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
+const preview = import.meta.env.PUBLIC_MENE_PREVIEW === "1"
 const links = [
   ["/wall", "Advisories"], ["/check", "Check"], ["/publish", "Publish"], ["/witnesses", "Witnesses"], ["/live", "Live"], ["/docs/quickstart", "Docs"],
 ]
@@ -41,6 +42,11 @@ const links = [
       </div>
     </div>
   </header>
+  {preview && (
+    <div class="preview-bar" role="note">
+      <div class="wrap"><strong>Preview with sample data.</strong> These advisories and witnesses are examples, not live Arkiv records. Lockfile checks run for real against them. Wallet actions need the live site.</div>
+    </div>
+  )}
   <main id="main" class="wrap"><slot /></main>
   <footer class="site">
     <div class="wrap foot">

@@ -8,9 +8,20 @@ import {
   readLive,
   resolveStatus,
 } from "@mene/sdk"
-import defaultWitnesses from "../data/witnesses.json"
+import defaultWitnessesJson from "../data/witnesses.json"
+// Resolves to src/preview/sample.ts in preview builds and to an empty module in production.
+import { SAMPLE_WITNESSES } from "mene:preview"
 
-export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
+export const PREVIEW = import.meta.env.PUBLIC_MENE_PREVIEW === "1"
+const defaultWitnesses = PREVIEW ? SAMPLE_WITNESSES : defaultWitnessesJson
+
+/** Site root. Preview builds use relative files, so the root is found from this chunk's URL. */
+export const BASE = PREVIEW
+  ? new URL("../", import.meta.url).pathname.replace(/\/$/, "")
+  : import.meta.env.BASE_URL.replace(/\/$/, "")
+
+/** URL of a site page: "/wall" in production, "wall.html" in preview builds. */
+export const route = (page: string) => (PREVIEW ? `${BASE}/${page || "home"}.html` : `${BASE}/${page}`)
 
 export interface Trust {
   issuers: { name: string; address: string }[]
@@ -203,7 +214,7 @@ document.addEventListener("click", (e) => {
 /** Friendly network error with a retry button. */
 export function errorHtml(err: unknown): string {
   if (err instanceof NoWitnessesError) {
-    return `<div class="empty"><p><strong>No witnesses yet.</strong></p><p class="muted">Choose whose advisories to trust on the <a href="${BASE}/witnesses">Witnesses</a> page.</p></div>`
+    return `<div class="empty"><p><strong>No witnesses yet.</strong></p><p class="muted">Choose whose advisories to trust on the <a href="${route("witnesses")}">Witnesses</a> page.</p></div>`
   }
   return `<div class="empty"><p><strong>Can't reach the Arkiv network right now.</strong></p><p class="muted">Mene reads Arkiv directly from your browser, with no server in between. We'll keep retrying.</p><button class="btn" data-retry>Retry now</button></div>`
 }
@@ -227,7 +238,7 @@ export function blocksToHuman(blocks: bigint | number): string {
   return h >= 1 ? `${h} h` : `${Math.ceil(s / 60)} min`
 }
 
-export const advisoryUrl = (key: string) => `${BASE}/advisory/?key=${key}`
+export const advisoryUrl = (key: string) => (PREVIEW ? `${route("advisory")}#${key}` : `${BASE}/advisory/?key=${key}`)
 
 export function fmtDate(iso: string | undefined) {
   if (!iso) return ""
