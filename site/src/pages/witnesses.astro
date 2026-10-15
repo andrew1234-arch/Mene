@@ -1,6 +1,6 @@
 ---
+import { DOCS } from "../config"
 import Base from "../layouts/Base.astro"
-const REPO = "https://github.com/andrew1234-arch/Mene"
 ---
 <Base title="Witnesses" active="/witnesses" description="The witnesses whose confirmations Mene counts.">
   <div class="wp">
@@ -30,7 +30,7 @@ const REPO = "https://github.com/andrew1234-arch/Mene"
     threshold: 2</code></pre>
         </div>
       </div>
-      <p class="small"><a href={`${REPO}#trust-model`}>How the quorum works →</a></p>
+      <p class="small"><a href={DOCS.trust}>How the quorum works →</a></p>
     </section>
   </div>
 </Base>

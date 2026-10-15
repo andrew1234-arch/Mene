@@ -42,7 +42,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
 
 <script>
   import { attest, attestationQuery, BURN_ADDRESS, explorer, isSafeUrl, keepalive, readAdvisory, TIRAMISU, type AdvisoryStatus, type AdvisoryRecord, parseLockfile, matchLockfile, primaryPackage, recommendedOf, severityOf, sourceLabel } from "@mene/sdk"
-  import { addrHtml, affectedText, route, DOCS, blocksToHuman, chip, esc, errorHtml, fmtDate, getTrust, loadWall, pub, sevBadge, store, toast, witnessName } from "../../scripts/mene"
+  import { DOCS } from "../../config"
+  import { addrHtml, affectedText, route, blocksToHuman, chip, esc, errorHtml, fmtDate, getTrust, loadWall, pub, sevBadge, store, toast, witnessName } from "../../scripts/mene"
   import { connectedAddress, hasWallet, isWitness, onWallet, wallet, withTx } from "../../scripts/wallet"
 
   const out = document.getElementById("out")!

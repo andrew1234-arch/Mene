@@ -6,7 +6,9 @@
   "bin": {
     "mene": "./dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup"
   },
@@ -15,6 +17,15 @@
     "commander": "^12.1.0"
   },
   "exports": {
-    "./lib": "./dist/lib.js"
-  }
+    ".": {
+      "types": "./dist/lib.d.ts",
+      "import": "./dist/lib.js"
+    },
+    "./lib": {
+      "types": "./dist/lib.d.ts",
+      "import": "./dist/lib.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/lib.d.ts"
 }
