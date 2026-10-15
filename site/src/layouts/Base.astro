@@ -64,7 +64,13 @@ const links = [
         <a href={REPO} class="gh" aria-label="Mene on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg><span>GitHub</span></a>
       </nav>
     </div>
+    <div class="header-tools">
+    <button class="pill theme-btn" id="theme" type="button" aria-label="Switch to light mode" title="Switch colour mode">
+      <svg class="i-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 .9v1.7M8 13.4v1.7M.9 8h1.7M13.4 8h1.7M3 3l1.2 1.2M11.8 11.8 13 13M3 13l1.2-1.2M11.8 4.2 13 3"/></g></svg>
+      <svg class="i-moon" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M13.6 10.3A6 6 0 0 1 5.7 2.4a6.5 6.5 0 1 0 7.9 7.9Z"/></svg>
+    </button>
     <button class="pill menu-btn" id="menu-btn" aria-expanded="false" aria-controls="nav-pill" aria-label="Menu"><span></span><span></span></button>
+    </div>
   </header>
   {preview && (
     <div class="preview-bar" role="note">
@@ -110,9 +116,6 @@ const links = [
         <div class="foot-social">
           <h4>Data lives on Arkiv</h4>
           <p class="small muted"><span class="net" id="net"><i></i><span>Connecting…</span></span></p>
-          <div class="icons">
-            <button class="icon" id="theme" aria-label="Toggle colour theme" title="Toggle theme"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 1.5v11a5.5 5.5 0 0 1 0-11Z"/></svg></button>
-          </div>
         </div>
       </div>
       <p class="disclaimer">Advisories are stored on Arkiv and read straight from your browser; there is no Mene server. Package names are trademarks of their owners and appear here only to identify affected software.</p>
@@ -122,11 +125,16 @@ const links = [
   <script>
     import { link, onConnection, packageHref, pkgNames, pub, savedWall, setConnection } from "../scripts/mene"
 
-    document.getElementById("theme")!.addEventListener("click", () => {
-      const root = document.documentElement
-      const dark = root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches
-      root.dataset.theme = dark ? "light" : "dark"
+    // Colour mode: follows the system until chosen here; the choice is remembered on this device.
+    const themeBtn = document.getElementById("theme")!
+    const root = document.documentElement
+    const isDark = () => (root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches)
+    const label = () => themeBtn.setAttribute("aria-label", isDark() ? "Switch to light mode" : "Switch to dark mode")
+    label()
+    themeBtn.addEventListener("click", () => {
+      root.dataset.theme = isDark() ? "light" : "dark"
       try { localStorage.setItem("mene:theme", root.dataset.theme) } catch {}
+      label()
     })
 
     const menu = document.getElementById("menu-btn")!

@@ -336,6 +336,7 @@ header.site {
   -webkit-backdrop-filter: blur(14px);
 }
 .logo-pill {
+  margin-right: auto;
   padding: .7rem 1.1rem;
   color: var(--text);
   text-decoration: none;
@@ -408,6 +409,41 @@ nav.main .gh svg {
 }
 nav.main .gh span {
   display: none;
+}
+.header-tools {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+.theme-btn {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+}
+.theme-btn svg {
+  width: 18px;
+  height: 18px;
+}
+/* Show the mode you'd switch to: a sun in dark mode, a moon in light mode. */
+.theme-btn .i-moon {
+  display: none;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .theme-btn .i-sun {
+    display: none;
+  }
+  :root:not([data-theme="dark"]) .theme-btn .i-moon {
+    display: block;
+  }
+}
+:root[data-theme="light"] .theme-btn .i-sun {
+  display: none;
+}
+:root[data-theme="light"] .theme-btn .i-moon {
+  display: block;
 }
 .menu-btn {
   display: none;
