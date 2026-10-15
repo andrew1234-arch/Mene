@@ -10,7 +10,6 @@ import {
   readLive,
   resolveStatus,
   severityOf,
-  sourceLabel,
 } from "@mene/sdk"
 import defaultWitnessesJson from "../data/witnesses.json"
 
@@ -23,8 +22,8 @@ const BASE = PREVIEW
   ? new URL("../", import.meta.url).pathname.replace(/\/$/, "")
   : import.meta.env.BASE_URL.replace(/\/$/, "")
 
-/** URL of a site page: "/wall" in production, "wall.html" in preview builds. */
-export const route = (page: string) => (PREVIEW ? `${BASE}/${page || "home"}.html` : `${BASE}/${page}`)
+/** URL of a site page: "/check" in production, "check.html" in preview builds. */
+const route = (page: string) => (PREVIEW ? `${BASE}/${page || "home"}.html` : `${BASE}/${page}`)
 
 export interface Trust {
   issuers: { name: string; address: string }[]
@@ -168,9 +167,9 @@ export function watchWall(render: (w: Wall, f: Freshness) => void, onError: (err
 export function freshnessHtml(w: Wall, f: Freshness): string {
   const t = new Date(w.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   if (f === "stale")
-    return `<p class="fresh stale" role="status">Showing saved data from ${esc(t)}; Arkiv unreachable. Retrying…</p>`
+    return `<p class="fresh is-stale" role="status">Showing saved data from ${esc(t)}; Arkiv unreachable. Retrying…</p>`
   if (f === "saved") return `<p class="fresh" role="status">Saved at ${esc(t)} · updating…</p>`
-  return `<p class="fresh live" role="status">Updated just now · block ${esc(w.blockNumber)}</p>`
+  return `<p class="fresh is-live" role="status">Updated just now · block ${esc(w.blockNumber)}</p>`
 }
 
 class NoWitnessesError extends Error {
@@ -210,10 +209,6 @@ export function witnessName(address: string, trust = getTrust()): string | undef
 /** Address/key with explorer link and copy button. */
 export function addrHtml(a: string, kind: "address" | "entity" | "tx" = "address", label?: string) {
   return `<span class="addr-wrap"><a class="addr" href="${explorer[kind](a)}" target="_blank" rel="noopener" title="${esc(a)}">${esc(label ?? short(a))}</a><button class="copy" data-copy="${esc(a)}" aria-label="Copy ${esc(a)}" title="Copy">⧉</button></span>`
-}
-
-export function chip(s: Pick<AdvisoryStatus, "status" | "label">) {
-  return `<span class="chip ${s.status}">${esc(s.label)}</span>`
 }
 
 export function sevBadge(sev: string | undefined) {
@@ -263,9 +258,9 @@ document.addEventListener("click", (e) => {
 /** Friendly network error with a retry button. */
 export function errorHtml(err: unknown): string {
   if (err instanceof NoWitnessesError) {
-    return `<div class="empty"><p><strong>No witnesses configured yet.</strong></p><p class="muted">The demo witnesses are added when the advisories are seeded. See <a href="${route("witnesses")}">Witnesses</a>.</p></div>`
+    return `<div class="empty"><p><strong>No witnesses are set up yet.</strong></p><p class="muted">Advisories appear here once witnesses publish and confirm them. See <a href="${route("witnesses")}">Witnesses</a>.</p></div>`
   }
-  return `<div class="empty"><p><strong>Can't reach the Arkiv network right now.</strong></p><p class="muted">Mene reads Arkiv directly from your browser, with no server in between. We'll keep retrying.</p><button class="btn" data-retry>Retry now</button></div>`
+  return `<div class="empty"><p><strong>Can't load advisories right now.</strong></p><p class="muted">The advisory network (Arkiv) didn't answer. Mene keeps retrying every 10 seconds.</p><button class="btn" data-retry>Retry now</button></div>`
 }
 export function showError(el: HTMLElement, err: unknown, retry?: () => void) {
   el.innerHTML = errorHtml(err)
@@ -309,7 +304,7 @@ export const advisoryUrl = (keyOrId: string, wall?: Wall) => {
   const s = wall?.statuses.find((x) => x.key === keyOrId.toLowerCase())
   return link("advisories", { id: s?.advisory?.osv.id ?? keyOrId })
 }
-export const advisoryHref = (s: AdvisoryStatus) => link("advisories", { id: s.advisory?.osv.id ?? s.key })
+const advisoryHref = (s: AdvisoryStatus) => link("advisories", { id: s.advisory?.osv.id ?? s.key })
 export const packageHref = (name: string) => link("packages", { name })
 
 /** Find an advisory by OSV id, alias or entity key. */
@@ -385,18 +380,5 @@ export function advRow(s: AdvisoryStatus, opts: { compact?: boolean } = {}): str
     <div class="t"><span class="pk">${esc(pk)}</span>${sevBadge(o ? severityOf(o) : undefined)}${test}</div>
     <div class="right">${statusChip(s)}<span class="wit">${s.confirmers.length} of ${getTrust().issuers.length} witnesses</span></div>
     ${opts.compact ? "" : `<div class="sum">${esc(o?.summary ?? "")}${o?.published ? ` · ${esc(fmtDate(o.published))}` : ""}</div>`}
-  </a></li>`
-}
-
-/** One advisory as a clickable card (wall, home). */
-export function advCard(s: AdvisoryStatus): string {
-  const o = s.advisory?.osv
-  const pkgs =
-    o?.affected.map((a) => `${a.package.name} ${affectedText(a as never)}`).join(" · ") ?? "content not readable"
-  const confirms = s.confirmers.length
-  return `<li><a class="adv ${s.status === "WITHDRAWN" ? "withdrawn" : ""}" href="${advisoryUrl(s.key)}">
-    <div class="t"><span class="pk">${esc(pkgs)}</span>${sevBadge(o ? severityOf(o) : undefined)}${o ? `<span class="src-tag">${esc(sourceLabel(o))}</span>` : ""}</div>
-    <div class="right">${chip(s)}<span class="wit">${confirms} of ${getTrust().issuers.length} witnesses confirm</span></div>
-    <div class="sum"><span class="id">${esc(o?.id ?? short(s.key))}</span> · ${esc(o?.summary ?? "")}${o?.published ? ` · ${esc(fmtDate(o.published))}` : ""}</div>
   </a></li>`
 }

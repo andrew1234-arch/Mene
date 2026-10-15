@@ -1,0 +1,91 @@
+---
+import Base from "../../layouts/Base.astro"
+---
+<Base title="Packages" description="Is this npm package or version safe? Every hijacked version Mene knows about, by package.">
+  <section class="panel flat page-head">
+    <div class="wrap center">
+      <h1 id="pk-title">Is this package safe?</h1>
+      <p class="lede" id="pk-lede">Search a package to see every hijacked version on record and the safe version to install.</p>
+      <form class="pk-search" id="pk-form" role="search">
+        <label class="sr" for="pk-q">Package name</label>
+        <input id="pk-q" name="name" type="search" placeholder="e.g. debug" autocomplete="off" spellcheck="false" list="pkg-list" />
+        <button class="btn primary" type="submit">Search</button>
+      </form>
+      <p class="small muted">Searching happens in your browser; the package name is never sent anywhere.</p>
+    </div>
+  </section>
+  <div class="wrap page-body">
+    <div id="pk-out"><div class="sk-list"><div class="sk"></div><div class="sk"></div></div></div>
+    <div id="fresh"></div>
+  </div>
+</Base>
+
+<style>
+  .pk-search { display: flex; gap: .5rem; max-width: 520px; margin: 1.2rem auto .6rem; }
+  .pk-search input { flex: 1; min-width: 0; border-radius: 999px; padding: .75rem 1.1rem; font-size: 1rem; }
+  .verdict { display: grid; gap: .3rem; padding: 1.2rem 1.3rem; border-radius: 18px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); margin-bottom: 1.2rem; }
+  .verdict.bad { border-color: var(--red); }
+  .verdict.good { border-color: var(--ok); }
+  .verdict h2 { margin: 0; font-size: clamp(1.3rem, 3vw, 1.7rem); }
+  .verdict.bad h2 { color: var(--red); }
+  .verdict.good h2 { color: var(--ok); }
+  .vers { display: flex; gap: .4rem; flex-wrap: wrap; margin: .3rem 0; }
+  .vers code { padding: .15rem .5rem; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-2); }
+  .vers .bad { color: var(--red); text-decoration: line-through; }
+  .vers .good { color: var(--ok); }
+  .az { columns: 4 12rem; list-style: none; padding: 0; margin: 0; }
+  .az li { padding: .2rem 0; }
+</style>
+
+<script>
+  import { recommendedOf } from "@mene/sdk"
+  import { advRow, affectedText, errorHtml, esc, freshnessHtml, link, packageHref, params, publishedAt, watchWall } from "../../scripts/mene"
+  const name = (params().get("name") ?? "").trim()
+  const out = document.getElementById("pk-out")!
+  const q = document.getElementById("pk-q") as HTMLInputElement
+  q.value = name
+  document.getElementById("pk-form")!.addEventListener("submit", (e) => {
+    e.preventDefault()
+    const v = q.value.trim()
+    location.href = v ? packageHref(v) : link("packages")
+  })
+  if (name) {
+    document.getElementById("pk-title")!.textContent = name
+    document.getElementById("pk-lede")!.textContent = `Hijacked versions of ${name} on record, and what to install instead.`
+    document.title = `${name} · Mene`
+  }
+
+  watchWall(
+    (w, f) => {
+      document.getElementById("fresh")!.innerHTML = freshnessHtml(w, f)
+      if (!name) {
+        // Index: every package with an advisory, A–Z.
+        const pkgs = new Map<string, number>()
+        for (const s of w.statuses) for (const a of s.advisory?.osv.affected ?? []) if (s.status !== "WITHDRAWN") pkgs.set(a.package.name, (pkgs.get(a.package.name) ?? 0) + 1)
+        out.innerHTML = pkgs.size
+          ? `<h2>Packages with hijacked versions</h2><ul class="az">${[...pkgs].sort(([a], [b]) => a.localeCompare(b)).map(([n, c]) => `<li><a href="${packageHref(n)}"><code>${esc(n)}</code></a> <span class="muted small">${c}</span></li>`).join("")}</ul>`
+          : `<div class="empty"><p><strong>No packages have confirmed advisories yet.</strong></p></div>`
+        return
+      }
+      const lc = name.toLowerCase()
+      const hits = w.statuses
+        .filter((s) => s.advisory?.osv.affected.some((a) => a.package.name.toLowerCase() === lc))
+        .sort((a, b) => publishedAt(b) - publishedAt(a))
+      const blocking = hits.filter((s) => s.enforced)
+      const bad = [...new Set(blocking.flatMap((s) => s.advisory!.osv.affected.filter((a) => a.package.name.toLowerCase() === lc).map((a) => affectedText(a as never))))]
+      const safe = blocking.map((s) => recommendedOf(s.advisory!.osv, name)).find(Boolean)
+      const block = `<p class="small muted">Last checked at block ${esc(w.blockNumber)}.</p>`
+      const verdict = blocking.length
+        ? `<div class="verdict bad"><h2>${blocking.length === 1 ? "A hijacked version" : `${blocking.length} hijacked releases`} of ${esc(name)}</h2>
+            <div class="vers">${bad.map((v) => `<code class="bad">${esc(v)}</code>`).join("")}</div>
+            ${safe ? `<p>Safe version to install: <code class="good">${esc(safe)}</code></p><div class="cmd"><pre><code id="pk-fix">npm install ${esc(name)}@${esc(safe)}</code></pre><button class="btn" data-copy-from="pk-fix">Copy</button></div>` : ""}
+            ${block}</div>`
+        : `<div class="verdict good"><h2>No known compromised versions of ${esc(name)}.</h2>${hits.length ? `<p class="muted">There ${hits.length === 1 ? "is an advisory" : "are advisories"} below, but none is confirmed and in force.</p>` : `<p class="muted">Your witnesses haven't confirmed any advisory for this package. To check every dependency at once, <a href="${link("check")}">check your project</a>.</p>`}${block}</div>`
+      out.innerHTML = verdict + (hits.length ? `<h2>All advisories for ${esc(name)}</h2><ul class="adv-list">${hits.map((s) => advRow(s)).join("")}</ul>` : "")
+    },
+    (err, retry) => {
+      out.innerHTML = errorHtml(err)
+      out.querySelector("[data-retry]")?.addEventListener("click", retry)
+    },
+  )
+</script>

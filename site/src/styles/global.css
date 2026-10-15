@@ -1129,11 +1129,11 @@ button:hover:not(:disabled) {
   color: var(--muted);
   margin: .6rem 0;
 }
-.fresh.live::before {
+.fresh.is-live::before {
   content: "● ";
   color: var(--ok);
 }
-.fresh.stale {
+.fresh.is-stale {
   color: var(--text);
   background: color-mix(in srgb, var(--lit) 14%, var(--surface));
   border: 1px solid var(--line);

@@ -1,0 +1,141 @@
+---
+import { TIRAMISU } from "@mene/sdk"
+import { DOCS, REPO } from "../config"
+import Base from "../layouts/Base.astro"
+const base = import.meta.env.BASE_URL.replace(/\/$/, "")
+const toc = [
+  ["who", "Who confirms a warning?"],
+  ["hacked", "What if a witness is hacked?"],
+  ["delete", "Can anyone delete a warning?"],
+  ["privacy", "What do you see about me?"],
+  ["data", "Where is the data?"],
+  ["limits", "Limitations"],
+]
+---
+<Base title="Why trust Mene?" active="/trust" description="How Mene makes npm warnings impossible to fake, bury or delete, and how to check every claim yourself.">
+  <section class="panel flat page-head">
+    <div class="wrap center">
+      <h1>Why trust Mene?</h1>
+      <p class="lede">You shouldn't have to. Each answer below is enforced by the data store, not promised by us, and each comes with a way to check it yourself.</p>
+    </div>
+  </section>
+
+  <div class="wrap trust">
+    <nav class="toc card" aria-label="On this page">
+      <ol>{toc.map(([id, t]) => <li><a href={`#${id}`}>{t}</a></li>)}</ol>
+    </nav>
+
+    <div class="qs">
+      <section id="who" class="q">
+        <h2>Who confirms a warning?</h2>
+        <p>Independent <a href={`${base}/witnesses`}>witnesses</a>. One witness publishes an advisory; it only starts blocking installs when <strong>2 of the 3</strong> witnesses have confirmed it. Each confirmation is counted by the wallet that signed it, which nobody can fake.</p>
+        <figure class="card diagram">
+          <svg viewBox="0 0 760 210" role="img" aria-labelledby="qd-t">
+            <title id="qd-t">Witness A publishes an advisory; witness B confirms; with 2 of 3 witnesses confirming, the advisory is confirmed and CI fails on a match.</title>
+            <g font-family="var(--sans)" font-size="14" fill="var(--text)">
+              <rect x="10" y="20" width="160" height="44" rx="12" fill="var(--bg-2)" stroke="var(--lit)" stroke-width="1.5"/><text x="90" y="47" text-anchor="middle">Witness A publishes</text>
+              <rect x="10" y="83" width="160" height="44" rx="12" fill="var(--bg-2)" stroke="var(--lit)" stroke-width="1.5"/><text x="90" y="110" text-anchor="middle">Witness B confirms</text>
+              <rect x="10" y="146" width="160" height="44" rx="12" fill="none" stroke="var(--line-2)" stroke-dasharray="4 4"/><text x="90" y="173" text-anchor="middle" fill="var(--muted)">Witness C (optional)</text>
+              <path d="M170 42 C 235 42, 235 105, 290 105 M170 105 L290 105" stroke="var(--lit)" fill="none" stroke-width="1.5"/><path d="M170 168 C 235 168, 235 105, 290 105" stroke="var(--line-2)" fill="none" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <rect x="290" y="72" width="180" height="66" rx="14" fill="var(--surface)" stroke="var(--lit)" stroke-width="1.5"/>
+              <text x="380" y="100" text-anchor="middle" font-family="var(--display)" font-weight="750" font-size="20" fill="var(--text)">2 of 3</text>
+              <text x="380" y="122" text-anchor="middle" font-size="12" fill="var(--muted)">confirmations</text>
+              <path d="M470 105 L560 105" stroke="var(--lit)" stroke-width="1.5" marker-end="url(#arr)"/>
+              <rect x="560" y="72" width="190" height="66" rx="14" fill="var(--red)"/>
+              <text x="655" y="100" text-anchor="middle" font-weight="600" fill="#fff">Confirmed</text>
+              <text x="655" y="122" text-anchor="middle" font-size="12" fill="#fff">your CI fails on a match</text>
+            </g>
+            <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--lit)"/></marker></defs>
+          </svg>
+        </figure>
+        <details class="vy"><summary>Verify it yourself</summary>
+          <p>Every read Mene makes is pinned to the witnesses' wallets with <code>.createdBy(witness)</code>. An Arkiv entity's creator (<code>$creator</code>) is set by the chain and can never change, so a record with Mene's labels written by anyone else is simply never read. The quorum replays verdicts in block order: an advisory becomes active when <em>k</em> witnesses confirm at the same time, and only a withdrawal quorum undoes it. Each advisory page lists every verdict, with its block and explorer link, under "Verify this advisory".</p>
+          <p class="small"><a href={DOCS.trust}>Trust model in the README →</a></p>
+        </details>
+      </section>
+
+      <section id="hacked" class="q">
+        <h2>What if a witness is hacked?</h2>
+        <p>One stolen key can't fake a warning and can't hide one. Faking needs a second witness to agree; hiding needs a second witness to withdraw. If a witness deletes a confirmation, everyone who saw it keeps counting it and an alarm appears on the advisory.</p>
+        <div class="table-wrap card"><table>
+          <thead><tr><th>Attacker</th><th>Tries to</th><th>What happens</th></tr></thead>
+          <tbody>
+            <tr><td>Anyone</td><td>Publish a fake advisory that looks like Mene's</td><td>It never appears: reads only accept records signed by the witnesses.</td></tr>
+            <tr><td>One stolen witness key</td><td>Force a false warning</td><td>It stays “awaiting confirmation 1/2”. It needs a second witness.</td></tr>
+            <tr><td>One stolen witness key</td><td>Withdraw a real warning</td><td>One withdrawal isn't a quorum. The warning stays confirmed.</td></tr>
+            <tr><td>A witness</td><td>Delete their own confirmation</td><td>Every client that saw it keeps counting it, and a deletion alarm is raised.</td></tr>
+            <tr><td>Mene's authors</td><td>Take the site down</td><td>There's no server. The CLI and any copy of this site read the data directly.</td></tr>
+          </tbody>
+        </table></div>
+        <details class="vy"><summary>Verify it yourself</summary>
+          <p>The site and the CLI keep an <em>anti-burial memory</em>: every advisory and confirmation they have seen is saved locally. If one later disappears from Arkiv, it is still counted and shown as removed. The Advisories page streams deletions live over a WebSocket (<code>watchEntityEvents</code>) and raises an alarm on each one.</p>
+        </details>
+      </section>
+
+      <section id="delete" class="q">
+        <h2>Can anyone delete a warning?</h2>
+        <p>No. Advisories are written so that their content can never change, and in the same step their ownership is handed to a burn address that no one controls. From that moment, not even the witness who wrote it can delete it.</p>
+        <details class="vy"><summary>Verify it yourself</summary>
+          <p>Each advisory is an Arkiv entity created with the <code>readonly</code> flag (content and attributes frozen for life) and transferred to <code>0x000000000000000000000000000000000000dEaD</code> in the same atomic batch (<code>executeBatch</code>, with the key predicted by <code>predictEntityKeys</code>). Its "On Arkiv" panel shows <em>Content frozen</em> and <em>Sealed</em>, and the owner field links to the burn address on the explorer.</p>
+          <p>Entities also have an Entity Expiration. Advisories are created with <code>permissionlessExtension</code>, so any wallet can pay for a Lifetime Extension (<code>mene keepalive</code>, or "Keep alive" on an advisory) without being able to change anything else.</p>
+        </details>
+      </section>
+
+      <section id="privacy" class="q">
+        <h2>What do you see about me?</h2>
+        <p>Nothing. The site downloads the full list of advisories and matches your lockfile in your browser; the CLI and the Action do the same on your machine or runner. Your package list never leaves it, and searches never put a package name in a network request. There are no accounts, cookies or analytics.</p>
+        <details class="vy"><summary>Verify it yourself</summary>
+          <p>Open your browser's network panel and run a check: the only requests go to the Arkiv RPC (the same advisory query for everyone) and, if you pasted a GitHub URL, to <code>raw.githubusercontent.com</code>. Severity and date filters run as numeric range queries that contain no package names.</p>
+        </details>
+      </section>
+
+      <section id="data" class="q">
+        <h2>Where is the data?</h2>
+        <p>On Arkiv, a public Web3 database (Tiramisu testnet). Anyone can read it without this website, so the warnings outlive Mene itself.</p>
+        <details class="vy" open><summary>Read it from any RPC</summary>
+<pre><code>{`# every advisory published by one witness
+curl -s ${TIRAMISU.rpcUrl} -H 'content-type: application/json' -d '{
+  "jsonrpc":"2.0","id":1,"method":"arkiv_query",
+  "params":["project = str(\'"\'"\'mene-v1\'"\'"\') AND type = str(\'"\'"\'advisory\'"\'"\') AND $creator = addr(0xWITNESS)",
+            {"select":{"key":true,"creator":true,"attributes":true,"payload":true},"limit":"0xc8"}]}'`}</code></pre>
+          <p class="small">The full data contract (attributes, queries and why each Arkiv feature is used) is in <a href={DOCS.schema}>arkiv/schema.md</a>. Explorer: <a href={TIRAMISU.explorer}>{TIRAMISU.explorer.replace("https://", "")}</a>.</p>
+        </details>
+      </section>
+
+      <section id="limits" class="q">
+        <h2>Limitations</h2>
+        <ul>
+          <li>The three witnesses today are testnet wallets run by the Mene team. In production they would be independent security organisations, and you can choose your own in <code>mene.config.json</code> or the Action inputs.</li>
+          <li>Arkiv's Tiramisu network is a testnet. Data there can be reset by its operators.</li>
+          <li>Deleting or expiring an entity doesn't erase it from chain history, and advisories are public: they must never contain personal data. Mirrored OpenSSF records have their contact details removed.</li>
+          <li>Mene only knows about versions its witnesses have confirmed. A clean result means “no known compromised versions”, not “safe”.</li>
+        </ul>
+        <p class="small"><a href={DOCS.threats}>Full threat model and limitations →</a> · <a href={REPO}>Source (MIT)</a></p>
+      </section>
+
+      <section class="q story">
+        <h2>Why “Mene”?</h2>
+        <p>In the book of Daniel, a hand writes four words on a palace wall: <em>Mene, Mene, Tekel, Upharsin</em>. Numbered, weighed, divided. Nobody at the feast can wipe them away. A supply-chain warning should work the same way.</p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .trust { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 2rem; padding-top: 2rem; align-items: start; }
+  @media (max-width: 900px) { .trust { grid-template-columns: 1fr; } .toc { position: static !important; } }
+  .toc { position: sticky; top: 88px; padding: 1rem 1.2rem; }
+  .toc ol { margin: 0; padding-left: 1.1rem; display: grid; gap: .4rem; font-size: .9rem; }
+  .toc a { color: var(--text); text-decoration: none; }
+  .toc a:hover { color: var(--link); }
+  .q { scroll-margin-top: 90px; padding-bottom: 2rem; border-bottom: 1px solid var(--line); margin-bottom: 2rem; }
+  .q:last-child { border-bottom: 0; }
+  .q h2 { margin-top: 0; font-size: clamp(1.4rem, 3vw, 1.9rem); }
+  .q > p { font-size: 1.05rem; max-width: 70ch; }
+  .diagram { margin: 1rem 0; }
+  .diagram svg { width: 100%; height: auto; display: block; }
+  .vy { margin-top: 1rem; border: 1px solid var(--line); border-radius: 14px; padding: .8rem 1rem; background: var(--bg-2); }
+  .vy summary { cursor: pointer; font-weight: 600; color: var(--link); }
+  .vy p { font-size: .92rem; }
+  .vy pre { font-size: .76rem; }
+</style>

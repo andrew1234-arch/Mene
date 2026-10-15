@@ -3,13 +3,24 @@ import Base from "../layouts/Base.astro"
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
 ---
 <Base title="Page not found" description="This page doesn't exist. The advisories on Arkiv still do.">
+  <script is:inline define:vars={{ base }}>
+    // Pretty deep links on static hosting: /advisories/<id> and /packages/<name> resolve to the
+    // query-string pages, so shared links and refreshes never 404.
+    ;(() => {
+      const rest = location.pathname.slice(base.length).replace(/\/+$/, "")
+      const m = rest.match(/^\/(advisories|packages)\/(.+)$/)
+      if (!m) return
+      const key = m[1] === "advisories" ? "id" : "name"
+      location.replace(`${base}/${m[1]}/?${key}=${encodeURIComponent(decodeURIComponent(m[2]))}`)
+    })()
+  </script>
   <section class="nf">
     <div class="wrap center">
       <h1>Page not found</h1>
       <p class="lede">This page has moved or never existed. Unlike a warning on Arkiv, a web page can disappear.</p>
       <div class="nf-cta">
         <a class="btn primary" href={`${base}/`}>Back to home</a>
-        <a class="btn" href={`${base}/wall`}>Read the Wall</a>
+        <a class="btn" href={`${base}/advisories`}>See advisories</a>
       </div>
     </div>
     <p class="ghost-404" aria-hidden="true">404</p>

@@ -1,0 +1,193 @@
+---
+import Base from "../layouts/Base.astro"
+const base = import.meta.env.BASE_URL.replace(/\/$/, "")
+---
+<Base title="Block hijacked packages in CI" active="/setup" description="Add Mene to GitHub Actions or any CI in under 2 minutes. The build fails when a hijacked npm version appears.">
+  <section class="panel flat page-head">
+    <div class="wrap center">
+      <h1>Protect CI in 2 minutes</h1>
+      <p class="lede">Your build fails the moment a hijacked npm version shows up in <code>package-lock.json</code>, and tells you which version to install instead.</p>
+    </div>
+  </section>
+
+  <div class="wrap setup">
+    <div class="seg tabs" role="tablist" aria-label="Where do you run CI?">
+      <button type="button" role="tab" id="t-gha" aria-controls="p-gha" aria-selected="true">GitHub Actions</button>
+      <button type="button" role="tab" id="t-cli" aria-controls="p-cli" aria-selected="false">CLI</button>
+      <button type="button" role="tab" id="t-other" aria-controls="p-other" aria-selected="false">Other CI</button>
+    </div>
+
+    <section id="p-gha" role="tabpanel" aria-labelledby="t-gha" class="tabpanel">
+      <div class="two-col">
+        <div>
+          <ol class="steps">
+            <li><strong>Create the file</strong> <code>.github/workflows/mene.yml</code> in your repository and paste the workflow.</li>
+            <li><strong>Commit</strong> it to your default branch.</li>
+            <li><strong>Done.</strong> Every push and pull request is checked. A hijacked version fails the job.</li>
+          </ol>
+          <form class="card opts" id="opts" onsubmit="return false">
+            <h3>Options</h3>
+            <label>Fail on severity
+              <select name="sev">
+                <option value="low">Any (low and up)</option>
+                <option value="moderate">Moderate and up</option>
+                <option value="high">High and up</option>
+                <option value="critical">Critical only</option>
+              </select>
+            </label>
+            <label>Witnesses that must agree
+              <input name="threshold" type="number" min="1" max="9" value="2" inputmode="numeric" />
+            </label>
+            <label>Witness list <span class="muted">(one address per line)</span>
+              <textarea name="issuers" rows="3" spellcheck="false" id="issuers"></textarea>
+            </label>
+            <p class="small muted">Defaults are the witnesses shown on <a href={`${base}/witnesses`}>Witnesses</a>, 2 must agree. The workflow updates as you change these.</p>
+          </form>
+        </div>
+        <div class="snip">
+          <div class="snip-head"><code>.github/workflows/mene.yml</code><button class="btn" data-copy-from="wf">Copy</button></div>
+          <pre><code id="wf"></code></pre>
+        </div>
+      </div>
+
+      <h2>What a failing run looks like</h2>
+      <p class="muted">The job fails with an error on the lockfile, and the job summary lists each hijacked package and its fix. This is the summary for the <a href={`${base}/check?example=chalk-attack`} id="ex-link">example project</a>:</p>
+      <figure class="gh-summary" aria-label="Example GitHub Actions job summary">
+        <div class="gh-bar"><span class="x">✗</span> mene <span class="muted">· failed in 9s</span></div>
+        <div class="gh-body">
+          <h4>Mene · <code>package-lock.json</code></h4>
+          <p class="small muted">2 advisories enforced · quorum 2/3 · source: live</p>
+          <p>❌ <strong>2 hijacked packages</strong></p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Package</th><th>Installed</th><th>Safe version</th><th>Severity</th></tr></thead>
+            <tbody>
+              <tr><td><code>chalk</code></td><td><code>5.6.1</code></td><td><code>5.6.0</code></td><td>critical</td></tr>
+              <tr><td><code>debug</code></td><td><code>4.4.2</code></td><td><code>4.4.1</code></td><td>critical</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </figure>
+    </section>
+
+    <section id="p-cli" role="tabpanel" aria-labelledby="t-cli" class="tabpanel" hidden>
+      <p>Run it in any project folder that has a <code>package-lock.json</code>:</p>
+      <div class="snip"><div class="snip-head"><code>terminal</code><button class="btn" data-copy-from="cli1">Copy</button></div><pre><code id="cli1">npx mene-check check</code></pre></div>
+      <h3>Exit codes</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>0</code></td><td>Clean: no confirmed advisory matches the lockfile.</td></tr>
+          <tr><td><code>1</code></td><td>Hijacked packages found. The output lists each one and the safe version.</td></tr>
+          <tr><td><code>2</code></td><td>Couldn't verify (network down and nothing saved). Fails closed, so treat it as a failure.</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Options</h3>
+      <div class="snip"><pre><code>npx mene-check check --lockfile app/package-lock.json   # another lockfile
+npx mene-check check --min-severity high                 # ignore low and moderate
+npx mene-check check --json                              # machine-readable</code></pre></div>
+      <p class="small muted"><code>--json</code> prints the full result; the part most scripts need:</p>
+      <div class="snip"><pre><code>{`{
+  "matches": [
+    {
+      "package": "debug",
+      "installed": "4.4.2",
+      "safeVersion": "4.4.1",
+      "severity": "critical",
+      "advisoryId": "MAL-2025-46974",
+      "path": "node_modules/debug"
+    }
+  ],
+  "source": "live"
+}`}</code></pre></div>
+      <p class="small muted">Choose your own witnesses with a <code>mene.config.json</code> in the project; see the <a href="https://github.com/andrew1234-arch/Mene#cli">CLI docs</a>.</p>
+    </section>
+
+    <section id="p-other" role="tabpanel" aria-labelledby="t-other" class="tabpanel" hidden>
+      <p>Any CI with Node.js 20 or later can run the CLI. Add a step that fails the job on a non-zero exit code.</p>
+      <h3>GitLab CI</h3>
+      <div class="snip"><div class="snip-head"><code>.gitlab-ci.yml</code><button class="btn" data-copy-from="gl">Copy</button></div><pre><code id="gl">mene:
+  image: node:22
+  script:
+    - npx --yes mene-check check</code></pre></div>
+      <h3>CircleCI, Jenkins, Buildkite and others</h3>
+      <div class="snip"><div class="snip-head"><code>shell step</code><button class="btn" data-copy-from="sh">Copy</button></div><pre><code id="sh">npx --yes mene-check check</code></pre></div>
+      <p class="small muted">Exit code 1 means a hijacked package was found and 2 means it couldn't verify; both should fail the build.</p>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .setup { padding-top: 1.5rem; }
+  .tabs { margin-bottom: 1.5rem; }
+  .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 1.5rem; align-items: start; }
+  @media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } .snip { order: -1; } }
+  .steps { margin: 0 0 1.2rem; padding-left: 1.3rem; display: grid; gap: .5rem; }
+  .opts { display: grid; gap: .8rem; }
+  .opts h3 { margin: 0; }
+  .opts label { display: grid; gap: .3rem; font-size: .88rem; font-weight: 500; }
+  .opts textarea { font: .78rem var(--mono); width: 100%; resize: vertical; }
+  .snip { position: relative; min-width: 0; margin: .4rem 0 1rem; }
+  .snip pre { margin: 0; background: #0b0e17; color: #e8ebf4; border-color: #222a3b; font-size: .82rem; line-height: 1.6; }
+  .snip-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .4rem .5rem .4rem .9rem; background: #141926; border: 1px solid #222a3b; border-bottom: 0; border-radius: 12px 12px 0 0; color: #9aa3b8; font-size: .78rem; }
+  .snip-head + pre { border-radius: 0 0 12px 12px; }
+  .snip-head .btn { padding: .25rem .8rem; font-size: .76rem; }
+  .gh-summary { margin: 0 0 2rem; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow); }
+  .gh-bar { padding: .6rem 1rem; border-bottom: 1px solid var(--line); font-weight: 600; font-size: .9rem; }
+  .gh-bar .x { color: var(--red); }
+  .gh-body { padding: 1rem 1.2rem; }
+  .gh-body h4 { margin: 0 0 .2rem; }
+  .tabpanel h2 { font-size: 1.5rem; margin-top: 2.5rem; }
+</style>
+
+<script>
+  import { getTrust, link } from "../scripts/mene"
+  // Tabs
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>(".tabs [role=tab]")]
+  const show = (t: HTMLButtonElement) => {
+    for (const o of tabs) {
+      const on = o === t
+      o.setAttribute("aria-selected", String(on))
+      document.getElementById(o.getAttribute("aria-controls")!)!.hidden = !on
+    }
+  }
+  for (const t of tabs) t.addEventListener("click", () => {
+    show(t)
+    history.replaceState(null, "", `#${t.id.slice(2)}`)
+  })
+  const fromHash = tabs.find((t) => `#${t.id.slice(2)}` === location.hash)
+  if (fromHash) show(fromHash)
+  ;(document.getElementById("ex-link") as HTMLAnchorElement).href = link("check", { example: "chalk-attack" })
+
+  // Live workflow builder
+  const form = document.getElementById("opts") as HTMLFormElement
+  const wf = document.getElementById("wf")!
+  const defaults = getTrust()
+  const defaultIssuers = defaults.issuers.map((i) => i.address)
+  const ta = document.getElementById("issuers") as HTMLTextAreaElement
+  ta.value = defaultIssuers.join("\n")
+  ;(form.elements.namedItem("threshold") as HTMLInputElement).value = String(defaults.threshold)
+  function build() {
+    const fd = new FormData(form)
+    const sev = String(fd.get("sev"))
+    const k = Math.max(1, Math.floor(Number(fd.get("threshold")) || defaults.threshold))
+    const issuers = String(fd.get("issuers")).split(/[\s,]+/).filter(Boolean)
+    const custom = issuers.join(",").toLowerCase() !== defaultIssuers.join(",").toLowerCase()
+    const extra = [
+      sev !== "low" ? `          min-severity: ${sev}` : "",
+      k !== defaults.threshold ? `          threshold: ${k}` : "",
+      custom && issuers.length ? `          issuers: ${issuers.join(",")}` : "",
+    ].filter(Boolean)
+    wf.textContent = `name: mene
+on: [push, pull_request]
+jobs:
+  mene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: andrew1234-arch/mene@v1
+        with:
+          lockfile: package-lock.json${extra.length ? `\n${extra.join("\n")}` : ""}`
+  }
+  form.addEventListener("input", build)
+  build()
+</script>
