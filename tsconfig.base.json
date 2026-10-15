@@ -14,7 +14,7 @@
     "baseUrl": ".",
     "paths": {
       "@mene/sdk": ["packages/sdk/src/index.ts"],
-      "@mene/cli/lib": ["packages/cli/src/lib.ts"]
+      "mene-check/lib": ["packages/cli/src/lib.ts"]
     }
   }
 }

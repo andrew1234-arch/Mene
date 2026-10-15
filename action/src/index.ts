@@ -1,6 +1,6 @@
 import { appendFileSync } from "node:fs"
-import { loadConfig, matchTable, runCheck } from "@mene/cli/lib"
 import { normalizeSeverity } from "@mene/sdk"
+import { loadConfig, matchTable, runCheck } from "mene-check/lib"
 
 const input = (name: string) => (process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] ?? "").trim()
 const summary = (md: string) =>
@@ -34,7 +34,7 @@ async function main() {
     console.log("Mene: clean")
     return
   }
-  summary(`${head}\n❌ **${r.matches.length} poisoned package(s)**\n\n${matchTable(r.matches)}`)
+  summary(`${head}\n❌ **${r.matches.length} hijacked package(s)**\n\n${matchTable(r.matches)}`)
   for (const m of r.matches) {
     console.log(
       `::error file=${lockfile}::${m.package}@${m.installed} is flagged by ${m.advisoryId} (${m.status})${m.safeVersion ? `; use ${m.safeVersion}` : ""}`,

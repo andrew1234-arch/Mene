@@ -15,7 +15,7 @@
     "site"
   ],
   "scripts": {
-    "build": "npm run build -w @mene/sdk && npm run build -w @mene/cli && npm run build -w @mene/action",
+    "build": "npm run build -w @mene/sdk && npm run build -w mene-check && npm run build -w @mene/action",
     "build:action": "npm run build -w @mene/action",
     "typecheck": "tsc -p packages/sdk && tsc -p packages/cli && tsc -p action && tsc -p .",
     "test": "vitest run",
