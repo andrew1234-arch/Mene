@@ -51,7 +51,7 @@ const links = [
   <a class="skip" href="#main">Skip to content</a>
   <header class="site">
     <div class="bar">
-      <a class="brand" href={`${base}/`} aria-label="Mene home"><Logo class="lockup" /></a>
+      <a class="brand" href={`${base}/`} aria-label="Mene home"><Logo class="lockup" /><Logo mark class="mark" /></a>
       <nav class="main" id="nav" aria-label="Main">
         {links.map(([href, label]) => <a href={`${base}${href}`} aria-current={active === href ? "page" : undefined}>{label}</a>)}
         <a href={REPO}>Docs</a>

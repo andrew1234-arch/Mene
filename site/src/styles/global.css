@@ -346,6 +346,19 @@ header.site .bar {
   width: auto;
   display: block;
 }
+.brand .mark {
+  display: none;
+  height: 28px;
+  width: 28px;
+}
+@media (max-width: 480px) {
+  header.site .brand .lockup {
+    display: none;
+  }
+  header.site .brand .mark {
+    display: block;
+  }
+}
 nav.main {
   display: flex;
   gap: .1rem;
