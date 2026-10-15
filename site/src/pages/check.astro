@@ -3,9 +3,14 @@ import CheckPanel from "../components/CheckPanel.astro"
 import Base from "../layouts/Base.astro"
 ---
 <Base title="Check your lockfile" active="/check" description="Check a package-lock.json for poisoned npm packages, privately, in your browser.">
-  <div class="narrow">
-    <h1>Check your lockfile</h1>
-    <p class="muted">Mene downloads the advisories your witnesses agree on and matches them against your lockfile here, in the page. Your dependencies are never uploaded, and the network requests contain no package names.</p>
+  <section class="panel flat page-head">
+    <div class="wrap center">
+      <span class="badge"><i>✦</i>Private by design</span>
+      <h1>Check your lockfile</h1>
+      <p class="lede">Mene downloads the advisories your witnesses agree on and matches them against your lockfile here, in the page. Your dependencies are never uploaded, and the network requests contain no package names.</p>
+    </div>
+  </section>
+  <div class="wrap narrow">
     <CheckPanel compact />
     <h2>Check every build</h2>
     <p class="muted">Add Mene to GitHub Actions. The job fails when a poisoned version appears, and the summary lists the fix.</p>

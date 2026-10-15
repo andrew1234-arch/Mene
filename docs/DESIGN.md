@@ -31,17 +31,17 @@
    - Result table plus a copyable CI snippet.
 5. `/witnesses` **Witnesses** (read-only) — the 3 trusted witness addresses, attestation counts, links to the explorer, and how to change trust (the `mene.config.json` / Action inputs).
 
-Landing also carries the Daniel 5 story and a compact threat-model table (attacker → what happens). There are no `/live`, `/about` or `/docs` pages.
+Landing carries the Daniel 5 line (in the footer) and the threat model as a carousel of attacker → what happens, with live counters beneath it. There are no `/live`, `/about` or `/docs` pages.
 
-## Visual direction: "writing on the wall"
-- **Mood:** an inscription in lamplight. Daniel 5:5 has the hand writing opposite the lampstand.
-  - Dark mode (default): deep plaster-charcoal background, warm off-white text, a single **lamp-gold** accent.
-  - Light mode: limestone/parchment background with ink text.
+## Visual direction: "the wall"
+- **Mood:** a calm, light product page. Soft lavender-to-pink panels with rounded corners frame each section; faint outlined tiles at the panel edges are the wall the warnings are written on.
+  - Light mode (follows the system by default): near-white background, white cards with soft violet shadows, a single **deep-violet** accent for primary actions.
+  - Dark mode: deep indigo panels, lavender accent.
+- **Layout:** a floating pill nav; centered section heads (pill badge → headline → one-line lede); the home page offers three "ways to use Mene" cards with a developers/witnesses toggle, a "works with" strip, the quorum diagram, the threat carousel and a lockfile-check call to action; a column footer.
 - **Type:**
-  - Display serif for headlines and the MENE · TEKEL · UPHARSIN triad (e.g. Instrument Serif or Cormorant Garamond; Google Fonts).
-  - Clean sans for body (Inter).
+  - Inter Tight for headlines, Inter for body (Google Fonts).
   - **Mono for every hash, address, key and version** (JetBrains Mono).
-- **Motifs:** an inscribed-line divider; wax-seal style badges for Sealed/Inscribed; status chips (ACTIVE = gold, PENDING = muted, WITHDRAWN = struck-through text, MISSING = red).
+- **Motifs:** pill badges with a small icon tile; a `) + (` ornament divider; check-mark feature lists; seal badges for Sealed/Inscribed; status chips (ACTIVE = accent, PENDING = muted, WITHDRAWN = struck-through text, MISSING = red).
 - **Rules:**
   - Respect `prefers-color-scheme` and offer a toggle; responsive down to 360 px; WCAG AA contrast.
   - Addresses truncated as `0x1234…abcd` with copy buttons; every on-chain item links to the Tiramisu explorer.

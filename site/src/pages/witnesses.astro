@@ -3,9 +3,14 @@ import { DOCS } from "../config"
 import Base from "../layouts/Base.astro"
 ---
 <Base title="Witnesses" active="/witnesses" description="The witnesses whose confirmations Mene counts.">
-  <div class="wp">
-    <h1>Witnesses</h1>
-    <p class="muted lead">A witness is a wallet whose confirmations you count. An advisory becomes active when 2 of these 3 witnesses confirm it. Mene trusts the wallet that signed each record (its on-chain <code>$creator</code>), which can't be faked. It never trusts labels, because anyone can write those.</p>
+  <section class="panel flat page-head">
+    <div class="wrap center">
+      <span class="badge"><i>⚖</i>2 of 3 must agree</span>
+      <h1>Witnesses</h1>
+      <p class="lede">A witness is a wallet whose confirmations you count. An advisory becomes active when 2 of these 3 witnesses confirm it. Mene trusts the wallet that signed each record (its on-chain <code>$creator</code>), which can't be faked. It never trusts labels, because anyone can write those.</p>
+    </div>
+  </section>
+  <div class="wrap">
 
     <div id="cards" class="wgrid"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
 
@@ -36,8 +41,6 @@ import Base from "../layouts/Base.astro"
 </Base>
 
 <style is:global>
-  .wp { padding-top: 2rem; }
-  .lead { max-width: 70ch; }
   .wgrid { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 1.5rem 0 2rem; }
   .wgrid .sk { height: 140px; }
   .wcard { display: grid; gap: .45rem; align-content: start; }

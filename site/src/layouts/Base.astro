@@ -1,4 +1,5 @@
 ---
+import { TIRAMISU } from "@mene/sdk"
 import { DOCS, REPO } from "../config"
 import "../styles/global.css"
 interface Props {
@@ -29,11 +30,11 @@ const links = [
   <meta name="description" content={description} />
   <meta property="og:title" content={title === "Mene" ? "Mene" : `${title} · Mene`} />
   <meta property="og:description" content={description} />
-  <meta name="theme-color" content="#16130f" />
+  <meta name="theme-color" content="#f3ecff" />
   <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <script is:inline>
     try { const t = localStorage.getItem("mene:theme"); if (t) document.documentElement.dataset.theme = t } catch {}
   </script>
@@ -41,9 +42,8 @@ const links = [
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="site">
-    <div class="wrap bar">
-      <a class="brand" href={`${base}/`} aria-label="Mene home">MENE</a>
-      <button class="menu-btn icon-btn" id="menu-btn" aria-expanded="false" aria-controls="nav" aria-label="Menu">☰</button>
+    <div class="bar">
+      <a class="brand" href={`${base}/`} aria-label="Mene home"><img src={`${base}/favicon.svg`} alt="" width="26" height="26" />mene</a>
       <nav class="main" id="nav" aria-label="Main">
         {links.map(([href, label]) => <a href={`${base}${href}`} aria-current={active === href ? "page" : undefined}>{label}</a>)}
         <a href={REPO}>Docs</a>
@@ -51,8 +51,8 @@ const links = [
       <div class="tools">
         <span class="net" id="net" title="Connection to the Arkiv Tiramisu network"><i></i><span>Arkiv</span></span>
         <button class="btn wallet-btn" id="wallet-btn">Connect wallet</button>
-        <button class="icon-btn" id="theme" aria-label="Toggle colour theme" title="Toggle theme">◐</button>
       </div>
+      <button class="menu-btn icon-btn btn" id="menu-btn" aria-expanded="false" aria-controls="nav" aria-label="Menu">☰</button>
     </div>
   </header>
   {preview && (
@@ -60,20 +60,51 @@ const links = [
       <div class="wrap"><strong>Preview with sample data.</strong> These advisories and witnesses are examples, not live Arkiv records. Lockfile checks run for real against them. Wallet actions need the live site.</div>
     </div>
   )}
-  <main id="main" class="wrap"><slot /></main>
+  <main id="main"><slot /></main>
   <footer class="site">
-    <div class="wrap foot">
-      <div>
-        <p class="triad">MENE · TEKEL · UPHARSIN</p>
-        <p>Advisories live on Arkiv, the Web3 database. This site reads them straight from your browser. There is no Mene server.</p>
+    <div class="wrap">
+      <div class="foot-top">
+        <div class="foot-tag">
+          <a class="brand" href={`${base}/`}><img src={`${base}/favicon.svg`} alt="" width="22" height="22" />mene</a>
+          <span>The writing on the wall for poisoned packages · MIT</span>
+        </div>
+        <p class="foot-quote">“Mene, Mene, Tekel, Upharsin.” Numbered, weighed, divided.</p>
       </div>
-      <nav aria-label="Footer">
-        <a href={DOCS.trust}>Trust model</a>
-        <a href={DOCS.schema}>Data contract (schema.md)</a>
-        <a href={DOCS.action}>GitHub Action</a>
-        <a href={REPO}>Source (MIT)</a>
-        <span class="muted">Tiramisu testnet</span>
-      </nav>
+      <div class="orn" aria-hidden="true">) + (</div>
+      <div class="foot-grid">
+        <div>
+          <a class="pill-link" href={REPO}>Source on GitHub ›</a>
+          <div class="foot-tools">
+            <button class="icon-btn btn" id="theme" aria-label="Toggle colour theme" title="Toggle theme">◐ Theme</button>
+          </div>
+        </div>
+        <nav aria-label="Product">
+          <h4>Product</h4>
+          <ul>
+            <li><a href={`${base}/wall`}>The Wall</a></li>
+            <li><a href={`${base}/check`}>Check a lockfile</a></li>
+            <li><a href={`${base}/witnesses`}>Witnesses</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Developers">
+          <h4>Developers</h4>
+          <ul>
+            <li><a href={DOCS.cli}>CLI</a></li>
+            <li><a href={DOCS.action}>GitHub Action</a></li>
+            <li><a href={DOCS.schema}>Data contract</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Trust">
+          <h4>Trust</h4>
+          <ul>
+            <li><a href={DOCS.trust}>Trust model</a></li>
+            <li><a href={DOCS.threats}>Threat model</a></li>
+            <li><a href={TIRAMISU.explorer}>Arkiv explorer</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="orn" aria-hidden="true">) + (</div>
+      <p class="disclaimer">Advisories live on Arkiv, the Web3 database, on the Tiramisu testnet. This site reads them straight from your browser; there is no Mene server. Package names are trademarks of their owners and appear here only to identify affected software.</p>
     </div>
   </footer>
   <script>
