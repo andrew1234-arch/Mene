@@ -1,0 +1,13 @@
+{
+  "name": "Mene",
+  "short_name": "Mene",
+  "description": "Warnings that can't be erased. Quorum-confirmed npm compromise advisories on Arkiv.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0B0E17",
+  "theme_color": "#0B0E17",
+  "icons": [
+    { "src": "mene-app-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "mene-app-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

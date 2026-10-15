@@ -1,4 +1,11 @@
-# Mene
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/png/mene-lockup-on-dark-800w.png">
+    <img src="brand/png/mene-lockup-on-light-800w.png" alt="Mene" width="320">
+  </picture>
+</h1>
+
+**Warnings that can't be erased.** Quorum-confirmed npm compromise advisories on Arkiv.
 
 > *Mene, Mene, Tekel, Upharsin*: the writing on the wall.
 
@@ -115,6 +122,7 @@ docs/            SPEC · DESIGN · TASKS · SUBMISSION (Devfolio answers) · VID
 scripts/         on-chain tooling: keys · spike · mirror · seed · attack · smoke
 advisories/      Mene-original advisories (the synthetic false alarm)
 examples/        demo lockfiles: scanned, never installed
+brand/           logo, app icons and social images (see brand/README.md)
 ```
 
 ## Development

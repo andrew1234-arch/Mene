@@ -147,8 +147,8 @@ const threats: [string, string, string][] = [
 <Base title="Mene">
   <section class="panel hero">
     <div class="wrap center">
-      <span class="badge"><i>◆</i>Censorship-resistant npm advisories</span>
-      <h1>The writing on the wall<br />for poisoned packages</h1>
+      <span class="badge"><i>◆</i>Quorum-confirmed npm compromise advisories on Arkiv</span>
+      <h1>Warnings that<br />can’t be erased.</h1>
       <p class="lede">On 8 September 2025 one phished maintainer turned chalk and debug into malware. The warnings lived where they could be edited or deleted. Mene writes them on Arkiv, where they can't be.</p>
       <div class="seg" role="tablist" aria-label="Who is this for">
         <button type="button" role="tab" id="t-dev" aria-controls="p-dev" aria-selected="true">For developers</button>
@@ -200,19 +200,19 @@ const threats: [string, string, string][] = [
       <svg viewBox="0 0 760 210" role="img" aria-labelledby="qd-t">
         <title id="qd-t">Witness A inscribes an advisory; witness B confirms; with 2 of 3 witnesses confirming, the advisory is ACTIVE and CI fails on a match.</title>
         <g font-family="var(--sans)" font-size="14" fill="var(--text)">
-          <rect x="10" y="20" width="160" height="44" rx="12" fill="var(--bg-2)" stroke="var(--line)"/><text x="90" y="47" text-anchor="middle">Witness A inscribes</text>
-          <rect x="10" y="83" width="160" height="44" rx="12" fill="var(--bg-2)" stroke="var(--line)"/><text x="90" y="110" text-anchor="middle">Witness B confirms</text>
+          <rect x="10" y="20" width="160" height="44" rx="12" fill="var(--bg-2)" stroke="var(--lit)" stroke-width="1.5"/><text x="90" y="47" text-anchor="middle">Witness A inscribes</text>
+          <rect x="10" y="83" width="160" height="44" rx="12" fill="var(--bg-2)" stroke="var(--lit)" stroke-width="1.5"/><text x="90" y="110" text-anchor="middle">Witness B confirms</text>
           <rect x="10" y="146" width="160" height="44" rx="12" fill="none" stroke="var(--line-2)" stroke-dasharray="4 4"/><text x="90" y="173" text-anchor="middle" fill="var(--muted)">Witness C (optional)</text>
-          <path d="M170 42 C 235 42, 235 105, 290 105 M170 105 L290 105 M170 168 C 235 168, 235 105, 290 105" stroke="var(--link)" fill="none" stroke-width="1.5"/>
-          <rect x="290" y="72" width="180" height="66" rx="14" fill="var(--surface)" stroke="var(--link)"/>
-          <text x="380" y="100" text-anchor="middle" font-family="var(--display)" font-weight="600" font-size="20" fill="var(--text)">Arkiv</text>
+          <path d="M170 42 C 235 42, 235 105, 290 105 M170 105 L290 105" stroke="var(--lit)" fill="none" stroke-width="1.5"/><path d="M170 168 C 235 168, 235 105, 290 105" stroke="var(--line-2)" fill="none" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <rect x="290" y="72" width="180" height="66" rx="14" fill="var(--surface)" stroke="var(--lit)" stroke-width="1.5"/>
+          <text x="380" y="100" text-anchor="middle" font-family="var(--display)" font-weight="750" font-size="20" fill="var(--text)">Arkiv</text>
           <text x="380" y="122" text-anchor="middle" font-size="12" fill="var(--muted)">2 of 3 confirmations</text>
-          <path d="M470 105 L560 105" stroke="var(--link)" stroke-width="1.5" marker-end="url(#arr)"/>
-          <rect x="560" y="72" width="190" height="66" rx="14" fill="var(--accent)"/>
-          <text x="655" y="100" text-anchor="middle" font-weight="600" fill="var(--accent-ink)">ACTIVE</text>
-          <text x="655" y="122" text-anchor="middle" font-size="12" fill="var(--accent-ink)">your CI fails on a match</text>
+          <path d="M470 105 L560 105" stroke="var(--lit)" stroke-width="1.5" marker-end="url(#arr)"/>
+          <rect x="560" y="72" width="190" height="66" rx="14" fill="var(--red)"/>
+          <text x="655" y="100" text-anchor="middle" font-weight="600" fill="#fff">ACTIVE</text>
+          <text x="655" y="122" text-anchor="middle" font-size="12" fill="#fff">your CI fails on a match</text>
         </g>
-        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--link)"/></marker></defs>
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--lit)"/></marker></defs>
       </svg>
     </figure>
   </section>
@@ -273,14 +273,14 @@ const threats: [string, string, string][] = [
   .plan.featured { box-shadow: var(--shadow-lg); border-color: var(--line-2); }
   .plan h3 { margin: 0 0 .2rem; font-size: 1.1rem; }
   .for { color: var(--muted); font-size: .8rem; margin: 0 0 1.1rem; min-height: 2.4em; }
-  .big { font: 600 2rem / 1.1 var(--display); letter-spacing: -0.03em; margin: 0; }
+  .big { font: 750 2rem / 1.1 var(--display); font-stretch: 112%; letter-spacing: -0.02em; margin: 0; }
   .sub { color: var(--muted); font-size: .76rem; margin: .3rem 0 1rem; min-height: 2.4em; }
   .inc { color: var(--muted); font-size: .76rem; margin: 0 0 .6rem; }
   .plan .ticks { font-size: .8rem; }
 
   .strip { padding: 3.5rem 16px 1rem; }
   .logos, .pkgs { list-style: none; padding: 0; margin: .8rem 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem 2.2rem; }
-  .logos li { font: 600 1rem var(--display); letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: .45rem; }
+  .logos li { font: 700 1rem var(--display); font-stretch: 112%; letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: .45rem; }
   .glyph { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 6px; background: var(--accent); color: var(--accent-ink); font-size: .8rem; }
   .pkgs { gap: .5rem 1.6rem; }
   .pkgs li { font: 600 1.05rem var(--mono); color: var(--text); opacity: .82; }
@@ -299,7 +299,7 @@ const threats: [string, string, string][] = [
   .stack-wrap { position: relative; display: grid; }
   .ghost { position: absolute; inset: 14px -14px; border-radius: 18px; background: color-mix(in srgb, var(--surface) 55%, transparent); border: 1px solid var(--line); z-index: 0; }
   .quote { position: relative; z-index: 1; text-align: left; padding: 1.8rem 1.9rem 1.5rem; border-radius: 18px; box-shadow: var(--shadow-lg); margin: 0; }
-  .quote blockquote { margin: 0 0 1.2rem; font: 500 clamp(1.1rem, 2.4vw, 1.45rem) / 1.35 var(--display); letter-spacing: -0.02em; }
+  .quote blockquote { margin: 0 0 1.2rem; font: 600 clamp(1.1rem, 2.4vw, 1.4rem) / 1.35 var(--display); letter-spacing: -0.01em; }
   .quote figcaption { display: flex; gap: .7rem; align-items: center; font-size: .82rem; line-height: 1.35; }
   .avatar { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: 50%; background: var(--panel-a); border: 1px solid var(--line); font-weight: 600; color: var(--link); flex: none; }
   .nav { width: 2rem; height: 2rem; padding: 0; border-radius: 50%; font-size: 1.1rem; line-height: 1; }
@@ -316,7 +316,7 @@ const threats: [string, string, string][] = [
   .stats { display: flex; justify-content: center; margin: 3rem auto 1.2rem; flex-wrap: wrap; }
   .stats div { padding: 0 2.4rem; border-left: 1px solid var(--line-2); }
   .stats div:first-child { border-left: 0; }
-  .stats dd { margin: 0; font: 500 2.2rem / 1.1 var(--display); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .stats dd { margin: 0; font: 750 2.2rem / 1.1 var(--display); font-stretch: 112%; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   .stats dt { color: var(--muted); font-size: .8rem; margin-top: .25rem; }
   @media (max-width: 560px) { .stats div { padding: .6rem 1.2rem; } }
 

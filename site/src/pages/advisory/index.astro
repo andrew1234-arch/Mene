@@ -24,14 +24,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
   dl.kv dd { margin: 0; overflow-wrap: anywhere; }
   .meter { display: flex; gap: .3rem; margin: .5rem 0 .3rem; }
   .meter i { flex: 1; height: .5rem; border-radius: 999px; background: var(--line); }
-  .meter i.on { background: var(--accent); }
+  .meter i.on { background: var(--lit); }
   .wlist { list-style: none; padding: 0; margin: .6rem 0 0; display: grid; gap: .45rem; font-size: .9rem; }
   .wlist li { display: flex; justify-content: space-between; gap: .5rem; align-items: center; }
-  .v-confirm { color: var(--accent); } .v-withdraw { color: var(--muted); } .v-none { color: var(--muted); opacity: .7; }
+  .v-confirm { color: var(--lit); } .v-withdraw { color: var(--muted); } .v-none { color: var(--muted); opacity: .7; }
   .badges { display: flex; gap: .45rem; flex-wrap: wrap; }
   .timeline { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--line); }
   .timeline li { position: relative; padding: .1rem 0 1rem 1.1rem; }
-  .timeline li::before { content: ""; position: absolute; left: -7px; top: .5rem; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+  .timeline li::before { content: ""; position: absolute; left: -7px; top: .5rem; width: 12px; height: 12px; border-radius: 50%; background: var(--lit); }
   .timeline li.withdraw::before { background: var(--muted); }
   .timeline li.gone::before { background: var(--red); }
   .actions { display: grid; gap: .5rem; }

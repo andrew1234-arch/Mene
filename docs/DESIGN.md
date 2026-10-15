@@ -33,15 +33,12 @@
 
 Landing carries the Daniel 5 line (in the footer) and the threat model as a carousel of attacker → what happens, with live counters beneath it. There are no `/live`, `/about` or `/docs` pages.
 
-## Visual direction: "the wall"
-- **Mood:** a calm, light product page. Soft lavender-to-pink panels with rounded corners frame each section; faint outlined tiles at the panel edges are the wall the warnings are written on.
-  - Light mode (follows the system by default): near-white background, white cards with soft violet shadows, a single **deep-violet** accent for primary actions.
-  - Dark mode: deep indigo panels, lavender accent.
-- **Layout:** a floating pill nav; centered section heads (pill badge → headline → one-line lede); the home page offers three "ways to use Mene" cards with a developers/witnesses toggle, a "works with" strip, the quorum diagram, the threat carousel and a lockfile-check call to action; a column footer.
-- **Type:**
-  - Inter Tight for headlines, Inter for body (Google Fonts).
-  - **Mono for every hash, address, key and version** (JetBrains Mono).
-- **Motifs:** pill badges with a small icon tile; a `) + (` ornament divider; check-mark feature lists; seal badges for Sealed/Inscribed; status chips (ACTIVE = accent, PENDING = muted, WITHDRAWN = struck-through text, MISSING = red).
+## Visual direction: ink and amber (brand kit in `brand/`)
+- **Brand:** the Quorum mark (three witness bars, two lit amber and one unlit, which also read as an M) and the outlined Archivo wordmark. Follow `brand/README.md`: clear space of one bar width, never recolour the bars, never put the amber mark on white.
+- **Colour:** Ink `#0B0E17` background and Light ink `#E8EBF4` text in dark mode (the default on dark systems); Amber `#F5B83D` for lit bars, witness lamps and primary actions. Light mode swaps to a near-white background with Deep amber `#9A6A0A` for lit elements and ink buttons. Threat red (`#FF5C5C` dark, `#D7261E` light) is used only for ACTIVE advisories and alarms, never for branding.
+- **Layout:** a floating pill nav carrying the lockup; centered section heads (pill badge → headline → one-line lede); rounded panels with faint tile clusters at the edges. The home page offers three ways to use Mene with a developers/witnesses toggle, a works-with strip, the quorum diagram (lit witnesses A and B, unlit C, mirroring the mark), the threat carousel over live counters, and the lockfile checker as the call to action; a column footer.
+- **Type:** Archivo, heavy and slightly wide, for headlines (it matches the wordmark); Inter for body; **JetBrains Mono for every hash, address, key and version**.
+- **Motifs:** pill badges; a `) + (` ornament divider; check-mark feature lists; amber seal badges for Sealed/Inscribed; status chips (ACTIVE = red, PENDING = muted, WITHDRAWN = struck-through, MISSING = red).
 - **Rules:**
   - Respect `prefers-color-scheme` and offer a toggle; responsive down to 360 px; WCAG AA contrast.
   - Addresses truncated as `0x1234…abcd` with copy buttons; every on-chain item links to the Tiramisu explorer.
