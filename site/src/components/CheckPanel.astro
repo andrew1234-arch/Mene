@@ -1,121 +1,235 @@
 ---
+// The lockfile check. "hero" mode collects the input and hands it to /check; "full" mode runs it
+// and renders the report. Matching always happens in this page; nothing is uploaded.
 interface Props {
-  compact?: boolean
+  mode?: "hero" | "full"
 }
-const { compact = false } = Astro.props
+const { mode = "full" } = Astro.props
 ---
-<section class:list={["checker", { compact }]} aria-labelledby="check-title">
-  <div id="check-input">
-    <label id="drop" class="drop" tabindex="0">
-      <input type="file" id="file" accept=".json,application/json" hidden />
+<section class:list={["checker", mode]} data-mode={mode} aria-label="Check a project">
+  <div class="check-input" id="check-input">
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept=".json,application/json" class="sr" />
       <span class="drop-icon" aria-hidden="true">⇣</span>
-      <strong id="check-title">Drop your <code>package-lock.json</code></strong>
-      <span class="muted small">or click to choose a file. It never leaves this page.</span>
+      <span class="drop-t"><strong>Drop <code>package-lock.json</code></strong> or <span class="linkish">choose a file</span></span>
     </label>
-    <div class="check-alt small">
-      <button type="button" class="linkish" id="paste-toggle">Paste instead</button>
-      <span class="muted">·</span>
-      <span class="muted">Try an example:</span>
-      <button type="button" class="linkish" data-fixture="chalk-attack">poisoned</button>
-      <button type="button" class="linkish" data-fixture="clean">clean</button>
-    </div>
-    <div id="paste" hidden>
-      <textarea id="paste-text" rows="6" placeholder='{"lockfileVersion": 3, "packages": { … }}' aria-label="Paste package-lock.json"></textarea>
-      <button type="button" class="btn primary" id="paste-go">Check</button>
-    </div>
+    <form class="url-row" id="url-form">
+      <label class="sr" for="repo-url">Public GitHub repository URL</label>
+      <input id="repo-url" name="repo" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="or paste a GitHub repo URL, e.g. github.com/owner/repo" />
+      <button class="btn primary" type="submit" id="url-go">Check</button>
+    </form>
+    <p class="privacy small muted">Files are read in your browser. Nothing is uploaded, and Mene never sends package names anywhere. <span class="url-note">For a repo URL, GitHub sees the request; Mene doesn't.</span></p>
+    <p class="small try"><a id="example" href="#">Try an example</a> <span class="muted">· a lockfile that installed the hijacked chalk 5.6.1</span></p>
   </div>
-  <div id="check-out" aria-live="polite"></div>
+  {mode === "full" && <div id="check-out" aria-live="polite"></div>}
 </section>
 
 <style>
-  .checker { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 1.25rem; box-shadow: var(--shadow-lg); }
-  .drop { display: grid; place-items: center; gap: .35rem; min-height: 190px; border: 1.5px dashed var(--line-2); border-radius: 14px; background: var(--bg-2); cursor: pointer; text-align: center; padding: 1rem; transition: border-color .15s, background .15s; }
-  .compact .drop { min-height: 150px; }
-  .drop:hover, .drop.over { border-color: var(--link); background: color-mix(in srgb, var(--link) 7%, var(--bg-2)); }
-  .drop-icon { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 12px; font-size: 1.2rem; background: var(--accent); color: var(--accent-ink); line-height: 1; margin-bottom: .3rem; }
-  .check-alt { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-top: .7rem; }
-  #paste { margin-top: .7rem; display: grid; gap: .5rem; }
-  #paste[hidden] { display: none; }
-  #paste textarea { width: 100%; font: .8rem var(--mono); }
+  .checker { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 1rem; box-shadow: var(--shadow-lg); text-align: left; }
+  .drop { display: flex; align-items: center; justify-content: center; gap: .8rem; min-height: 120px; border: 1.5px dashed var(--line-2); border-radius: 16px; background: var(--bg-2); cursor: pointer; padding: 1rem; text-align: center; transition: border-color .15s, background .15s; }
+  .full .drop { min-height: 150px; }
+  .drop:hover, .drop.over, .drop:focus-within { border-color: var(--link); background: color-mix(in srgb, var(--link) 7%, var(--bg-2)); }
+  .drop-icon { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; flex: none; border-radius: 12px; font-size: 1.2rem; background: var(--accent); color: var(--accent-ink); }
+  .drop-t { font-size: .95rem; }
+  .url-row { display: flex; gap: .5rem; margin-top: .7rem; }
+  .url-row input { flex: 1; min-width: 0; border-radius: 999px; padding: .7rem 1rem; font-size: .92rem; background: var(--bg-2); }
+  .url-row .btn { padding: .7rem 1.3rem; }
+  .privacy { margin: .7rem .2rem 0; }
+  .try { margin: .35rem .2rem 0; }
   #check-out:empty { display: none; }
   #check-out { margin-top: 1rem; }
+  @media (max-width: 480px) {
+    .drop { flex-direction: column; gap: .5rem; min-height: 110px; }
+    .url-row { flex-direction: column; }
+  }
 </style>
 
 <script>
   import { directDependencies, LockfileError, matchLockfile, parseLockfile, planFixes, type Match } from "@mene/sdk"
-  import { DOCS } from "../config"
-  import { advisoryUrl, esc, loadWall, sevBadge, showError, chip, toast } from "../scripts/mene"
+  import { advisoryUrl, copyText, esc, isTest, link, loadWall, params, savedWall, sevBadge, showError, toast } from "../scripts/mene"
 
-  const out = document.getElementById("check-out")!
+  const root = document.querySelector<HTMLElement>(".checker")!
+  const hero = root.dataset.mode === "hero"
+  const out = document.getElementById("check-out")
   const input = document.getElementById("check-input")!
   const drop = document.getElementById("drop")!
   const file = document.getElementById("file") as HTMLInputElement
+  const urlForm = document.getElementById("url-form") as HTMLFormElement
+  const urlInput = document.getElementById("repo-url") as HTMLInputElement
+  const HANDOFF = "mene:handoff"
 
-  function reset() {
-    out.innerHTML = ""
-    input.hidden = false
-    file.value = ""
+  // ------------------------------------------------------------ GitHub URL → raw lockfile URLs
+  /** Candidate raw URLs for a pasted GitHub link: an exact file, or package-lock.json on main then master. */
+  function rawCandidates(text: string): { urls: string[]; label: string } | undefined {
+    const t = text.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\.git$/, "")
+    const raw = t.match(/^raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/(.+\.json)$/)
+    if (raw) return { urls: [`https://${t}`], label: `${raw[1]}/${raw[2]}` }
+    const m = t.match(/^(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(?:\/(tree|blob)\/([^/]+)(?:\/(.*))?)?$/)
+    if (!m) return undefined
+    const [, owner, repo, kind, branch, rest = ""] = m
+    const base = `https://raw.githubusercontent.com/${owner}/${repo}`
+    if (kind === "blob" && rest.endsWith(".json")) return { urls: [`${base}/${branch}/${rest}`], label: `${owner}/${repo}/${rest}` }
+    const sub = rest ? `${rest.replace(/\/package-lock\.json$/, "")}/` : ""
+    const branches = branch ? [branch] : ["main", "master"]
+    return { urls: branches.map((b) => `${base}/${b}/${sub}package-lock.json`), label: `${owner}/${repo}${branch ? `@${branch}` : ""}${sub ? `/${sub.slice(0, -1)}` : ""}` }
   }
 
-  async function check(text: string, name: string) {
+  async function fetchLockfile(text: string): Promise<{ body: string; name: string }> {
+    const c = rawCandidates(text)
+    if (!c) throw new UserError("That isn't a GitHub repository URL. Use github.com/owner/repo, or drop the file.")
+    for (const u of c.urls) {
+      let r: Response
+      try {
+        r = await fetch(u, { credentials: "omit", referrerPolicy: "no-referrer" })
+      } catch {
+        throw new UserError("Couldn't reach GitHub. Check your connection, or drop the file instead.")
+      }
+      if (r.ok) return { body: await r.text(), name: c.label }
+    }
+    const where = c.urls.length > 1 ? "main or master" : "that address"
+    throw new UserError(`No package-lock.json found at ${where}. The repository may be private, use another branch, or keep the lockfile in a subfolder. Paste the exact file URL or drop the file.`)
+  }
+  class UserError extends Error {}
+
+  // ------------------------------------------------------------ hero mode: hand off to /check
+  function handOff(params: Record<string, string>, body?: { text: string; name: string }) {
+    if (body) {
+      try {
+        sessionStorage.setItem(HANDOFF, JSON.stringify(body))
+      } catch {
+        toast("That file is too large to pass along. Drop it on the Check page instead.", "err")
+        location.href = link("check")
+        return
+      }
+    }
+    location.href = link("check", params)
+  }
+
+  // ------------------------------------------------------------ full mode: run and report
+  type Report = { name: string; packages: number; matches: Match[]; enforced: number; block: string; plan: ReturnType<typeof planFixes> }
+  let last: Report | undefined
+
+  function errorBox(title: string, detail: string) {
+    out!.innerHTML = `<div class="result bad" role="alert"><p class="result-head">${esc(title)}</p><p>${esc(detail)}</p><div class="row-actions"><button class="btn" id="again">Try again</button></div></div>`
+    document.getElementById("again")!.addEventListener("click", reset)
+    input.hidden = false
+  }
+
+  function reset() {
+    out!.innerHTML = ""
+    input.hidden = false
+    file.value = ""
+    history.replaceState(null, "", link("check"))
+  }
+
+  async function run(text: string, name: string) {
+    if (hero) return handOff({ run: "file" }, { text, name })
     let installed
     try {
       installed = parseLockfile(text)
     } catch (e) {
-      out.innerHTML = `<div class="result bad"><p><strong>That doesn't look like an npm lockfile.</strong></p><p class="small muted">${esc(e instanceof LockfileError ? e.message : "Could not parse the file")}. Mene reads <code>package-lock.json</code> (v1–v3).</p></div>`
-      return
+      return errorBox("That isn't an npm lockfile", `${e instanceof LockfileError ? e.message : "The file couldn't be parsed"}. Mene reads package-lock.json (versions 1 to 3).`)
     }
     input.hidden = true
-    out.innerHTML = `<div class="result"><p class="skeleton">Checking ${installed.length} packages from <code>${esc(name)}</code>…</p></div>`
+    out!.innerHTML = `<div class="result"><p class="skeleton">Reading ${installed.length.toLocaleString()} packages from ${esc(name)}…</p></div>`
     let wall
     try {
       wall = await loadWall()
     } catch (err) {
-      showError(out, err, () => void check(text, name))
-      input.hidden = false
-      return
+      const saved = savedWall()
+      if (!saved) {
+        showError(out!, err, () => void run(text, name))
+        input.hidden = false
+        return
+      }
+      wall = saved
+      toast("Arkiv is unreachable: checked against saved advisories", "err")
     }
     const enforced = wall.statuses.filter((s) => s.enforced && s.advisory).map((s) => ({ key: s.key, status: s.label, advisory: s.advisory!.osv }))
     const matches = matchLockfile(installed, enforced)
     const plan = planFixes(matches, directDependencies(text), enforced)
-    const meta = `<p class="small muted">${installed.length} packages · ${enforced.length} enforced advisories · ${wall.trust.threshold}-of-${wall.trust.issuers.length} witness quorum · Arkiv block ${esc(wall.blockNumber)}</p>`
-    const actions = `<div class="row-actions"><button class="btn" id="again">Check another lockfile</button><button class="btn" id="report">Download report</button></div>`
+    last = { name, packages: installed.length, matches, enforced: enforced.length, block: wall.blockNumber, plan }
+    render(last, wall)
+  }
 
-    if (!matches.length) {
-      out.innerHTML = `<div class="result good"><p class="result-head">✓ No poisoned packages</p><p>None of the ${installed.length} packages in <code>${esc(name)}</code> matches an active advisory.</p>${meta}${actions}<p class="small"><a href="${DOCS.action}">Keep it that way in CI →</a></p></div>`
+  function render(r: Report, wall: Awaited<ReturnType<typeof loadWall>>) {
+    const meta = `<p class="small muted">Checked ${r.packages.toLocaleString()} packages against ${r.enforced} active advisories, updated at block ${esc(r.block)}.</p>`
+    const actions = `<div class="row-actions"><button class="btn" id="copy-sum">Copy summary</button><button class="btn" id="dl">Download report</button><button class="btn" id="again">Check another project</button></div>`
+    if (!r.matches.length) {
+      out!.innerHTML = `<div class="result good"><p class="result-head">No known compromised versions in ${r.packages.toLocaleString()} packages</p><p class="muted">${esc(r.name)}</p>${meta}${actions}
+        <div class="next"><strong>Keep it that way.</strong> Add Mene to CI so a hijacked version can never ship. <a class="btn primary" href="${link("setup")}">Protect CI in 2 minutes</a></div></div>`
     } else {
       const byPkg = new Map<string, Match[]>()
-      for (const m of matches) byPkg.set(`${m.package}@${m.installed}`, [...(byPkg.get(`${m.package}@${m.installed}`) ?? []), m])
-      const overridesJson = Object.keys(plan.overrides).length ? JSON.stringify({ overrides: plan.overrides }, null, 2) : ""
-      out.innerHTML = `<div class="result bad">
-        <p class="result-head">✗ ${byPkg.size} poisoned package${byPkg.size === 1 ? "" : "s"}</p>
-        <p>Don't ship or run this install. Fix it with the commands below, then check again.</p>
-        <ul class="hits">${[...byPkg.values()].map((ms) => {
-          const m = ms[0]!
-          return `<li>
-            <div class="hit-top"><code class="pkg">${esc(m.package)}</code> <code class="bad-v">${esc(m.installed)}</code>${m.safeVersion ? ` → <code class="good-v">${esc(m.safeVersion)}</code>` : ""} ${sevBadge(m.severity)}</div>
-            <div class="small">${esc(m.summary)}</div>
-            <div class="small muted"><a href="${advisoryUrl(m.advisoryKey)}">${esc(m.advisoryId)}</a> ${chip({ status: m.status.split(" ")[0] as "ACTIVE", label: m.status })} · ${ms.map((x) => `<code>${esc(x.path)}</code>`).join(", ")}</div>
-          </li>`
-        }).join("")}</ul>
-        <h3 class="fix-title">Fix it</h3>
-        ${plan.install ? `<p class="small muted">Pin your direct dependencies:</p><div class="cmd"><pre><code id="fix-install">${esc(plan.install)}</code></pre><button class="btn" data-copy-from="fix-install">Copy</button></div>` : ""}
-        ${overridesJson ? `<p class="small muted">Force the safe version for nested copies. Add this to <code>package.json</code>, then run <code>npm install</code>:</p><div class="cmd"><pre><code id="fix-overrides">${esc(overridesJson)}</code></pre><button class="btn" data-copy-from="fix-overrides">Copy</button></div>` : ""}
-        ${plan.unresolved.length ? `<p class="small">No known-safe version for ${plan.unresolved.map((p) => `<code>${esc(p)}</code>`).join(", ")}. Remove the package or pin it below the affected range.</p>` : ""}
+      for (const m of r.matches) byPkg.set(`${m.package}@${m.installed}`, [...(byPkg.get(`${m.package}@${m.installed}`) ?? []), m])
+      const overridesJson = Object.keys(r.plan.overrides).length ? JSON.stringify({ overrides: r.plan.overrides }, null, 2) : ""
+      let n = 0
+      out!.innerHTML = `<div class="result bad">
+        <p class="result-head">${byPkg.size} affected package${byPkg.size === 1 ? "" : "s"} in ${esc(r.name)}</p>
+        <p>These versions were hijacked. Don't ship this install; switch to the safe versions below.</p>
+        <div class="table-wrap"><table class="hits-t">
+          <thead><tr><th>Package</th><th>Installed</th><th>Advisory</th><th>Severity</th><th>What to do</th></tr></thead>
+          <tbody>${[...byPkg.values()].map((ms) => {
+            const m = ms[0]!
+            const id = `fix-${n++}`
+            const s = wall.statuses.find((x) => x.key === m.advisoryKey)
+            return `<tr>
+              <td><code class="pkg">${esc(m.package)}</code>${isTest(s?.advisory?.osv) ? ` <span class="src-tag">Test advisory</span>` : ""}</td>
+              <td><code class="bad-v">${esc(m.installed)}</code></td>
+              <td><a href="${advisoryUrl(m.advisoryKey, wall)}">${esc(m.advisoryId)}</a></td>
+              <td>${sevBadge(m.severity)}</td>
+              <td>${m.safeVersion ? `<div class="cmd"><code id="${id}">npm install ${esc(m.package)}@${esc(m.safeVersion)}</code><button class="btn" data-copy-from="${id}">Copy</button></div>` : `<span class="small">No safe version known: remove it or pin below the affected range.</span>`}</td>
+            </tr>`
+          }).join("")}</tbody>
+        </table></div>
+        ${overridesJson ? `<p class="small muted">Some of these are nested dependencies. To force the safe version everywhere, add this to <code>package.json</code> and run <code>npm install</code>:</p><div class="cmd block"><pre><code id="fix-overrides">${esc(overridesJson)}</code></pre><button class="btn" data-copy-from="fix-overrides">Copy</button></div>` : ""}
         ${meta}${actions}
       </div>`
     }
     document.getElementById("again")!.addEventListener("click", reset)
-    document.getElementById("report")!.addEventListener("click", () => {
-      const blob = new Blob([JSON.stringify({ lockfile: name, checkedAt: new Date().toISOString(), arkivBlock: wall.blockNumber, quorum: `${wall.trust.threshold}/${wall.trust.issuers.length}`, witnesses: wall.trust.issuers, packages: installed.length, matches, fix: plan }, null, 2)], { type: "application/json" })
+    document.getElementById("dl")!.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify({ project: r.name, checkedAt: new Date().toISOString(), arkivBlock: r.block, quorum: `${wall.trust.threshold}/${wall.trust.issuers.length}`, packages: r.packages, affected: r.matches, fix: r.plan }, null, 2)], { type: "application/json" })
       const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "mene-report.json" })
       a.click()
       setTimeout(() => URL.revokeObjectURL(a.href), 60_000)
       toast("Report downloaded")
     })
+    document.getElementById("copy-sum")!.addEventListener("click", async (e) => {
+      const md = r.matches.length
+        ? `**Mene: ${new Set(r.matches.map((m) => m.package)).size} affected package(s) in ${r.name}**\n\n| Package | Installed | Advisory | Severity | Fix |\n|---|---|---|---|---|\n${[...new Map(r.matches.map((m) => [`${m.package}@${m.installed}`, m])).values()].map((m) => `| ${m.package} | ${m.installed} | ${m.advisoryId} | ${m.severity} | ${m.safeVersion ? `\`npm install ${m.package}@${m.safeVersion}\`` : "remove"} |`).join("\n")}\n\nChecked ${r.packages} packages against ${r.enforced} active advisories (Arkiv block ${r.block}).`
+        : `**Mene: no known compromised versions** in ${r.packages} packages (${r.name}). Checked against ${r.enforced} active advisories (Arkiv block ${r.block}).`
+      await copyText(md, e.currentTarget as HTMLElement)
+    })
   }
 
-  const fromFile = async (f: File | undefined) => f && check(await f.text(), f.name)
+  async function fromUrl(text: string) {
+    if (hero) {
+      if (!rawCandidates(text)) return toast("That isn't a GitHub repository URL. Use github.com/owner/repo.", "err")
+      return handOff({ repo: text.trim() })
+    }
+    input.hidden = true
+    out!.innerHTML = `<div class="result"><p class="skeleton">Fetching package-lock.json from GitHub…</p></div>`
+    try {
+      const { body, name } = await fetchLockfile(text)
+      history.replaceState(null, "", link("check", { repo: text.trim() }))
+      await run(body, name)
+    } catch (e) {
+      errorBox("Couldn't get the lockfile", e instanceof UserError ? e.message : "Something went wrong fetching it. Drop the file instead.")
+    }
+  }
+
+  async function example() {
+    if (hero) return handOff({ example: "chalk-attack" })
+    try {
+      // Code-split: only loaded when an example is asked for.
+      const { default: text } = await import("../../../examples/chalk-attack/package-lock.json?raw")
+      history.replaceState(null, "", link("check", { example: "chalk-attack" }))
+      await run(text, "example project (chalk-attack)")
+    } catch {
+      toast("Couldn't load the example", "err")
+    }
+  }
+
+  const fromFile = async (f: File | undefined) => f && run(await f.text(), f.name)
   file.addEventListener("change", () => void fromFile(file.files?.[0]))
   drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over") })
   drop.addEventListener("dragleave", () => drop.classList.remove("over"))
@@ -124,28 +238,33 @@ const { compact = false } = Astro.props
     drop.classList.remove("over")
     void fromFile(e.dataTransfer?.files?.[0])
   })
-  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click() } })
-  document.getElementById("paste-toggle")!.addEventListener("click", () => {
-    const p = document.getElementById("paste")!
-    p.hidden = !p.hidden
-    if (!p.hidden) (document.getElementById("paste-text") as HTMLTextAreaElement).focus()
+  urlForm.addEventListener("submit", (e) => {
+    e.preventDefault()
+    const v = urlInput.value.trim()
+    if (!v) return urlInput.focus()
+    void fromUrl(v)
   })
-  document.getElementById("paste-go")!.addEventListener("click", () => void check((document.getElementById("paste-text") as HTMLTextAreaElement).value, "pasted lockfile"))
-  // Demo lockfiles come from examples/ (one copy in the repo). They are code-split and loaded
-  // only when an example is clicked, so ordinary visitors don't download them.
-  const fixtures: Record<string, () => Promise<{ default: string }>> = {
-    "chalk-attack": () => import("../../../examples/chalk-attack/package-lock.json?raw"),
-    clean: () => import("../../../examples/clean/package-lock.json?raw"),
-  }
-  for (const b of document.querySelectorAll<HTMLButtonElement>("[data-fixture]")) {
-    const name = b.dataset.fixture!
-    b.addEventListener("click", async () => {
+  document.getElementById("example")!.addEventListener("click", (e) => {
+    e.preventDefault()
+    void example()
+  })
+
+  // Deep links and hand-offs: /check?repo=…, /check?example=chalk-attack, or a file from Home.
+  if (!hero) {
+    const p = params()
+    const handed = (() => {
       try {
-        const { default: text } = await fixtures[name]!()
-        await check(text, `example: ${name}`)
+        const v = sessionStorage.getItem(HANDOFF)
+        sessionStorage.removeItem(HANDOFF)
+        return v ? (JSON.parse(v) as { text: string; name: string }) : undefined
       } catch {
-        toast("Couldn't load the example lockfile", "err")
+        return undefined
       }
-    })
+    })()
+    if (handed) void run(handed.text, handed.name)
+    else if (p.get("repo")) {
+      urlInput.value = p.get("repo")!
+      void fromUrl(p.get("repo")!)
+    } else if (p.get("example")) void example()
   }
 </script>

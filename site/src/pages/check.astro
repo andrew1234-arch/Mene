@@ -1,30 +1,21 @@
 ---
 import CheckPanel from "../components/CheckPanel.astro"
 import Base from "../layouts/Base.astro"
+const base = import.meta.env.BASE_URL.replace(/\/$/, "")
 ---
-<Base title="Check your lockfile" active="/check" description="Check a package-lock.json for poisoned npm packages, privately, in your browser.">
+<Base title="Is my project affected?" active="/check" description="Check a package-lock.json or a public GitHub repo for hijacked npm packages, privately, in your browser.">
   <section class="panel flat page-head">
     <div class="wrap center">
-      <span class="badge"><i>✦</i>Private by design</span>
-      <h1>Check your lockfile</h1>
-      <p class="lede">Mene downloads the advisories your witnesses agree on and matches them against your lockfile here, in the page. Your dependencies are never uploaded, and the network requests contain no package names.</p>
+      <h1>Is my project affected?</h1>
+      <p class="lede">Drop your <code>package-lock.json</code> or paste a public GitHub repo. You get a list of hijacked packages and the exact versions to install instead.</p>
     </div>
   </section>
   <div class="wrap narrow">
-    <CheckPanel compact />
-    <h2>Check every build</h2>
-    <p class="muted">Add Mene to GitHub Actions. The job fails when a poisoned version appears, and the summary lists the fix.</p>
-<pre><code id="snippet">name: mene
-on: [push, pull_request]
-jobs:
-  mene:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: andrew1234-arch/Mene/action@main
-        with:
-          lockfile: package-lock.json</code></pre>
-    <button class="btn" data-copy-from="snippet">Copy workflow</button>
+    <CheckPanel mode="full" />
+    <p class="small muted after">Want this on every build? <a href={`${base}/setup`}>Set up CI in 2 minutes →</a></p>
   </div>
 </Base>
-<style>.narrow { max-width: 760px; padding-top: 2rem; }</style>
+<style>
+  .narrow { max-width: 860px; padding-top: 1.5rem; }
+  .after { text-align: center; margin-top: 1.5rem; }
+</style>
