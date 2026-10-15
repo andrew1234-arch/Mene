@@ -4,7 +4,7 @@ Paste into the Devfolio project form. Replace every **TODO**. Code links point a
 
 ## Standard fields
 - **Project name:** Mene
-- **Tagline:** The writing on the wall for poisoned packages.
+- **Tagline:** Warnings that can't be erased.
 - **Tracks:** Security · Censorship Resistance · Open Source
 - **Repo:** https://github.com/andrew1234-arch/Mene
 - **Demo video:** TODO (≤ 3:00, script in [VIDEO.md](VIDEO.md))
@@ -67,12 +67,12 @@ Arkiv also gives us, in one layer:
 - **Attributes vs payload.** OSV JSON in the payload. Everything we filter on is a typed attribute: `severity` i32 and `publishedAt` u64 for ranges; `advisory` key and `verdict` str on attestations. → [arkiv.ts#L186](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L184 "export function advisoryAttributes"), [schema.md](https://github.com/andrew1234-arch/Mene/blob/main/arkiv/schema.md)
 - **`createdBy()` on every read.** Attestations are read per trusted witness, so forged look-alikes never appear. → [arkiv.ts#L51](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L49 "export function attestationQuery")
 - **Cursor pagination.** Each witness's attestations are paged until `hasNextPage()` is false. → [arkiv.ts#L102](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L100 "export async function readAttestations")
-- **Range queries.** The Wall's minimum-severity and published-since filters run `gte("severity", i32)` and `gte("publishedAt", u64)` on Arkiv, also pinned per witness. → [wall.astro](https://github.com/andrew1234-arch/Mene/blob/main/site/src/pages/wall.astro)
+- **Range queries.** The Advisories page's minimum-severity and published-since filters run `gte("severity", i32)` and `gte("publishedAt", u64)` on Arkiv, also pinned per witness. → [advisories/index.astro](https://github.com/andrew1234-arch/Mene/blob/main/site/src/pages/advisories/index.astro)
 - **Creation flags.** `readonly`: witnesses confirm text that can never change ("Content frozen" badge). `permissionlessExtension`: anyone can extend ("Keep alive", `mene keepalive`). → [arkiv.ts#L214](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L212 "flags: { readonly: true, permissionlessExtension: true }")
 - **`$owner` transfer (seal).** In the publish batch, ownership moves to `0x…dEaD` ("Sealed" badge; the stolen-key delete reverts). → [arkiv.ts#L256](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L254 "ownershipChanges: sealMode")
 - **Atomic batch + `predictEntityKeys`.** Advisory, the publisher's confirmation pointing at the predicted key, and the seal land in one transaction. → [arkiv.ts#L234](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L232 "export async function publishAdvisory")
-- **Entity Expiration + permissionless Lifetime Extension.** Advisories and attestations live 365 days; any wallet can renew them. Keepalive skips entities that already live longer, so one can't revert the batch. The advisory page shows the countdown and who last paid. → [arkiv.ts#L279](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L277 "export async function keepalive")
-- **WebSocket entity events.** The Wall's live strip uses `watchEntityEvents` over `webSocket()` with no `fromBlock`. It shows inscriptions, confirmations, seals and extensions as they land, raises red deletion alarms, and re-reads the Wall without a refresh. → [wall.astro](https://github.com/andrew1234-arch/Mene/blob/main/site/src/pages/wall.astro)
+- **Entity Expiration + permissionless Lifetime Extension.** Advisories and attestations live 365 days; any wallet can renew them. Keepalive skips entities that already live longer, so one can't revert the batch. Each advisory's Verify panel shows the countdown and who last paid. → [arkiv.ts#L279](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L277 "export async function keepalive")
+- **WebSocket entity events.** The Advisories page's live activity panel uses `watchEntityEvents` over `webSocket()` with no `fromBlock`. It shows new advisories, confirmations, seals and extensions as they land, raises red deletion alarms, and re-reads the list without a refresh. → [advisories/index.astro](https://github.com/andrew1234-arch/Mene/blob/main/site/src/pages/advisories/index.astro)
 
 ### 5. Friction report *
 https://github.com/andrew1234-arch/Mene/blob/main/arkiv/friction.md
@@ -88,13 +88,14 @@ TODO, from [arkiv/evidence.md](https://github.com/andrew1234-arch/Mene/blob/main
 https://github.com/andrew1234-arch/Mene/blob/main/arkiv/schema.md
 
 ### 8. How can judges reproduce your Arkiv usage? *
-1. Open the live app → **The Wall**. The qix-incident records (`MAL-2025-…`, tagged *OpenSSF mirror*) show **ACTIVE**; `MENE-2026-0001` shows **WITHDRAWN**.
-2. **Check** → *Try an example: poisoned*. It finds chalk 5.6.1 and debug 4.4.2 and gives `npm install debug@4.4.1 chalk@5.6.0`. Or drop your own `package-lock.json`.
-3. Open an advisory → **Verify it yourself**. Run the exact query shown, with the SDK or the `curl`:
+Start at **/trust** on the live app: it answers who confirms a warning, what a hacked witness can and can't do, why a warning can't be deleted, what Mene sees about you, and where the data lives, each with a "verify it yourself" panel and the raw `arkiv_query`.
+1. **Advisories**: the qix-incident records (`MAL-2025-…`, OpenSSF mirror) show **Confirmed**; tick *Show withdrawn* to see `MENE-2026-0001` (tagged *Test advisory*) as **Withdrawn**.
+2. Open one advisory → **Verify this advisory**: the witness timeline (each verdict with block and explorer link), *Content frozen* and *Sealed* badges, Entity Expiration countdown and "Kept alive by", and the exact SDK query and `curl`:
    `project = str('mene-v1') AND type = str('attestation') AND $creator = addr(<witness>)`
+3. **Check** → *Try an example*. It finds chalk 5.6.1 and debug 4.4.2 and gives `npm install chalk@5.6.0` and `npm install debug@4.4.1`. Or paste a public GitHub repo URL, or drop your own `package-lock.json`.
 4. On the explorer, an advisory's owner is `0x000000000000000000000000000000000000dEaD` and its flags are readonly + permissionlessExtension.
-5. The keeper's forged advisory exists on chain (evidence.md) but never appears on the Wall.
-6. CLI: `npm ci && npm run build && node packages/cli/dist/index.js check --lockfile examples/chalk-attack/package-lock.json` exits 1; `examples/clean` exits 0.
+5. The keeper's forged advisory exists on chain (evidence.md) but never appears in Advisories.
+6. CLI: `npx mene-check check` in any project (or from the repo: `npm ci && npm run build && node packages/cli/dist/index.js check --lockfile examples/chalk-attack/package-lock.json` exits 1; `examples/clean` exits 0).
 7. CI: run the **chalk-attack-demo** workflow. The poisoned lockfile fails and the clean one passes.
 
 ### 9. Pre-existing work you reused *

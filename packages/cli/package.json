@@ -1,20 +1,52 @@
 {
-  "name": "@mene/cli",
+  "name": "mene-check",
   "version": "0.1.0",
+  "description": "Check package-lock.json for hijacked npm package versions confirmed by independent witnesses on Arkiv. Fails CI on a match.",
+  "keywords": [
+    "npm",
+    "security",
+    "supply-chain",
+    "malware",
+    "lockfile",
+    "package-lock",
+    "ci",
+    "advisory",
+    "osv",
+    "arkiv"
+  ],
+  "homepage": "https://andrew1234-arch.github.io/Mene/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andrew1234-arch/Mene.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/andrew1234-arch/Mene/issues"
+  },
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "bin": {
     "mene": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "prepublishOnly": "cd ../.. && npm run build -w @mene/sdk && npm run build -w mene-check"
   },
   "dependencies": {
-    "@mene/sdk": "0.1.0",
-    "commander": "^12.1.0"
+    "@arkiv-network/sdk": "0.8.1",
+    "commander": "^12.1.0",
+    "semver": "^7.6.3",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@mene/sdk": "0.1.0"
   },
   "exports": {
     ".": {

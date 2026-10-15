@@ -2171,9 +2171,6 @@ var require_semver2 = __commonJS({
 // src/index.ts
 import { appendFileSync } from "fs";
 
-// ../packages/cli/src/check.ts
-import { readFileSync as readFileSync2 } from "fs";
-
 // ../packages/sdk/src/constants.ts
 var PROJECT = "mene-v1";
 var TIRAMISU = {
@@ -12182,6 +12179,9 @@ var CURATED = [
   ["error-ex", "1.3.3"]
 ].map(([name, version]) => ({ name, version, incident: "qix-2025-09-08" }));
 
+// ../packages/cli/src/check.ts
+import { readFileSync as readFileSync2 } from "fs";
+
 // ../packages/cli/src/config.ts
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { homedir } from "os";
@@ -12327,7 +12327,7 @@ ${r.statuses.length} advisories, ${r.statuses.filter((s) => s.enforced).length} 
     return;
   }
   summary(`${head}
-\u274C **${r.matches.length} poisoned package(s)**
+\u274C **${r.matches.length} hijacked package(s)**
 
 ${matchTable(r.matches)}`);
   for (const m of r.matches) {

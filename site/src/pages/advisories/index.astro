@@ -1,0 +1,583 @@
+---
+import Base from "../../layouts/Base.astro"
+---
+<Base title="Advisories" active="/advisories" description="Hijacked npm package versions confirmed by independent witnesses, newest first.">
+  <section class="panel flat page-head" id="list-head">
+    <div class="wrap center">
+      <h1>Advisories</h1>
+      <p class="lede">npm package versions that were hijacked, confirmed by independent witnesses. Newest first.</p>
+    </div>
+  </section>
+
+  <div class="wrap page-body" id="list-view">
+    <form id="filters" class="filters" onsubmit="return false" role="search">
+      <label class="sr" for="q">Search advisories</label>
+      <input type="search" id="q" name="q" class="find" placeholder="Search by package or advisory ID" autocomplete="off" spellcheck="false" />
+      <div class="filter-row">
+        <div class="tabs" role="tablist" id="tabs" aria-label="Status">
+          <button type="button" role="tab" data-status="all" aria-selected="true">All <span></span></button>
+          <button type="button" role="tab" data-status="ACTIVE" aria-selected="false">Confirmed <span></span></button>
+          <button type="button" role="tab" data-status="PENDING" aria-selected="false">Awaiting confirmation <span></span></button>
+          <button type="button" role="tab" data-status="MISSING" aria-selected="false">Removed <span></span></button>
+        </div>
+        <label class="inline"><input type="checkbox" name="withdrawn" /> Show withdrawn</label>
+        <label class="inline">Severity
+          <select name="sev"><option value="1">Any</option><option value="2">Moderate+</option><option value="3">High+</option><option value="4">Critical</option></select>
+        </label>
+        <label class="inline">Since <input type="date" name="since" /></label>
+      </div>
+    </form>
+    <div id="alarms"></div>
+    <div id="out"><div class="sk-list"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
+    <div id="fresh"></div>
+    <details class="live" id="live">
+      <summary><span class="chip PENDING" id="live-status">Connecting</span> Live activity</summary>
+      <ol id="live-feed" class="live-feed"><li class="muted small" id="live-idle">Waiting for new advisories, confirmations and withdrawals…</li></ol>
+    </details>
+  </div>
+
+  <div class="wrap" id="detail-view" hidden>
+    <p class="crumb"><a class="pill-link" id="back" href="#">‹ All advisories</a></p>
+    <div id="detail"><div class="sk-list"><div class="sk" style="height:140px"></div><div class="sk" style="height:260px"></div></div></div>
+  </div>
+</Base>
+
+<style is:global>
+  .filters { display: grid; gap: .8rem; margin: .5rem 0 1rem; }
+  .find { width: 100%; font-size: 1.02rem; padding: .8rem 1.1rem; border-radius: 999px; box-shadow: var(--shadow); }
+  .filter-row { display: flex; gap: .6rem 1rem; flex-wrap: wrap; align-items: center; }
+  .tabs { display: flex; gap: .3rem; flex-wrap: wrap; }
+  .tabs button { font-size: .85rem; padding: .35rem .85rem; }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .tabs span { opacity: .7; font-family: var(--mono); font-size: .75rem; margin-left: .15rem; }
+  label.inline { display: inline-flex; gap: .4rem; align-items: center; font-size: .85rem; color: var(--muted); }
+  #alarms { display: grid; gap: .6rem; margin-bottom: 1rem; }
+  #alarms:empty { display: none; }
+  .live { border: 1px solid var(--line); border-radius: 16px; padding: .7rem 1rem; margin: 1.5rem 0 0; background: var(--surface); }
+  .live summary { cursor: pointer; font-size: .9rem; font-weight: 600; display: flex; gap: .6rem; align-items: center; }
+  .live-feed { list-style: none; padding: 0; margin: .6rem 0 0; display: grid; gap: .3rem; max-height: 12rem; overflow-y: auto; font-size: .86rem; }
+  .live-feed li.alarm-row { color: var(--red); font-weight: 600; }
+  .live-feed .when { font: .72rem var(--mono); color: var(--muted); margin-right: .4rem; }
+
+  .crumb { margin: 1.5rem 0 1rem; }
+  .ahead { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .ahead h1 { margin: 0; font-size: clamp(1.9rem, 4.5vw, 3rem); }
+  .summary { font-size: 1.15rem; margin: .6rem 0 .3rem; max-width: 70ch; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 1.2rem; margin-top: 1.5rem; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  .stack { display: grid; gap: 1.2rem; }
+  .fixbox { border-color: var(--ok); }
+  .fixbox h3 { color: var(--ok); }
+  dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: .45rem 1rem; margin: 0; }
+  dl.kv dt { color: var(--muted); font-size: .88rem; }
+  dl.kv dd { margin: 0; overflow-wrap: anywhere; }
+  .meter { display: flex; gap: .3rem; margin: .5rem 0 .3rem; }
+  .meter i { flex: 1; height: .5rem; border-radius: 999px; background: var(--line); }
+  .meter i.on { background: var(--lit); }
+  .wlist { list-style: none; padding: 0; margin: .6rem 0 0; display: grid; gap: .45rem; font-size: .9rem; }
+  .wlist li { display: flex; justify-content: space-between; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  .v-confirm { color: var(--lit); } .v-withdraw { color: var(--muted); } .v-none { color: var(--muted); opacity: .7; }
+  .badges { display: flex; gap: .45rem; flex-wrap: wrap; }
+  .timeline { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--line); }
+  .timeline li { position: relative; padding: .1rem 0 1rem 1.1rem; }
+  .timeline li::before { content: ""; position: absolute; left: -7px; top: .5rem; width: 12px; height: 12px; border-radius: 50%; background: var(--lit); }
+  .timeline li.withdraw::before { background: var(--muted); }
+  .timeline li.gone::before { background: var(--red); }
+  .actions { display: grid; gap: .5rem; }
+  .actions .row-actions { margin: 0; }
+  details.verify { margin-top: 1.5rem; }
+  details.verify > summary { cursor: pointer; font-weight: 600; font-size: 1.05rem; }
+  details.verify[open] > summary { margin-bottom: 1rem; }
+  .verify-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); gap: 1.2rem; }
+  @media (max-width: 860px) { .verify-grid { grid-template-columns: 1fr; } }
+  .verify pre { max-height: 420px; }
+  .cta-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+</style>
+
+<script>
+  import { and, eq, gte } from "@arkiv-network/sdk/query"
+  import { i32, u64 } from "@arkiv-network/sdk/attr"
+  import { attest, attestationQuery, BURN_ADDRESS, explorer, isSafeUrl, keepalive, PROJECT, primaryPackage, publicClient, readAdvisory, recommendedOf, severityOf, severityToInt, sourceLabel, TIRAMISU, type AdvisoryRecord, type AdvisoryStatus } from "@mene/sdk"
+  import { DOCS } from "../../config"
+  import { addrHtml, advRow, affectedText, blocksToHuman, errorHtml, esc, findAdvisory, fmtDate, forgetWall, freshnessHtml, getState, getTrust, isTest, link, params, publishedAt, pub, sevBadge, short, statusChip, statusWord, toast, watchWall, witnessName, type Freshness, type Wall } from "../../scripts/mene"
+  import { connect, connectedAddress, disconnect, hasWallet, isWitness, onWallet, wallet, withTx } from "../../scripts/wallet"
+
+  const id = params().get("id")
+  const listView = document.getElementById("list-view")!
+  const listHead = document.getElementById("list-head")!
+  const detailView = document.getElementById("detail-view")!
+  ;(document.getElementById("back") as HTMLAnchorElement).href = link("advisories")
+
+  let wall: Wall | undefined
+  let fresh: Freshness = "saved"
+  const sevOf = (s: AdvisoryStatus) => (s.advisory ? severityToInt(severityOf(s.advisory.osv)) : 1)
+
+  // ================================================================ list
+  const form = document.getElementById("filters") as HTMLFormElement
+  const out = document.getElementById("out")!
+  const alarms = document.getElementById("alarms")!
+  const tabs = document.getElementById("tabs")!
+  let status = params().get("status") ?? "all"
+  let rangeKeys: Set<string> | null = null
+  let rangeSev = 1
+  let rangeSince = 0
+
+  /**
+   * Severity and date filters run as numeric range queries on Arkiv, pinned to each trusted witness
+   * with createdBy() like every read. Advisories a witness didn't create are filtered by content.
+   */
+  let rangeSeq = 0
+  async function runRangeQuery() {
+    const seq = ++rangeSeq
+    const fd = new FormData(form)
+    const sev = Number(fd.get("sev"))
+    const sinceStr = String(fd.get("since") || "")
+    const since = sinceStr ? Math.floor(Date.parse(sinceStr) / 1000) : 0
+    if (sev <= 1 && !since) {
+      rangeKeys = null
+      return
+    }
+    if (!wall) return
+    rangeSev = sev
+    rangeSince = since
+    const preds = [eq("project", PROJECT), eq("type", "advisory"), gte("severity", i32(rangeSev))]
+    if (rangeSince) preds.push(gte("publishedAt", u64(BigInt(rangeSince))))
+    const keys = new Set<string>()
+    for (const w of wall.trust.issuers) {
+      let page = await pub().select({ key: true }).where(and(preds)).createdBy(w.address as `0x${string}`).limit(200).fetch()
+      for (;;) {
+        for (const e of page.entities) keys.add(e.key.toLowerCase())
+        if (!page.hasNextPage()) break
+        page = await page.next()
+      }
+    }
+    if (seq !== rangeSeq) return
+    rangeKeys = keys
+  }
+  function inRange(s: AdvisoryStatus): boolean {
+    if (!rangeKeys) return true
+    const a = s.advisory
+    const queried = a && !s.advisoryGone && wall!.trust.issuers.some((i) => i.address.toLowerCase() === a.creator)
+    if (queried) return rangeKeys.has(s.key)
+    if (!a) return true
+    return sevOf(s) >= rangeSev && (!rangeSince || Date.parse(a.osv.published) / 1000 >= rangeSince)
+  }
+
+  function renderList() {
+    if (!wall) return
+    const fd = new FormData(form)
+    const q = String(fd.get("q") || "").trim().toLowerCase()
+    const withdrawn = fd.get("withdrawn") === "on"
+    const base = wall.statuses.filter((s) => {
+      if (s.status === "WITHDRAWN" && !withdrawn) return false
+      if (!inRange(s)) return false
+      if (!q) return true
+      const o = s.advisory?.osv
+      return !!o && (o.id.toLowerCase().includes(q) || o.summary.toLowerCase().includes(q) || (o.aliases ?? []).some((a) => a.toLowerCase().includes(q)) || o.affected.some((a) => a.package.name.toLowerCase().includes(q)))
+    })
+    for (const b of tabs.querySelectorAll<HTMLButtonElement>("button")) {
+      const st = b.dataset.status!
+      b.setAttribute("aria-selected", String(st === status))
+      b.querySelector("span")!.textContent = String(st === "all" ? base.length : base.filter((s) => s.status === st).length)
+    }
+    const rows = base.filter((s) => status === "all" || s.status === status).sort((a, b) => publishedAt(b) - publishedAt(a))
+    out.innerHTML = rows.length
+      ? `<ul class="adv-list">${rows.map((s) => advRow(s)).join("")}</ul>`
+      : `<div class="empty"><p><strong>${q ? `No advisory matches “${esc(q)}”.` : "No advisories match these filters."}</strong></p><p class="muted">${q ? `Search by package name, like <code>debug</code>, or by advisory ID. To check a whole project, use <a href="${link("check")}">Check</a>.` : "Clear the filters or show withdrawn advisories."}</p></div>`
+    document.getElementById("fresh")!.innerHTML = freshnessHtml(wall, fresh)
+  }
+
+  function renderAlarms() {
+    alarms.innerHTML = (wall?.statuses ?? [])
+      .flatMap((s) => [
+        ...(s.status === "MISSING" ? [`<div class="alarm"><strong>Removed from Arkiv:</strong> <a href="${link("advisories", { id: s.advisory?.osv.id ?? s.key })}">${esc(s.advisory?.osv.id ?? short(s.key))}</a> was deleted or expired. Mene keeps enforcing it.</div>`] : []),
+        ...s.vanished.map((v) => `<div class="alarm"><strong>A confirmation was deleted:</strong> ${esc(witnessName(v.issuer) ?? "A witness")} deleted their ${v.verdict === "confirm" ? "confirmation" : "withdrawal"} on <a href="${link("advisories", { id: s.advisory?.osv.id ?? s.key })}">${esc(s.advisory?.osv.id ?? short(s.key))}</a>. It still counts, because it was seen.</div>`),
+      ])
+      .join("")
+  }
+
+  tabs.addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-status]")
+    if (!b) return
+    status = b.dataset.status!
+    renderList()
+  })
+  form.addEventListener("input", async (e) => {
+    const name = (e.target as HTMLInputElement).name
+    if (name === "sev" || name === "since") {
+      try {
+        await runRangeQuery()
+      } catch {
+        out.innerHTML = errorHtml(new Error("network"))
+        return
+      }
+    }
+    renderList()
+  })
+
+  // Live activity: watchEntityEvents over a WebSocket (no fromBlock, so it is a real socket).
+  function startLive(reload: () => void) {
+    const feed = document.getElementById("live-feed")!
+    const liveStatus = document.getElementById("live-status")!
+    const trusted = new Set(getTrust().issuers.map((i) => i.address.toLowerCase()))
+    const row = (html: string, block: bigint, alarm = false) => {
+      document.getElementById("live-idle")?.remove()
+      const li = document.createElement("li")
+      if (alarm) li.className = "alarm-row"
+      li.innerHTML = `<span class="when">#${block}</span>${html}`
+      feed.prepend(li)
+      while (feed.children.length > 30) feed.lastElementChild!.remove()
+    }
+    const known = () => {
+      const ks = new Set<string>()
+      for (const s of wall?.statuses ?? []) {
+        ks.add(s.key)
+        for (const w of [...s.witnesses, ...s.vanished]) ks.add(w.key)
+      }
+      const st = getState()
+      for (const k of Object.keys(st?.advisories ?? {})) ks.add(k)
+      for (const k of Object.keys(st?.attestations ?? {})) ks.add(k)
+      return ks
+    }
+    async function describe(key: string) {
+      const k = key.toLowerCase()
+      try {
+        const e = await pub().getEntity(key as `0x${string}`)
+        const a = e.attributes ?? {}
+        if (a.project?.value !== PROJECT) return null
+        return { type: String(a.type?.value), creator: e.creator.toLowerCase(), verdict: a.verdict?.value as string | undefined, advisory: (a.advisory?.value as string | undefined)?.toLowerCase(), id: a.advisoryId?.value as string | undefined }
+      } catch {
+        const st = getState()
+        if (st?.advisories[k]) return { type: "advisory", creator: st.advisories[k]!.creator, id: st.advisories[k]!.osv.id }
+        if (st?.attestations[k]) return { type: "attestation", creator: st.attestations[k]!.issuer, verdict: st.attestations[k]!.verdict, advisory: st.attestations[k]!.advisory }
+        return null
+      }
+    }
+    const relevant = (key: string, owner: string) => known().has(key.toLowerCase()) || trusted.has(owner.toLowerCase())
+    const who = (a: string) => esc(witnessName(a) ?? (trusted.has(a) ? "a witness" : "an untrusted wallet"))
+    const adv = (k: string, label?: string) => `<a href="${link("advisories", { id: k })}">${esc(label ?? short(k))}</a>`
+    let pending: ReturnType<typeof setTimeout> | undefined
+    const refresh = () => {
+      clearTimeout(pending)
+      pending = setTimeout(() => {
+        forgetWall()
+        reload()
+      }, 1500)
+    }
+    const offline = (msg?: string) => {
+      liveStatus.className = "chip MISSING"
+      liveStatus.textContent = "Offline"
+      if (msg) liveStatus.title = msg
+    }
+    try {
+      const ws = publicClient({ ws: true })
+      liveStatus.className = "chip ACTIVE"
+      liveStatus.textContent = "Live"
+      ws.watchEntityEvents({
+        onEntityCreated: async (ev) => {
+          const o = ev.owner.toLowerCase()
+          if (!trusted.has(o) && o !== BURN_ADDRESS.toLowerCase()) return
+          const d = await describe(ev.entityKey)
+          if (!d || !trusted.has(d.creator)) return
+          if (d.type === "advisory") row(`<strong>New advisory</strong> ${adv(ev.entityKey, d.id)} from ${who(d.creator)}`, ev.blockNumber)
+          else if (d.type === "attestation") row(`<strong>${d.verdict === "withdraw" ? "Withdrawn" : "Confirmed"}</strong> ${adv(d.advisory!)} by ${who(d.creator)}`, ev.blockNumber)
+          refresh()
+        },
+        onExpiryExtended: async (ev) => {
+          if (!relevant(ev.entityKey, ev.owner)) return
+          const d = await describe(ev.entityKey)
+          if (d) row(`<strong>Kept alive</strong> (Lifetime Extension) ${esc(d.type)} ${esc(short(ev.entityKey))}`, ev.blockNumber)
+        },
+        onOwnershipTransferred: async (ev) => {
+          if (ev.newOwner.toLowerCase() !== BURN_ADDRESS.toLowerCase() || !trusted.has(ev.previousOwner.toLowerCase())) return
+          const d = await describe(ev.entityKey)
+          if (d) row(`<strong>Sealed</strong> ${esc(d.type)} ${esc(short(ev.entityKey))}: nobody can delete it now`, ev.blockNumber)
+        },
+        onEntityDeleted: async (ev) => {
+          if (!relevant(ev.entityKey, ev.owner)) return
+          const d = (await describe(ev.entityKey)) ?? { type: "record", creator: ev.owner.toLowerCase() }
+          row(`Deletion alarm: a ${esc(d.type === "attestation" ? "confirmation" : d.type)} was deleted by ${who(ev.owner.toLowerCase())}. Mene keeps counting what it saw.`, ev.blockNumber, true)
+          refresh()
+        },
+        onError: (err) => offline(String((err as Error)?.message ?? err).split("\n")[0]),
+      })
+    } catch {
+      offline()
+    }
+  }
+
+  // ================================================================ detail
+  const detail = document.getElementById("detail")!
+  let rec: AdvisoryRecord | null = null
+  let head = 0n
+  let watchingKeeper = false
+
+  function current(): AdvisoryStatus | undefined {
+    return wall && id ? findAdvisory(wall, id) : undefined
+  }
+
+  async function loadRecord() {
+    const s = current()
+    const key = s?.key ?? (/^0x[0-9a-f]{64}$/i.test(id ?? "") ? id!.toLowerCase() : undefined)
+    if (!key) return
+    try {
+      ;[head, rec] = await Promise.all([pub().getBlockNumber(), readAdvisory(pub(), key)])
+      renderDetail()
+    } catch {
+      /* the product layer still renders from the snapshot */
+    }
+  }
+
+  function renderDetail() {
+    if (!wall) return
+    const s = current()
+    const record = rec ?? s?.advisory
+    const o = record?.osv
+    if (!s && !rec) {
+      document.title = "Advisory not found · Mene"
+      detail.innerHTML = `<div class="empty"><p><strong>No advisory “${esc(id)}”.</strong></p><p class="muted">It may not be confirmed by your witnesses yet, or the link is wrong. <a href="${link("advisories")}">See all advisories</a> or <a href="${link("packages", { name: id ?? "" })}">search packages</a>.</p></div>`
+      return
+    }
+    const key = s?.key ?? rec!.key
+    const trust = getTrust()
+    const pkg = o ? primaryPackage(o) : "unknown package"
+    const versions = o?.affected.map((a) => affectedText(a as never)).join(", ") ?? ""
+    const rec1 = o ? recommendedOf(o) : undefined
+    const fixCmd = rec1 ? `npm install ${pkg}@${rec1}` : ""
+    const confirms = s?.confirmers.length ?? 0
+    const k = s?.threshold ?? trust.threshold
+    const sealed = rec && rec.owner.toLowerCase() === BURN_ADDRESS.toLowerCase()
+    const src = o?.database_specific.mene.source
+    const q = attestationQuery(pub(), trust.issuers[0]?.address ?? "0x0000000000000000000000000000000000000000").toString()
+    const latest = new Map((s?.witnesses ?? []).map((w) => [w.issuer, w]))
+    const enforcedNote: Record<string, string> = {
+      ACTIVE: `Confirmed by ${confirms} of ${trust.issuers.length} witnesses. Mene blocks these versions.`,
+      PENDING: `${confirms} of ${k} confirmations so far. Not blocked until ${k} witnesses agree.`,
+      WITHDRAWN: "Witnesses withdrew this advisory. It is kept for the record and no longer blocks anything.",
+      MISSING: "This advisory was removed from Arkiv after it was confirmed. Mene keeps blocking what it saw.",
+    }
+    document.title = `${pkg} ${versions} ${s?.status === "WITHDRAWN" ? "advisory withdrawn" : "compromised"} · Mene`
+
+    detail.innerHTML = `
+      <div class="ahead"><h1>${esc(pkg)} <span class="mono" style="font-size:.7em">${esc(versions)}</span></h1>${s ? statusChip(s) : `<span class="chip PENDING">Not confirmed</span>`}${sevBadge(o ? severityOf(o) : undefined)}${isTest(o) ? `<span class="src-tag">Test advisory</span>` : ""}</div>
+      <p class="summary">${esc(o?.summary ?? "This advisory's content isn't readable.")}</p>
+      <p class="small muted">${esc(o?.id ?? "")}${o?.published ? ` · Published ${esc(fmtDate(o.published))}` : ""}${o?.aliases?.length ? ` · Also known as ${o.aliases.map((a) => `<code>${esc(a)}</code>`).join(", ")}` : ""}</p>
+
+      <div class="layout">
+        <div class="stack">
+          ${fixCmd && s?.status !== "WITHDRAWN" ? `<section class="card fixbox"><h3>What to do</h3><p>Don't install ${esc(pkg)} ${esc(versions)}. Install the safe version instead:</p><div class="cmd"><pre><code id="fixcmd">${esc(fixCmd)}</code></pre><button class="btn" data-copy-from="fixcmd">Copy</button></div><p class="small muted">If it comes in through another package, <a href="${link("check")}">check your lockfile</a> for the exact fix.</p></section>` : ""}
+          <section class="card">
+            <h3>Affected versions</h3>
+            ${(o?.affected ?? []).map((a) => `<dl class="kv">
+              <dt>Package</dt><dd><a href="${link("packages", { name: a.package.name })}"><code>${esc(a.package.name)}</code></a></dd>
+              <dt>Hijacked</dt><dd><code style="color:var(--red)">${esc(affectedText(a as never))}</code></dd>
+              ${recommendedOf(o!, a.package.name) ? `<dt>Safe version</dt><dd><code style="color:var(--ok)">${esc(recommendedOf(o!, a.package.name))}</code></dd>` : ""}
+            </dl>`).join("<hr style='border:0;border-top:1px solid var(--line);margin:.8rem 0'>")}
+            ${o?.details ? `<h3 style="margin-top:1.2rem">Details</h3><p class="details">${esc(o.details.split("\n---")[0])}</p>` : ""}
+            ${o?.references?.length ? `<h3 style="margin-top:1.2rem">References</h3><ul class="small">${o.references.map((r) => `<li>${isSafeUrl(r.url) ? `<a href="${esc(r.url)}" rel="noopener noreferrer" target="_blank">${esc(r.url.replace(/^https?:\/\//, ""))}</a>` : `<code>${esc(r.url)}</code>`}</li>`).join("")}</ul>` : ""}
+            ${src ? `<p class="small muted">Source: OpenSSF malicious-packages (${esc(src.license)}), <a href="${esc(src.repo)}/blob/main/${esc(src.path)}" rel="noopener" target="_blank">${esc(src.path)}</a>.</p>` : o ? `<p class="small muted">Source: ${esc(sourceLabel(o))}.</p>` : ""}
+          </section>
+        </div>
+        <aside class="stack">
+          <section class="card">
+            <h3>${s ? esc(statusWord(s)) : "Not confirmed"}</h3>
+            <p class="small muted">${s ? enforcedNote[s.status] : "None of your witnesses has confirmed this advisory."}</p>
+            <div class="meter" aria-label="${confirms} of ${trust.issuers.length} witnesses confirmed">${Array.from({ length: Math.max(k, trust.issuers.length) }, (_, i) => `<i class="${i < confirms ? "on" : ""}"></i>`).join("")}</div>
+            <div class="cta-row" style="margin-top:.8rem">
+              <a class="btn primary" href="${link("check")}">Am I affected?</a>
+              <a class="btn" href="${link("setup")}">Block this in CI</a>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <details class="card verify" id="verify">
+        <summary>Verify this advisory</summary>
+        <p class="small muted">Don't take this page's word for it: every fact below can be read from Arkiv directly. <a href="${link("trust")}">How verification works</a></p>
+        <div class="verify-grid">
+          <div class="stack">
+            <section>
+              <h3>Witness timeline</h3>
+              <ol class="timeline">
+                ${record ? `<li><strong>Published</strong> by ${esc(witnessName(record.creator, trust) ?? "")} ${addrHtml(record.creator)}<div class="small muted">block ${record.createdAt} · ${addrHtml(key, "entity", "entity")}</div></li>` : ""}
+                ${(s ? [...new Set([...s.witnesses, ...s.vanished])] : []).sort((a, b) => a.createdAt - b.createdAt).map((w) => {
+                  const gone = s!.vanished.some((v) => v.key === w.key)
+                  return `<li class="${w.verdict} ${gone ? "gone" : ""}"><strong>${w.verdict === "confirm" ? "Confirmed" : "Withdrawn"}</strong> by ${esc(witnessName(w.issuer, trust) ?? "")} ${addrHtml(w.issuer)}
+                    <div class="small muted">block ${w.createdAt} · ${addrHtml(w.key, "entity", "attestation")}${w.reason ? ` · “${esc(w.reason)}”` : ""}</div>
+                    ${gone ? `<div class="small error">Deleted from Arkiv. Still counted, because this browser saw it.</div>` : ""}</li>`
+                }).join("")}
+              </ol>
+            </section>
+            <section>
+              <h3>Witnesses</h3>
+              <ul class="wlist">${trust.issuers.map((i) => {
+                const w = latest.get(i.address.toLowerCase())
+                return `<li><span>${esc(i.name || "Witness")} ${addrHtml(i.address)}</span><span class="v-${w?.verdict ?? "none"}">${w ? (w.verdict === "confirm" ? "✓ confirmed" : "✗ withdrew") : "no verdict"}</span></li>`
+              }).join("")}</ul>
+              <p class="small muted">${confirms} confirm now · ${k} needed${s?.activated && confirms < k && s.status === "ACTIVE" ? " · stays confirmed until a withdrawal quorum" : ""}</p>
+            </section>
+            <section>
+              <h3>Read it yourself</h3>
+<pre><code>// @arkiv-network/sdk
+const advisory = await pub.getEntity("${esc(key)}")
+const atts = await pub.select("*")
+  .where(and(eq("project", "mene-v1"), eq("type", "attestation")))
+  .createdBy(WITNESS).limit(200).fetch()   // repeat per witness
+
+# raw JSON-RPC
+curl -s ${TIRAMISU.rpcUrl} -H 'content-type: application/json' -d '{
+  "jsonrpc":"2.0","id":1,"method":"arkiv_query",
+  "params":["${esc(q.replace(/'/g, "'\"'\"'"))}",{"select":{"key":true,"attributes":true,"payload":true}}]}'</code></pre>
+            </section>
+            ${o ? `<details><summary>Raw OSV JSON</summary><pre><code>${esc(JSON.stringify(o, null, 2))}</code></pre><button class="btn" id="dl-osv">Download</button></details>` : ""}
+          </div>
+          <div class="stack">
+            <section>
+              <h3>On Arkiv</h3>
+              <div class="badges">
+                ${rec?.readonly ? `<span class="seal" title="readonly: content can never change">Content frozen</span>` : ""}
+                ${sealed ? `<span class="seal" title="Owned by the burn address 0x…dEaD: nobody can delete it">Sealed</span>` : rec ? `<span class="seal off" title="The owner can still delete it">Not sealed</span>` : `<span class="seal off">Loading…</span>`}
+                <span class="seal off" id="keeper" hidden></span>
+              </div>
+              <dl class="kv small" style="margin-top:.8rem">
+                ${rec ? `<dt>Expires in</dt><dd>${blocksToHuman(BigInt(rec.expiresAt) - head)} <span class="muted">(block ${rec.expiresAt})</span></dd>` : ""}
+                <dt>Entity</dt><dd>${addrHtml(key, "entity")}</dd>
+                ${rec ? `<dt>Owner</dt><dd>${addrHtml(rec.owner)}</dd>` : ""}
+                <dt>Explorer</dt><dd><a href="${explorer.entity(key)}" target="_blank" rel="noopener">Open in the Arkiv explorer</a></dd>
+              </dl>
+            </section>
+            <section class="actions" id="actions"></section>
+          </div>
+        </div>
+      </details>
+    `
+    renderActions(key)
+    document.getElementById("dl-osv")?.addEventListener("click", () => {
+      const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: "application/json" })), download: `${o!.id}.osv.json` })
+      a.click()
+    })
+    if (rec && !watchingKeeper) {
+      watchingKeeper = true
+      keptAliveBy(rec)
+    }
+  }
+
+  function renderActions(key: string) {
+    const el = document.getElementById("actions")
+    if (!el) return
+    if (!rec) {
+      el.innerHTML = `<h3>Act on it</h3><p class="small muted">Loading the record from Arkiv…</p>`
+      return
+    }
+    const me = connectedAddress()
+    const s = current()
+    const myLatest = me ? s?.witnesses.find((w) => w.issuer === me) : undefined
+    const witnessBtns = isWitness()
+      ? `<div class="row-actions">
+          <button class="btn primary" id="act-confirm" ${myLatest?.verdict === "confirm" ? "disabled" : ""}>${myLatest?.verdict === "confirm" ? "✓ You confirmed" : "Confirm"}</button>
+          <button class="btn" id="act-withdraw" ${myLatest?.verdict === "withdraw" ? "disabled" : ""}>${myLatest?.verdict === "withdraw" ? "You withdrew" : "Withdraw"}</button>
+        </div>
+        <form class="withdraw-form" id="withdraw-form" hidden>
+          <label class="small muted" for="withdraw-reason">Why are you withdrawing it? This is shown publicly.</label>
+          <input id="withdraw-reason" maxlength="200" placeholder="e.g. false positive: the version was a clean re-publish" />
+          <div class="row-actions"><button class="btn danger" type="submit" id="withdraw-go">Withdraw advisory</button><button class="btn" type="button" id="withdraw-cancel">Cancel</button></div>
+        </form>`
+      : me
+        ? `<p class="small muted">This wallet isn't one of the witnesses, so it can't confirm or withdraw. Anyone can keep the advisory alive.</p>`
+        : ""
+    el.innerHTML = `<h3>Act on it</h3>
+      ${!hasWallet() ? `<p class="small muted">Witnesses confirm or withdraw with a browser wallet or the <a href="${DOCS.cli}">CLI</a>. Anyone can pay to keep an advisory alive.</p>` : !me ? `<button class="btn" id="act-connect">Connect wallet</button><p class="small muted">Witnesses can confirm or withdraw; any wallet can keep it alive.</p>` : witnessBtns}
+      ${hasWallet() && me ? `<div class="row-actions"><button class="btn" id="act-keep">Keep alive 365 days</button></div><p class="small muted">Lifetime Extension: any wallet can pay for it. Nobody can change the content.</p><p class="small muted">Connected as <span class="addr">${esc(short(me))}</span> · <button type="button" class="linkish" id="act-disconnect">Disconnect</button></p>` : ""}`
+    const after = async (msg: string) => {
+      toast(msg)
+      forgetWall()
+      reload()
+    }
+    document.getElementById("act-disconnect")?.addEventListener("click", () => disconnect())
+    document.getElementById("act-connect")?.addEventListener("click", async () => {
+      try {
+        await connect()
+      } catch (err) {
+        toast((err as Error).message.split("\n")[0]!, "err")
+      }
+    })
+    document.getElementById("act-confirm")?.addEventListener("click", (e) =>
+      void withTx(e.currentTarget as HTMLButtonElement, "Confirming", async () => {
+        await attest(await wallet(), key, "confirm")
+        await after("Confirmation written to Arkiv")
+      }))
+    const wf = document.getElementById("withdraw-form") as HTMLFormElement | null
+    document.getElementById("act-withdraw")?.addEventListener("click", () => {
+      if (!wf) return
+      wf.hidden = false
+      ;(document.getElementById("withdraw-reason") as HTMLInputElement).focus()
+    })
+    document.getElementById("withdraw-cancel")?.addEventListener("click", () => wf && (wf.hidden = true))
+    wf?.addEventListener("submit", (e) => {
+      e.preventDefault()
+      const reason = (document.getElementById("withdraw-reason") as HTMLInputElement).value.trim()
+      void withTx(document.getElementById("withdraw-go") as HTMLButtonElement, "Withdrawing", async () => {
+        await attest(await wallet(), key, "withdraw", reason || undefined)
+        await after("Withdrawal written to Arkiv")
+      })
+    })
+    document.getElementById("act-keep")?.addEventListener("click", (e) =>
+      void withTx(e.currentTarget as HTMLButtonElement, "Extending", async () => {
+        const keys = [key, ...(s?.witnesses.map((w) => w.key) ?? [])]
+        const r = await keepalive(pub(), await wallet(), keys, 365)
+        await after(r.extended.length ? `Extended ${r.extended.length} records` : "Already alive for at least 365 days")
+      }))
+  }
+
+  // "Kept alive by": replay ExpiryExtended events for this entity and read each tx sender.
+  function keptAliveBy(a: AdvisoryRecord) {
+    const stop = pub().watchEntityEvents({
+      fromBlock: BigInt(a.createdAt),
+      onExpiryExtended: async (ev) => {
+        if (ev.entityKey.toLowerCase() !== a.key.toLowerCase()) return
+        try {
+          const tx = await pub().getTransaction({ hash: ev.transactionHash })
+          const el = document.getElementById("keeper")
+          if (!el) return
+          el.hidden = false
+          el.className = "seal"
+          el.innerHTML = `Kept alive by <a class="addr" href="${explorer.address(tx.from)}" target="_blank" rel="noopener">${tx.from.slice(0, 6)}…${tx.from.slice(-4)}</a>`
+        } catch {}
+      },
+      onError: () => stop(),
+    })
+    setTimeout(stop, 20000)
+  }
+
+  // ================================================================ wiring
+  if (id) {
+    listView.hidden = true
+    listHead.hidden = true
+    detailView.hidden = false
+    onWallet(() => {
+      const s = current()
+      if (s || rec) renderActions(s?.key ?? rec!.key)
+    })
+  }
+  const reload = watchWall(
+    async (w, f) => {
+      const first = !wall
+      wall = w
+      fresh = f
+      if (id) {
+        renderDetail()
+        if (first) void loadRecord()
+        return
+      }
+      if (first) await runRangeQuery().catch(() => {})
+      renderAlarms()
+      renderList()
+    },
+    (err, retry) => {
+      const el = id ? detail : out
+      el.innerHTML = errorHtml(err)
+      el.querySelector("[data-retry]")?.addEventListener("click", retry)
+    },
+  )
+  if (!id) startLive(reload)
+</script>

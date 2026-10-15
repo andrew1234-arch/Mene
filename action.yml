@@ -1,0 +1,30 @@
+# Root action so workflows can write `uses: andrew1234-arch/mene@v1`. action/action.yml is the same
+# action for older `uses: andrew1234-arch/Mene/action@main` references.
+name: "Mene — hijacked npm package check"
+description: "Fails the build when package-lock.json contains a version that a quorum of trusted witnesses has flagged on Arkiv."
+author: "Mene"
+branding:
+  icon: "shield"
+  color: "yellow"
+inputs:
+  lockfile:
+    description: "Path to package-lock.json"
+    default: "package-lock.json"
+  issuers:
+    description: "Comma-separated trusted witness addresses (defaults to the Mene demo witnesses)"
+    default: ""
+  threshold:
+    description: "How many witnesses must confirm (default: mene.config.json, else 2)"
+    default: ""
+  min-severity:
+    description: "low | moderate | high | critical (default: mene.config.json, else low)"
+    default: ""
+  rpc-url:
+    description: "Arkiv RPC URL (default: Tiramisu)"
+    default: ""
+outputs:
+  matches:
+    description: "Number of poisoned packages found"
+runs:
+  using: "node24"
+  main: "action/dist/index.mjs"

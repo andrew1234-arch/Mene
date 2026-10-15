@@ -33,7 +33,7 @@ In Daniel 5 a hand writes four words on the palace wall during a feast: *Mene* (
 npm workspaces, TypeScript strict, Node ≥ 20, vitest, tsup.
 ```
 packages/sdk     @mene/sdk  — OSV payload types, attributes, Arkiv read/write, quorum, lockfile, matcher
-packages/cli     @mene/cli  — bin: mene
+packages/cli     mene-check — bin: mene (npm: `npx mene-check`)
 action/          GitHub Action (action.yml + bundled dist/, node20)
 site/            Astro static site → GitHub Pages (see DESIGN.md)
 examples/chalk-attack/package-lock.json   fixture, never installed

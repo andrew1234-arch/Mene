@@ -9,29 +9,17 @@
   - Fallback 2: call the `arkiv_query` JSON-RPC directly with `fetch` from the browser.
 
 ## Pages
-1. `/` **Landing**
-   - Hero headline: "The writing on the wall for poisoned packages."
-   - Sub: "On 8 September 2025 one phished maintainer turned chalk and debug into malware. The warnings lived where they could be edited or deleted. Mene writes them where they can't be."
-   - Three panels: *Mene — numbered*, *Tekel — weighed*, *Upharsin — divided* (see SPEC).
-   - Live counters: active advisories, witnesses, last inscription block.
-   - Quorum diagram, a 30-second CLI + Action snippet, CTAs: "Read the wall", "Check your lockfile", "Add to CI".
-2. `/wall` **The Wall** (advisory ledger)
-   - Table/cards: id, package, affected, severity, status chip (ACTIVE / PENDING n/k / WITHDRAWN / MISSING), witnesses, inscribed block.
-   - Filters: status, severity range (range query), date (`publishedAt` range).
-   - Package-name search filters **client-side only**, so no package name ever goes on the wire. Show that as a small note.
-   - **Live strip** at the top: WebSocket events (inscriptions, confirmations, withdrawals, extensions); **deletion alarms in red**.
-   - Source tag per row: "OpenSSF mirror" or "Mene original".
-3. `/advisory/?key=0x…` **Advisory**
-   - OSV summary, affected versions, recommended version, references, raw OSV JSON toggle.
-   - **Witness timeline:** each attestation with creator address, verdict, block, tx link.
-   - Badges: Inscribed (readonly), Sealed (owner = burn), Kept alive by 0x…, Entity Expiration countdown.
-   - **Verify it yourself:** the exact SDK query and an equivalent RPC call.
-4. `/check` **Check your lockfile**
-   - Drag-drop `package-lock.json`; parsed and matched in the browser. "Your lockfile never leaves this page."
-   - Result table plus a copyable CI snippet.
-5. `/witnesses` **Witnesses** (read-only) — the 3 trusted witness addresses, attestation counts, links to the explorer, and how to change trust (the `mene.config.json` / Action inputs).
+The page list follows the product directive in [PRODUCT.md](PRODUCT.md): the product layer gets a visitor to an answer in one or two steps, and the proof lives one click deeper (/trust and each advisory's "Verify this advisory" panel).
 
-Landing carries the Daniel 5 line (in the footer) and the threat model as a carousel of attacker → what happens, with live counters beneath it. There are no `/live`, `/about` or `/docs` pages.
+1. `/` **Home**: "Warnings that can't be erased." with the check box in the hero (drop a lockfile or paste a GitHub repo URL), the 5 newest confirmed advisories, three value points linking to /trust, and a 4-line CI snippet.
+2. `/check`: file, public GitHub repo URL (raw.githubusercontent.com, main then master) or the chalk example; a report with each hijacked package, its safe version and a copyable `npm install`, or a clean result; Copy summary and Download report. Deep links `?repo=` and `?example=`.
+3. `/setup`: GitHub Actions (default), CLI and Other CI tabs; options rewrite the workflow live; an example failing job summary.
+4. `/advisories` and `/advisories/?id=<OSV id>`: search, status, severity and date filters (range queries on Arkiv), show-withdrawn toggle, live activity; detail leads with what to do, with the proof collapsed under "Verify this advisory".
+5. `/packages/?name=<pkg>`: every advisory for a package and the safe version, filtered from the loaded snapshot so the name never goes on the wire.
+6. `/trust`: six plain-language answers, each with "verify it yourself" detail; absorbs the quorum diagram, threat table and Daniel 5 story.
+7. `/witnesses`: who the witnesses are, what each confirmed, and how to become one.
+
+Old `/wall` and `/advisory/?key=` links redirect; `404.html` resolves `/advisories/<id>` and `/packages/<name>`.
 
 ## Visual direction: ink and amber (brand kit in `brand/`)
 - **Brand:** the Quorum mark (three witness bars, two lit amber and one unlit, which also read as an M) and the outlined Archivo wordmark. Follow `brand/README.md`: clear space of one bar width, never recolour the bars, never put the amber mark on white.

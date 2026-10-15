@@ -1,25 +1,24 @@
 ---
-import { TIRAMISU } from "@mene/sdk"
 import Logo from "../components/Logo.astro"
-import { DOCS, REPO } from "../config"
+import { REPO } from "../config"
 import "../styles/global.css"
 interface Props {
   title: string
   description?: string
   active?: string
-  wide?: boolean
 }
 const {
   title,
-  description = "Warnings that can't be erased. Quorum-confirmed npm compromise advisories on Arkiv.",
+  description = "Mene tells you if your project uses a hijacked npm package, and blocks it in CI.",
   active,
 } = Astro.props
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
 const preview = import.meta.env.PUBLIC_MENE_PREVIEW === "1"
 const links = [
-  ["/wall", "The Wall"],
   ["/check", "Check"],
-  ["/witnesses", "Witnesses"],
+  ["/advisories", "Advisories"],
+  ["/setup", "Set up CI"],
+  ["/trust", "Trust"],
 ]
 ---
 <!doctype html>
@@ -50,28 +49,32 @@ const links = [
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="site">
-    <div class="pill status-pill">
-      <span class="net" id="net" title="Connection to the Arkiv Tiramisu network"><i></i><span>Connecting to Arkiv</span></span>
-    </div>
-    <div class="pill nav-pill">
-      <a class="brand" href={`${base}/`} aria-label="Mene home"><Logo mark class="mark" /><Logo class="lockup" /></a>
+    <a class="pill logo-pill brand" href={`${base}/`} aria-label="Mene home"><Logo class="lockup" /></a>
+    <div class="pill nav-pill" id="nav-pill">
+      <form class="search" role="search" action={`${base}/packages/`} method="get" id="search-form">
+        <label class="sr" for="pkg-search">Search packages</label>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M7 1.5a5.5 5.5 0 0 1 4.39 8.82l3.15 3.15-1.06 1.06-3.15-3.15A5.5 5.5 0 1 1 7 1.5Zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/></svg>
+        <input id="pkg-search" name="name" type="search" placeholder="Search packages" autocomplete="off" list="pkg-list" spellcheck="false" />
+        <datalist id="pkg-list"></datalist>
+      </form>
       <nav class="main" id="nav" aria-label="Main">
         {links.map(([href, label]) => (
-          <a href={`${base}${href}`} aria-current={active === href ? "page" : undefined}>
-            {label}{href === "/wall" && <span class="count" id="nav-count" hidden title="Active advisories"></span>}
-          </a>
+          <a href={`${base}${href}`} aria-current={active === href ? "page" : undefined}>{label}</a>
         ))}
-        <a href={REPO}>Docs</a>
+        <a href={REPO} class="gh" aria-label="Mene on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg><span>GitHub</span></a>
       </nav>
-      <button class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="nav" aria-label="Menu"><span></span><span></span></button>
     </div>
-    <div class="pill tools-pill">
-      <button class="wallet-btn" id="wallet-btn">Connect wallet</button>
+    <div class="header-tools">
+    <button class="pill theme-btn" id="theme" type="button" aria-label="Switch to light mode" title="Switch colour mode">
+      <svg class="i-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 .9v1.7M8 13.4v1.7M.9 8h1.7M13.4 8h1.7M3 3l1.2 1.2M11.8 11.8 13 13M3 13l1.2-1.2M11.8 4.2 13 3"/></g></svg>
+      <svg class="i-moon" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M13.6 10.3A6 6 0 0 1 5.7 2.4a6.5 6.5 0 1 0 7.9 7.9Z"/></svg>
+    </button>
+    <button class="pill menu-btn" id="menu-btn" aria-expanded="false" aria-controls="nav-pill" aria-label="Menu"><span></span><span></span></button>
     </div>
   </header>
   {preview && (
     <div class="preview-bar" role="note">
-      <div class="wrap"><strong>Preview with sample data.</strong> These advisories and witnesses are examples, not live Arkiv records. Lockfile checks run for real against them. Wallet actions need the live site.</div>
+      <div class="wrap"><strong>Preview with sample data.</strong> These advisories are examples, not live records. Lockfile checks run for real against them.</div>
     </div>
   )}
   <main id="main"><slot /></main>
@@ -79,113 +82,88 @@ const links = [
     <div class="foot-card">
       <div class="foot-grid">
         <div class="foot-ci">
-          <h4>Check every build</h4>
+          <h4>Block hijacked packages in CI</h4>
           <div class="ci-field">
-            <code id="ci-line">uses: andrew1234-arch/Mene/action@main</code>
+            <code id="ci-line">uses: andrew1234-arch/mene@v1</code>
             <button type="button" class="ci-copy" data-copy-from="ci-line" aria-label="Copy the Action line">Copy</button>
           </div>
-          <p class="small muted">Add one step to your workflow. <span class="hi">No server, no account, no data shared.</span></p>
+          <p class="small muted"><a href={`${base}/setup`}>Full setup in under 2 minutes →</a></p>
         </div>
-        <nav aria-label="Explore">
-          <h4>Explore</h4>
+        <nav aria-label="Product">
+          <h4>Product</h4>
           <ul>
-            <li><a href={`${base}/`}>Home</a></li>
-            <li><a href={`${base}/wall`}>The Wall</a></li>
-            <li><a href={`${base}/check`}>Check a lockfile</a></li>
-            <li><a href={`${base}/witnesses`}>Witnesses</a></li>
-          </ul>
-        </nav>
-        <nav aria-label="Developers">
-          <h4>Developers</h4>
-          <ul>
-            <li><a href={DOCS.cli}>CLI</a></li>
-            <li><a href={DOCS.action}>GitHub Action</a></li>
-            <li><a href={DOCS.schema}>Data contract</a></li>
-            <li><a href={`${REPO}/blob/main/LICENSE`}>MIT licence</a></li>
+            <li><a href={`${base}/check`}>Check a project</a></li>
+            <li><a href={`${base}/advisories`}>Advisories</a></li>
+            <li><a href={`${base}/packages`}>Packages</a></li>
+            <li><a href={`${base}/setup`}>Set up CI</a></li>
           </ul>
         </nav>
         <nav aria-label="Trust">
           <h4>Trust</h4>
           <ul>
-            <li><a href={DOCS.trust}>Trust model</a></li>
-            <li><a href={DOCS.threats}>Threat model</a></li>
-            <li><a href={TIRAMISU.explorer}>Arkiv explorer</a></li>
+            <li><a href={`${base}/trust`}>How Mene earns trust</a></li>
+            <li><a href={`${base}/witnesses`}>Witnesses</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Project">
+          <h4>Project</h4>
+          <ul>
+            <li><a href={REPO}>Docs (README)</a></li>
+            <li><a href={`${REPO}/blob/main/LICENSE`}>License (MIT)</a></li>
+            <li><a href={REPO}>GitHub</a></li>
           </ul>
         </nav>
         <div class="foot-social">
-          <h4>Source &amp; settings</h4>
-          <div class="icons">
-            <a class="icon" href={REPO} aria-label="Mene on GitHub" title="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg></a>
-            <a class="icon" href={TIRAMISU.explorer} aria-label="Arkiv explorer" title="Arkiv explorer"><svg viewBox="4 4 40 40" aria-hidden="true"><rect x="7" y="8" width="9" height="32" fill="currentColor"/><rect x="19.5" y="8" width="9" height="21" fill="currentColor"/><rect x="33.25" y="9.25" width="7.5" height="29.5" fill="none" stroke="currentColor" stroke-width="2.5"/></svg></a>
-            <button class="icon" id="theme" aria-label="Toggle colour theme" title="Toggle theme"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 1.5v11a5.5 5.5 0 0 1 0-11Z"/></svg></button>
-          </div>
-          <p class="small muted">Tiramisu testnet · there is no Mene server</p>
+          <h4>Data lives on Arkiv</h4>
+          <p class="small muted"><span class="net" id="net"><i></i><span>Connecting…</span></span></p>
         </div>
       </div>
-      <p class="disclaimer">“Mene, Mene, Tekel, Upharsin.” Numbered, weighed, divided. Advisories live on Arkiv, the Web3 database, and this site reads them straight from your browser. Package names are trademarks of their owners and appear here only to identify affected software.</p>
+      <p class="disclaimer">Advisories are stored on Arkiv and read straight from your browser; there is no Mene server. Package names are trademarks of their owners and appear here only to identify affected software.</p>
       <a class="giant" href={`${base}/`} aria-label="Mene home"><Logo class="giant-logo" /></a>
     </div>
   </footer>
   <script>
-    import { pub, onConnection, setConnection, short, isTrusted, toast, loadWall } from "../scripts/mene"
-    import { connect, disconnect, hasWallet, onWallet } from "../scripts/wallet"
+    import { link, onConnection, packageHref, pkgNames, pub, savedWall, setConnection } from "../scripts/mene"
 
-    document.getElementById("theme")!.addEventListener("click", () => {
-      const root = document.documentElement
-      const dark = root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches
-      root.dataset.theme = dark ? "light" : "dark"
+    // Colour mode: follows the system until chosen here; the choice is remembered on this device.
+    const themeBtn = document.getElementById("theme")!
+    const root = document.documentElement
+    const isDark = () => (root.dataset.theme ? root.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches)
+    const label = () => themeBtn.setAttribute("aria-label", isDark() ? "Switch to light mode" : "Switch to dark mode")
+    label()
+    themeBtn.addEventListener("click", () => {
+      root.dataset.theme = isDark() ? "light" : "dark"
       try { localStorage.setItem("mene:theme", root.dataset.theme) } catch {}
+      label()
     })
 
     const menu = document.getElementById("menu-btn")!
     menu.addEventListener("click", () => {
       const open = menu.getAttribute("aria-expanded") !== "true"
       menu.setAttribute("aria-expanded", String(open))
-      document.getElementById("nav")!.classList.toggle("open", open)
+      document.getElementById("nav-pill")!.classList.toggle("open", open)
+    })
+
+    // Package suggestions come from the saved advisory snapshot: typing never touches the network.
+    const list = document.getElementById("pkg-list")!
+    const names = new Set((savedWall()?.statuses ?? []).flatMap((s) => pkgNames(s.advisory?.osv)))
+    list.innerHTML = [...names].sort().map((n) => `<option value="${n.replace(/"/g, "&quot;")}"></option>`).join("")
+    const form = document.getElementById("search-form") as HTMLFormElement
+    form.addEventListener("submit", (e) => {
+      e.preventDefault()
+      const name = (form.elements.namedItem("name") as HTMLInputElement).value.trim()
+      location.href = name ? packageHref(name) : link("packages")
     })
 
     const net = document.getElementById("net")!
     onConnection((c) => {
       net.className = `net ${c.ok ? "ok" : "down"}`
-      net.querySelector("span")!.textContent = c.ok ? `Live on Arkiv · #${c.block}` : "Arkiv offline"
-      net.title = c.ok ? `Connected to Arkiv Tiramisu, block ${c.block}` : "Can't reach Arkiv — retrying"
+      net.querySelector("span")!.textContent = c.ok ? `Tiramisu · block ${c.block}` : "Arkiv unreachable · retrying"
     })
     const ping = () =>
       pub().getBlockNumber().then((b) => setConnection({ ok: true, block: b.toString() }), () => setConnection({ ok: false }))
     void ping()
-    setInterval(() => { if (!document.hidden) void ping() }, 15_000)
-
-    // Active-advisory count on the Wall link (shares the page's 20 s wall cache).
-    const count = document.getElementById("nav-count")
-    if (count)
-      loadWall().then(
-        (w) => {
-          const n = w.statuses.filter((s) => s.status === "ACTIVE").length
-          count.textContent = String(n)
-          count.hidden = n === 0
-        },
-        () => {},
-      )
-
-    const wb = document.getElementById("wallet-btn") as HTMLButtonElement
-    if (!hasWallet()) {
-      wb.addEventListener("click", () => toast("No browser wallet found. Install MetaMask or Rabby to publish or confirm. Checking lockfiles needs no wallet.", "err"))
-    } else {
-      onWallet((a) => {
-        wb.textContent = a ? `${short(a)}${isTrusted(a) ? " · witness" : ""}` : "Connect wallet"
-        wb.classList.toggle("connected", !!a)
-        wb.title = a ? "Click to disconnect" : "Connect a browser wallet to publish, attest or keep advisories alive"
-      })
-      wb.addEventListener("click", async () => {
-        if (wb.classList.contains("connected")) return disconnect()
-        try {
-          await connect()
-          toast("Wallet connected")
-        } catch (err) {
-          toast((err as Error).message.split("\n")[0]!, "err")
-        }
-      })
-    }
+    setInterval(() => { if (!document.hidden) void ping() }, 30_000)
   </script>
 </body>
 </html>

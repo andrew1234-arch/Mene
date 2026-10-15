@@ -1,4 +1,4 @@
-name: "Mene — poisoned package check"
+name: "Mene — hijacked npm package check"
 description: "Fails the build when package-lock.json contains a version that a quorum of trusted witnesses has flagged on Arkiv."
 author: "Mene"
 branding:

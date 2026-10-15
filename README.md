@@ -5,11 +5,26 @@
   </picture>
 </h1>
 
-**Warnings that can't be erased.** Quorum-confirmed npm compromise advisories on Arkiv.
+**Warnings that can't be erased.** Mene tells you if your project uses a hijacked npm package, and blocks it in CI.
+
+**Check your project now:** https://andrew1234-arch.github.io/Mene/check/ (drop `package-lock.json` or paste a GitHub repo URL; nothing is uploaded)
+
+**Protect CI** (add to any workflow job):
+```yaml
+- uses: actions/checkout@v4
+- uses: andrew1234-arch/mene@v1
+  with:
+    lockfile: package-lock.json
+```
+
+**From the terminal:**
+```bash
+npx mene-check check        # exit 0 clean · 1 hijacked package found · 2 can't verify (fails closed)
+```
+
+Warnings are confirmed by independent witnesses and stored on [Arkiv](https://arkiv.network), the Web3 database, where no registry, company or hacked account can edit or delete them. Matching runs on your machine.
 
 > *Mene, Mene, Tekel, Upharsin*: the writing on the wall.
-
-**The writing on the wall for poisoned packages.** Mene keeps npm compromise advisories on [Arkiv](https://arkiv.network), the Web3 database. Each advisory is confirmed by a quorum of witnesses, and no registry, company or hacked account can erase it. Mene matches advisories against your lockfile on your machine and enforces them in CI.
 
 Tracks: **Security** · **Censorship Resistance** · **Open Source**
 
@@ -112,7 +127,7 @@ npm run smoke                # read-only checks against the live node
 ```
 packages/
   sdk/           @mene/sdk: OSV types, Arkiv reads/writes, quorum, lockfile parser, matcher, OpenSSF mirror
-  cli/           @mene/cli: the `mene` binary, plus `@mene/cli/lib` (check + config) used by the Action
+  cli/           mene-check (npm): the `mene` binary, plus `mene-check/lib` (check + config) used by the Action
 action/          @mene/action: GitHub Action (action.yml + committed bundle in dist/)
 site/            Astro static site → GitHub Pages
   src/pages/     landing · wall · advisory · check · witnesses

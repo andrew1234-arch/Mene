@@ -21,7 +21,7 @@ import { cachePath, loadConfig, loadState } from "./config"
 const program = new Command()
 program
   .name("mene")
-  .description("The writing on the wall for poisoned packages — quorum-witnessed npm advisories on Arkiv.")
+  .description("Warnings that can't be erased: check package-lock.json for hijacked npm packages.")
   .version("0.1.0")
   .option("--config <path>", "path to mene.config.json")
 
@@ -66,7 +66,7 @@ program
         )
         if (r.matches.length === 0) console.log("✓ clean — no enforced advisory matches this lockfile")
         else {
-          console.log(`✗ ${r.matches.length} poisoned package(s):\n`)
+          console.log(`✗ ${r.matches.length} hijacked package(s):\n`)
           for (const m of r.matches) {
             console.log(`  ${m.package}@${m.installed}  [${m.severity}] ${m.advisoryId} (${m.status})`)
             console.log(`    at ${m.path}${m.safeVersion ? `  → use ${m.safeVersion}` : ""}`)
