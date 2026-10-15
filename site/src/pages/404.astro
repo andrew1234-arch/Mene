@@ -1,0 +1,38 @@
+---
+import Base from "../layouts/Base.astro"
+const base = import.meta.env.BASE_URL.replace(/\/$/, "")
+---
+<Base title="Page not found" description="This page doesn't exist. The advisories on Arkiv still do.">
+  <section class="nf">
+    <div class="wrap center">
+      <h1>Page not found</h1>
+      <p class="lede">This page has moved or never existed. Unlike a warning on Arkiv, a web page can disappear.</p>
+      <div class="nf-cta">
+        <a class="btn primary" href={`${base}/`}>Back to home</a>
+        <a class="btn" href={`${base}/wall`}>Read the Wall</a>
+      </div>
+    </div>
+    <p class="ghost-404" aria-hidden="true">404</p>
+  </section>
+</Base>
+
+<style>
+  .nf { position: relative; overflow: hidden; padding: clamp(4rem, 12vw, 8rem) 0 0; min-height: 70vh; }
+  .nf h1 { font-size: clamp(2.6rem, 7vw, 4.6rem); }
+  .nf .lede { margin: 0 auto 1.8rem; }
+  .nf-cta { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; position: relative; z-index: 1; }
+  .ghost-404 {
+    margin: clamp(1rem, 4vw, 2.5rem) 0 0;
+    text-align: center;
+    font: 800 clamp(10rem, 38vw, 30rem) / .8 var(--display);
+    font-stretch: 118%;
+    letter-spacing: -0.04em;
+    color: transparent;
+    -webkit-text-stroke: 2px var(--line-2);
+    background: linear-gradient(180deg, var(--bg-2), transparent 85%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    user-select: none;
+    margin-bottom: -6%;
+  }
+</style>

@@ -2,12 +2,14 @@
 import Base from "../layouts/Base.astro"
 ---
 <Base title="Advisories" active="/wall" description="Every npm compromise advisory your witnesses agree on, read live from Arkiv.">
-  <div class="head">
-    <div>
+  <section class="panel flat page-head">
+    <div class="wrap center">
+      <span class="badge"><i>◆</i>Live from Arkiv</span>
       <h1>The Wall</h1>
-      <p class="muted">Every npm compromise advisory your witnesses have weighed. Status comes from the quorum, not from whoever wrote the advisory.</p>
+      <p class="lede">Every npm compromise advisory your witnesses have weighed. Status comes from the quorum, not from whoever wrote the advisory.</p>
     </div>
-  </div>
+  </section>
+  <div class="wrap page-body">
 
   <section class="live" aria-label="Live activity on Arkiv">
     <div class="live-head"><span class="chip PENDING" id="live-status">CONNECTING</span><span class="small muted">Live from Arkiv over WebSocket: inscriptions, confirmations, withdrawals, Lifetime Extensions. Deletions raise a red alarm.</span></div>
@@ -40,20 +42,20 @@ import Base from "../layouts/Base.astro"
   <div id="alarms"></div>
   <div id="out"><div class="sk-list"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
   <p id="meta" class="small muted"></p>
+  </div>
 </Base>
 
 <style>
-  .head { padding-top: 2rem; }
   .filters { display: grid; gap: .8rem; margin: 1.5rem 0 1rem; }
-  .search { width: 100%; font-size: 1.05rem; padding: .75rem 1rem; border-radius: 12px; }
+  .search { width: 100%; font-size: 1.05rem; padding: .8rem 1.1rem; border-radius: 14px; box-shadow: var(--shadow); }
   .tabs { display: flex; gap: .3rem; flex-wrap: wrap; }
   .tabs button { border-radius: 999px; font-size: .88rem; padding: .3rem .8rem; }
-  .tabs button[aria-selected="true"] { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .tabs span { opacity: .7; font-family: var(--mono); font-size: .78rem; margin-left: .15rem; }
   .more summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
   .more .row { margin-top: .6rem; }
   #alarms { display: grid; gap: .6rem; margin-bottom: 1rem; }
-  .live { border: 1px solid var(--line); border-radius: 12px; padding: .7rem .9rem; margin: 0 0 1rem; background: var(--surface); }
+  .live { border: 1px solid var(--line); border-radius: 16px; padding: .8rem 1rem; margin: 0 0 1rem; background: var(--surface); box-shadow: var(--shadow); }
   .live-head { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
   .live-feed { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .3rem; max-height: 9.5rem; overflow-y: auto; font-size: .88rem; }
   .live-feed li.alarm-row { color: var(--red); font-weight: 600; }

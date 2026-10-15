@@ -28,11 +28,11 @@ const { compact = false } = Astro.props
 </section>
 
 <style>
-  .checker { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.25rem; box-shadow: 0 20px 60px -30px rgba(0,0,0,.5); }
-  .drop { display: grid; place-items: center; gap: .35rem; min-height: 190px; border: 1.5px dashed var(--line); border-radius: 12px; cursor: pointer; text-align: center; padding: 1rem; transition: border-color .15s, background .15s; }
+  .checker { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 1.25rem; box-shadow: var(--shadow-lg); }
+  .drop { display: grid; place-items: center; gap: .35rem; min-height: 190px; border: 1.5px dashed var(--line-2); border-radius: 14px; background: var(--bg-2); cursor: pointer; text-align: center; padding: 1rem; transition: border-color .15s, background .15s; }
   .compact .drop { min-height: 150px; }
-  .drop:hover, .drop.over { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 7%, transparent); }
-  .drop-icon { font-size: 1.8rem; color: var(--gold); line-height: 1; }
+  .drop:hover, .drop.over { border-color: var(--link); background: color-mix(in srgb, var(--link) 7%, var(--bg-2)); }
+  .drop-icon { display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 12px; font-size: 1.2rem; background: var(--accent); color: var(--accent-ink); line-height: 1; margin-bottom: .3rem; }
   .check-alt { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-top: .7rem; }
   #paste { margin-top: .7rem; display: grid; gap: .5rem; }
   #paste[hidden] { display: none; }

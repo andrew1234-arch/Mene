@@ -1,126 +1,425 @@
 ---
 import CheckPanel from "../components/CheckPanel.astro"
-import { DOCS, REPO } from "../config"
+import { DOCS } from "../config"
 import Base from "../layouts/Base.astro"
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
+
+type Plan = {
+  title: string
+  for: string
+  big: string
+  sub: string
+  cta: [string, string]
+  featured?: boolean
+  has: string[]
+  not?: string[]
+}
+const plans: Record<"dev" | "witness", Plan[]> = {
+  dev: [
+    {
+      title: "Browser",
+      for: "For a quick look at one project.",
+      big: "0 bytes",
+      sub: "of your dependency list leave this page.",
+      cta: ["Check a lockfile", `${base}/check`],
+      has: ["Drop or paste package-lock.json", "Exact fix with the safe version", "No wallet, no install"],
+      not: ["Blocks a bad build"],
+    },
+    {
+      title: "GitHub Action",
+      for: "For teams that ship on every push.",
+      big: "3 lines",
+      sub: "of YAML. The job fails on a poisoned version.",
+      cta: ["Add to CI", DOCS.action],
+      featured: true,
+      has: [
+        "Fails the job on a match",
+        "Fix list in the job summary",
+        "Witness set baked into the bundle",
+        "Runs on every push and pull request",
+      ],
+    },
+    {
+      title: "CLI",
+      for: "For your terminal and any other CI.",
+      big: "exit 1",
+      sub: "on a match. Exit 2 when it can't verify.",
+      cta: ["Read the CLI docs", DOCS.cli],
+      has: [
+        "Choose whose confirmations count",
+        "Remembers advisories it has seen",
+        "Fails closed when Arkiv is unreachable",
+        "mene keepalive for Lifetime Extension",
+      ],
+    },
+  ],
+  witness: [
+    {
+      title: "Inscribe",
+      for: "Write an advisory in OSV format.",
+      big: "1 tx",
+      sub: "writes it readonly and seals it to the burn address.",
+      cta: ["mene publish", DOCS.cli],
+      has: [
+        "Nobody can edit it, you included",
+        "Nobody can delete it, you included",
+        "Pinned to your wallet as $creator",
+      ],
+    },
+    {
+      title: "Confirm",
+      for: "Weigh another witness's advisory.",
+      big: "2 of 3",
+      sub: "witnesses must confirm before it binds.",
+      cta: ["Open the Wall", `${base}/wall`],
+      featured: true,
+      has: [
+        "Counted by the wallet that signed it",
+        "Retract before it activates",
+        "Withdrawal needs a quorum too",
+        "Confirm from the browser or the CLI",
+      ],
+    },
+    {
+      title: "Keep alive",
+      for: "Make sure it outlives its Entity Expiration.",
+      big: "Any wallet",
+      sub: "can pay for a Lifetime Extension.",
+      cta: ["See the trust model", DOCS.trust],
+      has: ["No permission needed", "Content can't change on extend", "From any advisory page or the CLI"],
+    },
+  ],
+}
+
+const incident = [
+  "chalk",
+  "debug",
+  "ansi-styles",
+  "supports-color",
+  "strip-ansi",
+  "ansi-regex",
+  "wrap-ansi",
+  "color-convert",
+  "color-name",
+  "is-arrayish",
+  "slice-ansi",
+  "error-ex",
+]
+
+const threats: [string, string, string][] = [
+  [
+    "Anyone",
+    "publishes a fake advisory with Mene's labels.",
+    "It never appears. Every read is pinned to the witnesses' wallets with createdBy(), and an entity's creator can't be changed.",
+  ],
+  [
+    "One stolen witness key",
+    "tries to force a false warning.",
+    "It stays PENDING 1/2. It needs a second, independent witness.",
+  ],
+  [
+    "One stolen witness key",
+    "tries to withdraw a real warning.",
+    "One withdrawal isn't a quorum. The advisory stays ACTIVE.",
+  ],
+  [
+    "The advisory's author",
+    "tries to edit or delete it.",
+    "It can't be edited: it's readonly. Deletion fails: it's sealed to the burn address.",
+  ],
+  [
+    "A witness",
+    "deletes their own confirmation.",
+    "Every client that saw it keeps counting it, and the Wall raises a deletion alarm.",
+  ],
+  [
+    "Mene's authors",
+    "take the site down.",
+    "There's no server. The CLI and any copy of this site read Arkiv directly.",
+  ],
+  [
+    "Time",
+    "lets advisories expire.",
+    "Any wallet can pay for a Lifetime Extension with mene keepalive. No permission needed.",
+  ],
+]
 ---
 <Base title="Mene">
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="triad">MENE · TEKEL · UPHARSIN</p>
-      <h1>The writing on the wall for poisoned packages.</h1>
-      <p class="lede">On 8 September 2025 one phished maintainer turned chalk and debug into malware. The warnings lived where they could be edited or deleted. Mene writes them where they can't be.</p>
-      <div class="cta">
-        <a class="btn primary" href={`${base}/wall`}>Read the wall</a>
-        <a class="btn" href={`${base}/check`}>Check your lockfile</a>
-        <a class="btn" href={DOCS.action}>Add to CI</a>
+  <section class="panel hero">
+    <div class="wrap center">
+      <span class="badge"><i>◆</i>Quorum-confirmed npm advisories on Arkiv</span>
+      <h1>Warnings that<br />can’t be erased.</h1>
+      <p class="lede">On 8 September 2025 one phished maintainer turned chalk and debug into malware. The warnings lived where they could be edited or deleted. Mene writes them on Arkiv, where they can't be.</p>
+      <div class="hero-cta">
+        <a class="btn primary big-btn" href={`${base}/check`}>Check your lockfile</a>
+        <a class="btn big-btn" href={`${base}/wall`}>Read the Wall</a>
       </div>
-      <dl class="counters" aria-live="polite">
-        <div><dt>Active advisories</dt><dd id="c-active">…</dd></div>
-        <div><dt>Witnesses</dt><dd id="c-witnesses">…</dd></div>
-        <div><dt>Last inscription</dt><dd id="c-block" class="mono">…</dd></div>
+    </div>
+    <div class="stage" aria-label="Illustration of Mene in use" role="img">
+      <div class="win term" aria-hidden="true">
+        <div class="win-bar"><i></i><i></i><i></i><span>terminal</span></div>
+        <pre><span class="p">$</span> mene check
+<span class="x">✗</span> chalk <s>5.6.1</s> → 5.6.0
+<span class="x">✗</span> debug <s>4.4.2</s> → 4.4.1
+<span class="d">2 poisoned · exit 1</span></pre>
+      </div>
+      <div class="win app" aria-hidden="true">
+        <div class="win-bar"><i></i><i></i><i></i><span>mene · The Wall</span></div>
+        <ul class="mini-wall">
+          <li><code>chalk 5.6.1</code><span class="sev sev-critical">critical</span><span class="chip ACTIVE">ACTIVE</span></li>
+          <li><code>debug 4.4.2</code><span class="sev sev-critical">critical</span><span class="chip ACTIVE">ACTIVE</span></li>
+          <li><code>ansi-styles 6.2.2</code><span class="sev sev-high">high</span><span class="chip PENDING">PENDING 1/2</span></li>
+          <li class="w"><code>mene-demo-false-alarm</code><span class="sev">moderate</span><span class="chip WITHDRAWN">WITHDRAWN</span></li>
+        </ul>
+      </div>
+      <div class="win phone" aria-hidden="true">
+        <p class="ph-t">Witnesses</p>
+        <div class="lamps"><i class="on"></i><i class="on"></i><i></i></div>
+        <p class="ph-n">2 of 3</p>
+        <p class="ph-s">confirmed · binding</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap center ways">
+    <span class="badge"><i>⚙</i>Three ways to use Mene</span>
+    <h2>Pick where it runs</h2>
+    <p class="lede">The same quorum-confirmed advisories, in your browser, your terminal or your CI.</p>
+      <div class="seg" role="tablist" aria-label="Who is this for">
+        <button type="button" role="tab" id="t-dev" aria-controls="p-dev" aria-selected="true">For developers</button>
+        <button type="button" role="tab" id="t-witness" aria-controls="p-witness" aria-selected="false">For witnesses <span class="tag">2 of 3</span></button>
+      </div>
+      {(["dev", "witness"] as const).map((k) => (
+        <div class="plans" id={`p-${k}`} role="tabpanel" aria-labelledby={`t-${k}`} hidden={k !== "dev"}>
+          {plans[k].map((p) => (
+            <article class:list={["plan", { featured: p.featured }]}>
+              <h3>{p.title}</h3>
+              <p class="for">{p.for}</p>
+              <p class="big">{p.big}</p>
+              <p class="sub">{p.sub}</p>
+              <a class:list={["btn block", { primary: p.featured }]} href={p.cta[1]}>{p.cta[0]}</a>
+              <div class="orn" aria-hidden="true">) + (</div>
+              <p class="inc">What's included:</p>
+              <ul class="ticks">
+                {p.has.map((h) => <li>{h}</li>)}
+                {p.not?.map((h) => <li class="no">{h}</li>)}
+              </ul>
+            </article>
+          ))}
+        </div>
+      ))}
+  </section>
+
+  <section class="wrap center strip">
+    <p class="small muted">Works with</p>
+    <ul class="logos">
+      <li><span class="glyph" aria-hidden="true">▣</span> npm lockfiles</li>
+      <li><span class="glyph" aria-hidden="true">⟳</span> GitHub Actions</li>
+      <li><span class="glyph" aria-hidden="true">◇</span> Arkiv, the Web3 database</li>
+    </ul>
+    <div class="orn" aria-hidden="true">) + (</div>
+    <p class="small muted">Built around the packages hit on 8 September 2025</p>
+    <ul class="pkgs">{incident.map((n) => <li>{n}</li>)}<li class="more">+7 more</li></ul>
+    <div class="pills">
+      <a class="mini" href={DOCS.schema}><b>OSV</b><span>Open advisory format<br />on Arkiv entities</span></a>
+      <a class="mini" href={DOCS.trust}><b>MIT</b><span>Open source,<br />no server to trust</span></a>
+    </div>
+  </section>
+
+  <section class="wrap center how">
+    <span class="badge"><i>⚖</i>Quorum</span>
+    <h2>How a warning becomes binding</h2>
+    <p class="lede">One witness inscribes. Others weigh it. Only when enough independent wallets agree does your build stop.</p>
+    <figure class="card diagram">
+      <svg viewBox="0 0 760 210" role="img" aria-labelledby="qd-t">
+        <title id="qd-t">Witness A inscribes an advisory; witness B confirms; with 2 of 3 witnesses confirming, the advisory is ACTIVE and CI fails on a match.</title>
+        <g font-family="var(--sans)" font-size="14" fill="var(--text)">
+          <rect x="10" y="20" width="160" height="44" rx="12" fill="var(--bg-2)" stroke="var(--lit)" stroke-width="1.5"/><text x="90" y="47" text-anchor="middle">Witness A inscribes</text>
+          <rect x="10" y="83" width="160" height="44" rx="12" fill="var(--bg-2)" stroke="var(--lit)" stroke-width="1.5"/><text x="90" y="110" text-anchor="middle">Witness B confirms</text>
+          <rect x="10" y="146" width="160" height="44" rx="12" fill="none" stroke="var(--line-2)" stroke-dasharray="4 4"/><text x="90" y="173" text-anchor="middle" fill="var(--muted)">Witness C (optional)</text>
+          <path d="M170 42 C 235 42, 235 105, 290 105 M170 105 L290 105" stroke="var(--lit)" fill="none" stroke-width="1.5"/><path d="M170 168 C 235 168, 235 105, 290 105" stroke="var(--line-2)" fill="none" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <rect x="290" y="72" width="180" height="66" rx="14" fill="var(--surface)" stroke="var(--lit)" stroke-width="1.5"/>
+          <text x="380" y="100" text-anchor="middle" font-family="var(--display)" font-weight="750" font-size="20" fill="var(--text)">Arkiv</text>
+          <text x="380" y="122" text-anchor="middle" font-size="12" fill="var(--muted)">2 of 3 confirmations</text>
+          <path d="M470 105 L560 105" stroke="var(--lit)" stroke-width="1.5" marker-end="url(#arr)"/>
+          <rect x="560" y="72" width="190" height="66" rx="14" fill="var(--red)"/>
+          <text x="655" y="100" text-anchor="middle" font-weight="600" fill="#fff">ACTIVE</text>
+          <text x="655" y="122" text-anchor="middle" font-size="12" fill="#fff">your CI fails on a match</text>
+        </g>
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--lit)"/></marker></defs>
+      </svg>
+    </figure>
+  </section>
+
+  <section class="panel blue" aria-labelledby="threats">
+    <div class="wrap center">
+      <span class="badge"><i>⛨</i>Threat model</span>
+      <h2 id="threats">You don't have to trust us</h2>
+      <p class="lede">Every answer below is enforced by Arkiv, not promised by Mene.</p>
+      <div class="carousel" aria-roledescription="carousel" aria-label="What an attacker can and can't do">
+        <button type="button" class="nav prev" aria-label="Previous scenario">‹</button>
+        <div class="stack-wrap">
+          <div class="ghost" aria-hidden="true"></div>
+          {threats.map(([who, tries, result], i) => (
+            <figure class="card quote" role="group" aria-roledescription="slide" aria-label={`${i + 1} of ${threats.length}`} hidden={i !== 0}>
+              <blockquote>“{result}”</blockquote>
+              <figcaption><span class="avatar" aria-hidden="true">{who.slice(0, 1)}</span><span><strong>{who}</strong><br /><span class="muted">{tries[0]!.toUpperCase() + tries.slice(1)}</span></span></figcaption>
+            </figure>
+          ))}
+        </div>
+        <button type="button" class="nav next" aria-label="Next scenario">›</button>
+      </div>
+      <p class="dots" aria-hidden="true">{threats.map((_, i) => <i class:list={{ on: i === 0 }}></i>)}</p>
+      <dl class="stats" aria-live="polite">
+        <div><dd id="c-active">…</dd><dt>Active advisories</dt></div>
+        <div><dd id="c-witnesses">…</dd><dt>Witnesses</dt></div>
+        <div><dd id="c-block">…</dd><dt>Last inscription block</dt></div>
       </dl>
+      <p class="small"><a href={DOCS.threats}>Full threat model and limitations →</a></p>
     </div>
-    <CheckPanel />
   </section>
 
-  <section class="grid3 panels">
-    <article class="card">
-      <p class="word">Mene — numbered</p>
-      <p>Every advisory is written to Arkiv and counted. It is a readonly entity, sealed to the burn address in the same transaction, so not even its author can delete it. <a href={DOCS.trust}>How</a></p>
-    </article>
-    <article class="card">
-      <p class="word">Tekel — weighed</p>
-      <p>Independent witnesses weigh it, and 2 of 3 must confirm. Mene counts a confirmation by the wallet that signed it, so one hacked witness can neither forge a warning nor bury one. <a href={DOCS.trust}>Why</a></p>
-    </article>
-    <article class="card">
-      <p class="word">Upharsin — divided</p>
-      <p>The poisoned version is cut from your build. Your lockfile is matched on your machine, and CI fails until you install the safe version. <a href={DOCS.action}>Setup</a></p>
-    </article>
-  </section>
-
-  <h2>How a warning becomes binding</h2>
-  <figure class="card diagram">
-    <svg viewBox="0 0 760 210" role="img" aria-labelledby="qd-t">
-      <title id="qd-t">Witness A inscribes an advisory; witness B confirms; with 2 of 3 witnesses confirming, the advisory is ACTIVE and CI fails on a match.</title>
-      <g font-family="var(--sans)" font-size="14" fill="var(--text)">
-        <rect x="10" y="20" width="150" height="44" rx="8" fill="var(--bg-2)" stroke="var(--line)"/><text x="85" y="47" text-anchor="middle">Witness A inscribes</text>
-        <rect x="10" y="83" width="150" height="44" rx="8" fill="var(--bg-2)" stroke="var(--line)"/><text x="85" y="110" text-anchor="middle">Witness B confirms</text>
-        <rect x="10" y="146" width="150" height="44" rx="8" fill="var(--bg-2)" stroke="var(--line)" stroke-dasharray="4 4"/><text x="85" y="173" text-anchor="middle" fill="var(--muted)">Witness C (optional)</text>
-        <path d="M160 42 C 230 42, 230 105, 290 105 M160 105 L290 105 M160 168 C 230 168, 230 105, 290 105" stroke="var(--gold)" fill="none" stroke-width="1.5"/>
-        <rect x="290" y="72" width="180" height="66" rx="10" fill="var(--surface)" stroke="var(--gold)"/>
-        <text x="380" y="100" text-anchor="middle" font-family="var(--serif)" font-size="22" fill="var(--gold)">Arkiv</text>
-        <text x="380" y="122" text-anchor="middle" font-size="12" fill="var(--muted)">2 of 3 confirmations</text>
-        <path d="M470 105 L560 105" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#arr)"/>
-        <rect x="560" y="72" width="190" height="66" rx="10" fill="var(--gold)"/>
-        <text x="655" y="100" text-anchor="middle" font-weight="600" fill="var(--gold-ink)">ACTIVE</text>
-        <text x="655" y="122" text-anchor="middle" font-size="12" fill="var(--gold-ink)">your CI fails on a match</text>
-      </g>
-      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--gold)"/></marker></defs>
-    </svg>
-  </figure>
-
-  <h2>Thirty seconds to a safer build</h2>
-  <div class="two">
-    <div>
-      <p class="muted small">From the command line</p>
-<pre><code>git clone {REPO} && cd Mene
-npm ci && npm run build
-node packages/cli/dist/index.js check --lockfile ../app/package-lock.json
-# exit 0 clean · 1 poisoned · 2 can't verify (fails closed)</code></pre>
+  <section class="panel pink" aria-labelledby="cta">
+    <div class="wrap center">
+      <span class="badge"><i>✦</i>Private by design</span>
+      <h2 id="cta">Check your lockfile now</h2>
+      <p class="lede">Mene downloads the advisories your witnesses agree on and matches them in this page.</p>
+      <ul class="inline-ticks">
+        <li>Never uploaded</li>
+        <li>No wallet needed</li>
+        <li>Fix in one command</li>
+      </ul>
+      <div class="orn" aria-hidden="true">) + (</div>
+      <div class="cta-check"><CheckPanel compact /></div>
+      <p class="small"><a href={DOCS.action}>Or check every build with the GitHub Action →</a></p>
     </div>
-    <div>
-      <p class="muted small">In GitHub Actions</p>
-<pre><code>- uses: andrew1234-arch/Mene/action@main
-  with:
-    lockfile: package-lock.json</code></pre>
-    </div>
-  </div>
-
-  <section class="story">
-    <h2>The writing on the wall</h2>
-    <p>In the book of Daniel, chapter 5, King Belshazzar holds a feast. A hand appears and writes four words on the palace wall, opposite the lampstand: <em>Mene, Mene, Tekel, Upharsin</em>. Numbered, weighed, divided. Nobody at the feast can wipe them away.</p>
-    <p>A supply-chain warning should work the same way. Everyone can read it, and nobody can quietly erase it.</p>
   </section>
-
-  <h2 id="threats">What an attacker can and can't do</h2>
-  <div class="table-wrap"><table>
-    <thead><tr><th>Attacker</th><th>Tries to</th><th>What happens</th></tr></thead>
-    <tbody>
-      <tr><td>Anyone</td><td>Publish a fake advisory with Mene's labels</td><td>It never appears. Every read is pinned to the witnesses' wallets with <code>createdBy()</code>, and an entity's creator can't be changed.</td></tr>
-      <tr><td>One stolen witness key</td><td>Force a false warning</td><td>It stays <em>PENDING 1/2</em>. It needs a second witness.</td></tr>
-      <tr><td>One stolen witness key</td><td>Withdraw a real warning</td><td>One withdrawal isn't a quorum. The advisory stays ACTIVE.</td></tr>
-      <tr><td>The advisory's author</td><td>Edit or delete it</td><td>It can't be edited: it's readonly. Deletion fails: it's sealed to the burn address.</td></tr>
-      <tr><td>A witness</td><td>Delete their own confirmation</td><td>Every client that saw it keeps counting it, and the Wall raises a deletion alarm.</td></tr>
-      <tr><td>Mene's authors</td><td>Take the site down</td><td>There's no server. The CLI and any copy of this site read Arkiv directly.</td></tr>
-      <tr><td>Time</td><td>Let advisories expire</td><td>Any wallet can pay for a Lifetime Extension with <code>mene keepalive</code>. No permission needed.</td></tr>
-    </tbody>
-  </table></div>
-  <p class="small"><a href={DOCS.threats}>Threat model and limitations in the README →</a></p>
 </Base>
 
 <style>
-  .hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 3rem; align-items: center; padding: 3.5rem 0 2rem; }
-  .hero h1 { font-size: clamp(2.4rem, 5vw, 3.9rem); text-wrap: balance; }
-  .lede { font-size: 1.12rem; color: var(--muted); max-width: 54ch; }
-  .cta { display: flex; gap: .6rem; flex-wrap: wrap; margin: 1.5rem 0 1.8rem; }
-  .counters { display: flex; gap: 2.2rem; flex-wrap: wrap; margin: 0; }
-  .counters dt { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
-  .counters dd { margin: 0; font-family: var(--serif); font-size: 2.1rem; color: var(--gold); font-variant-numeric: tabular-nums; }
-  .counters dd.mono { font-family: var(--mono); font-size: 1.15rem; padding-top: .65rem; }
-  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; gap: 1.5rem; padding-top: 2rem; } }
-  .panels { margin-top: 1rem; }
-  .word { font-family: var(--serif); font-style: italic; color: var(--gold); font-size: 1.45rem; margin: 0 0 .4rem; }
+  .hero { padding-bottom: 0; border-radius: 0 0 36px 36px; }
+  .hero h1 { font-size: clamp(2.6rem, 7.5vw, 5.2rem); line-height: 1.02; margin-bottom: 1rem; }
+  .hero .lede { margin: 0 auto 1.8rem; font-size: 1.1rem; }
+  .hero-cta { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; }
+  .big-btn { padding: .8rem 1.5rem; font-size: 1rem; font-weight: 600; }
+  .stage { position: relative; max-width: 980px; height: clamp(250px, 34vw, 340px); margin: clamp(2.5rem, 6vw, 4rem) auto 0; padding: 0 16px; }
+  .win { position: absolute; border-radius: 18px; border: 1px solid var(--line); box-shadow: var(--shadow-lg); overflow: hidden; text-align: left; }
+  .win-bar { display: flex; align-items: center; gap: .35rem; padding: .6rem .8rem; border-bottom: 1px solid var(--line); font: 500 .72rem var(--mono); color: var(--muted); }
+  .win-bar i { width: .55rem; height: .55rem; border-radius: 50%; background: var(--line-2); }
+  .win-bar span { margin-left: .5rem; }
+  .term { left: 3%; top: 0; width: 46%; height: 100%; background: #0b0e17; border-color: #222a3b; transform: rotate(-2deg); }
+  .term .win-bar { border-color: #222a3b; color: #9aa3b8; }
+  .term pre { margin: 0; border: 0; border-radius: 0; background: none; color: #e8ebf4; font-size: clamp(.68rem, 1.4vw, .82rem); line-height: 1.8; padding: .9rem 1rem; }
+  .term .p { color: #f5b83d; } .term .x { color: #ff5c5c; } .term .d { color: #9aa3b8; } .term s { color: #ff5c5c; }
+  .app { left: 33%; top: 46px; width: 50%; height: calc(100% - 46px); background: var(--surface); z-index: 1; }
+  .mini-wall { list-style: none; margin: 0; padding: .6rem; display: grid; gap: .45rem; }
+  .mini-wall li { display: flex; align-items: center; gap: .5rem; padding: .6rem .7rem; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); font-size: .8rem; }
+  .mini-wall code { flex: 1; font-weight: 600; font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mini-wall li.w { opacity: .65; }
+  .phone { right: 4%; top: 20px; width: 150px; height: 220px; background: var(--surface); z-index: 2; border-radius: 26px; padding: 1.1rem; text-align: center; transform: rotate(3deg); }
+  .ph-t { margin: 0 0 1rem; font-size: .78rem; color: var(--muted); font-weight: 600; }
+  .lamps { display: flex; justify-content: center; gap: .45rem; height: 70px; align-items: stretch; }
+  .lamps i { width: 18px; border: 3px solid var(--text); }
+  .lamps i.on { background: var(--lit); border-color: var(--lit); }
+  .lamps i:nth-child(2) { height: 66%; }
+  .ph-n { margin: 1rem 0 0; font: 750 1.6rem / 1 var(--display); font-stretch: 112%; }
+  .ph-s { margin: .3rem 0 0; font-size: .7rem; color: var(--muted); }
+  @media (max-width: 760px) {
+    .term { width: 80%; left: 2%; }
+    .app { left: 12%; width: 84%; }
+    .phone { display: none; }
+    .mini-wall .sev { display: none; }
+  }
+  .ways { padding: clamp(3.5rem, 8vw, 5.5rem) 16px 1rem; }
+  .ways h2 { margin-top: 0; }
+  .ways .lede { margin: 0 auto 1.6rem; }
+  .tag { font-size: .68rem; color: var(--link); background: var(--bg-2); border-radius: 999px; padding: .05rem .4rem; margin-left: .2rem; }
+  .plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.1rem; max-width: 900px; margin: 2rem auto 0; text-align: left; align-items: start; }
+  @media (max-width: 820px) { .plans { grid-template-columns: 1fr; max-width: 420px; } }
+  .plan { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 1.3rem 1.2rem 1.4rem; box-shadow: var(--shadow); position: relative; }
+  .plan::after { content: ""; position: absolute; inset: auto 12px -8px; height: 16px; border-radius: 0 0 18px 18px; background: color-mix(in srgb, var(--surface) 70%, transparent); border: 1px solid var(--line); border-top: 0; z-index: -1; }
+  .plan.featured { box-shadow: var(--shadow-lg); border-color: var(--line-2); }
+  .plan h3 { margin: 0 0 .2rem; font-size: 1.1rem; }
+  .for { color: var(--muted); font-size: .8rem; margin: 0 0 1.1rem; min-height: 2.4em; }
+  .big { font: 750 2rem / 1.1 var(--display); font-stretch: 112%; letter-spacing: -0.02em; margin: 0; }
+  .sub { color: var(--muted); font-size: .76rem; margin: .3rem 0 1rem; min-height: 2.4em; }
+  .inc { color: var(--muted); font-size: .76rem; margin: 0 0 .6rem; }
+  .plan .ticks { font-size: .8rem; }
+
+  .strip { padding: 3rem 16px 1rem; }
+  .logos, .pkgs { list-style: none; padding: 0; margin: .8rem 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem 2.2rem; }
+  .logos li { font: 700 1rem var(--display); font-stretch: 112%; letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: .45rem; }
+  .glyph { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 6px; background: var(--accent); color: var(--accent-ink); font-size: .8rem; }
+  .pkgs { gap: .5rem 1.6rem; }
+  .pkgs li { font: 600 1.05rem var(--mono); color: var(--text); opacity: .82; }
+  .pkgs li.more { color: var(--muted); font-weight: 400; font-size: .9rem; align-self: center; }
+  .pills { display: flex; justify-content: center; gap: 2.5rem; flex-wrap: wrap; margin-top: 2rem; }
+  .mini { display: inline-flex; align-items: center; gap: .7rem; text-decoration: none; color: var(--muted); font-size: .76rem; text-align: left; line-height: 1.35; }
+  .mini b { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--link); font: 600 .72rem var(--mono); }
+
+  .how { padding: 3.5rem 16px 4rem; }
+  .how .lede { margin: 0 auto 1.8rem; }
+  .diagram { margin: 0 auto; max-width: 860px; }
   .diagram svg { width: 100%; height: auto; display: block; }
-  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
-  .two > div { min-width: 0; }
-  .story { max-width: 68ch; }
-  .story p { font-size: 1.05rem; }
+
+  .blue .lede, .pink .lede { margin: 0 auto 2rem; }
+  .carousel { display: grid; grid-template-columns: auto minmax(0, 620px) auto; gap: 1.5rem; justify-content: center; align-items: center; margin-top: 1rem; }
+  .stack-wrap { position: relative; display: grid; }
+  .ghost { position: absolute; inset: 14px -14px; border-radius: 18px; background: color-mix(in srgb, var(--surface) 55%, transparent); border: 1px solid var(--line); z-index: 0; }
+  .quote { position: relative; z-index: 1; text-align: left; padding: 1.8rem 1.9rem 1.5rem; border-radius: 18px; box-shadow: var(--shadow-lg); margin: 0; }
+  .quote blockquote { margin: 0 0 1.2rem; font: 600 clamp(1.1rem, 2.4vw, 1.4rem) / 1.35 var(--display); letter-spacing: -0.01em; }
+  .quote figcaption { display: flex; gap: .7rem; align-items: center; font-size: .82rem; line-height: 1.35; }
+  .avatar { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: 50%; background: var(--panel-a); border: 1px solid var(--line); font-weight: 600; color: var(--link); flex: none; }
+  .nav { width: 2rem; height: 2rem; padding: 0; border-radius: 50%; font-size: 1.1rem; line-height: 1; }
+  @media (max-width: 640px) {
+    .carousel { grid-template-columns: 1fr 1fr; gap: .8rem; }
+    .stack-wrap { grid-column: 1 / -1; grid-row: 1; }
+    .nav.prev { justify-self: end; }
+    .nav.next { justify-self: start; }
+    .ghost { inset: 10px -6px; }
+  }
+  .dots { display: flex; justify-content: center; gap: .35rem; margin: 1.4rem 0 0; }
+  .dots i { width: .4rem; height: .4rem; border-radius: 50%; background: var(--line-2); }
+  .dots i.on { background: var(--link); width: 1.1rem; border-radius: 999px; }
+  .stats { display: flex; justify-content: center; margin: 3rem auto 1.2rem; flex-wrap: wrap; }
+  .stats div { padding: 0 2.4rem; border-left: 1px solid var(--line-2); }
+  .stats div:first-child { border-left: 0; }
+  .stats dd { margin: 0; font: 750 2.2rem / 1.1 var(--display); font-stretch: 112%; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .stats dt { color: var(--muted); font-size: .8rem; margin-top: .25rem; }
+  @media (max-width: 560px) { .stats div { padding: .6rem 1.2rem; } }
+
+  .inline-ticks { list-style: none; padding: 0; margin: 0; display: flex; justify-content: center; flex-wrap: wrap; gap: .5rem 1.6rem; font-size: .84rem; font-weight: 500; }
+  .inline-ticks li::before { content: "✓"; color: var(--link); margin-right: .4rem; }
+  .cta-check { max-width: 560px; margin: 1.2rem auto 1.2rem; text-align: left; }
 </style>
 
 <script>
   import { getTrust, watchWall } from "../scripts/mene"
   const $ = (id: string) => document.getElementById(id)!
+
+  // Audience toggle.
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>(".seg [role=tab]")]
+  for (const t of tabs)
+    t.addEventListener("click", () => {
+      for (const o of tabs) {
+        const on = o === t
+        o.setAttribute("aria-selected", String(on))
+        $(o.getAttribute("aria-controls")!).hidden = !on
+      }
+    })
+
+  // Threat carousel.
+  const slides = [...document.querySelectorAll<HTMLElement>(".quote")]
+  const dots = [...document.querySelectorAll<HTMLElement>(".dots i")]
+  let at = 0
+  const show = (i: number) => {
+    at = (i + slides.length) % slides.length
+    slides.forEach((s, j) => { s.hidden = j !== at })
+    dots.forEach((d, j) => d.classList.toggle("on", j === at))
+  }
+  document.querySelector(".carousel .prev")!.addEventListener("click", () => show(at - 1))
+  document.querySelector(".carousel .next")!.addEventListener("click", () => show(at + 1))
+
   $("c-witnesses").textContent = String(getTrust().issuers.length)
   watchWall(
     (w) => {

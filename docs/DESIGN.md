@@ -31,17 +31,14 @@
    - Result table plus a copyable CI snippet.
 5. `/witnesses` **Witnesses** (read-only) — the 3 trusted witness addresses, attestation counts, links to the explorer, and how to change trust (the `mene.config.json` / Action inputs).
 
-Landing also carries the Daniel 5 story and a compact threat-model table (attacker → what happens). There are no `/live`, `/about` or `/docs` pages.
+Landing carries the Daniel 5 line (in the footer) and the threat model as a carousel of attacker → what happens, with live counters beneath it. There are no `/live`, `/about` or `/docs` pages.
 
-## Visual direction: "writing on the wall"
-- **Mood:** an inscription in lamplight. Daniel 5:5 has the hand writing opposite the lampstand.
-  - Dark mode (default): deep plaster-charcoal background, warm off-white text, a single **lamp-gold** accent.
-  - Light mode: limestone/parchment background with ink text.
-- **Type:**
-  - Display serif for headlines and the MENE · TEKEL · UPHARSIN triad (e.g. Instrument Serif or Cormorant Garamond; Google Fonts).
-  - Clean sans for body (Inter).
-  - **Mono for every hash, address, key and version** (JetBrains Mono).
-- **Motifs:** an inscribed-line divider; wax-seal style badges for Sealed/Inscribed; status chips (ACTIVE = gold, PENDING = muted, WITHDRAWN = struck-through text, MISSING = red).
+## Visual direction: ink and amber (brand kit in `brand/`)
+- **Brand:** the Quorum mark (three witness bars, two lit amber and one unlit, which also read as an M) and the outlined Archivo wordmark. Follow `brand/README.md`: clear space of one bar width, never recolour the bars, never put the amber mark on white.
+- **Colour:** Ink `#0B0E17` background and Light ink `#E8EBF4` text in dark mode (the default on dark systems); Amber `#F5B83D` for lit bars, witness lamps and primary actions. Light mode swaps to a near-white background with Deep amber `#9A6A0A` for lit elements and ink buttons. Threat red (`#FF5C5C` dark, `#D7261E` light) is used only for ACTIVE advisories and alarms, never for branding.
+- **Layout:** full-width header of three floating pills (Arkiv status · mark and links, the current page filled amber with the active-advisory count · wallet); edge-to-edge section panels; a bold centered hero with pill buttons and a stacked product preview (terminal, the Wall, the witness lamps) rising from its bottom edge; then three ways to use Mene with a developers/witnesses toggle, a works-with strip, the quorum diagram, the threat carousel over live counters, and the lockfile checker as the call to action. The footer is a framed card (CI one-liner, link columns, source and theme icons) ending in a giant lockup; a matching 404 page shows a ghosted "404".
+- **Type:** Archivo, heavy and slightly wide, for headlines (it matches the wordmark); Inter for body; **JetBrains Mono for every hash, address, key and version**.
+- **Motifs:** pill badges; a `) + (` ornament divider; check-mark feature lists; amber seal badges for Sealed/Inscribed; status chips (ACTIVE = red, PENDING = muted, WITHDRAWN = struck-through, MISSING = red).
 - **Rules:**
   - Respect `prefers-color-scheme` and offer a toggle; responsive down to 360 px; WCAG AA contrast.
   - Addresses truncated as `0x1234…abcd` with copy buttons; every on-chain item links to the Tiramisu explorer.

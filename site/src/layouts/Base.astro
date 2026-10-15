@@ -1,4 +1,6 @@
 ---
+import { TIRAMISU } from "@mene/sdk"
+import Logo from "../components/Logo.astro"
 import { DOCS, REPO } from "../config"
 import "../styles/global.css"
 interface Props {
@@ -9,7 +11,7 @@ interface Props {
 }
 const {
   title,
-  description = "Quorum-witnessed npm compromise advisories on Arkiv. Check your lockfile for poisoned packages.",
+  description = "Warnings that can't be erased. Quorum-confirmed npm compromise advisories on Arkiv.",
   active,
 } = Astro.props
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
@@ -25,15 +27,22 @@ const links = [
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{title === "Mene" ? "Mene — the writing on the wall for poisoned packages" : `${title} · Mene`}</title>
+  <title>{title === "Mene" ? "Mene — warnings that can't be erased" : `${title} · Mene`}</title>
   <meta name="description" content={description} />
   <meta property="og:title" content={title === "Mene" ? "Mene" : `${title} · Mene`} />
   <meta property="og:description" content={description} />
-  <meta name="theme-color" content="#16130f" />
+  <meta property="og:image" content={new URL(`${base}/og-image-1200x630.png`, Astro.site).href} />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="theme-color" content="#0B0E17" />
+  <link rel="icon" href={`${base}/favicon.ico`} sizes="48x48" />
   <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
+  <link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+  <link rel="manifest" href={`${base}/site.webmanifest`} />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <script is:inline>
     try { const t = localStorage.getItem("mene:theme"); if (t) document.documentElement.dataset.theme = t } catch {}
   </script>
@@ -41,18 +50,23 @@ const links = [
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="site">
-    <div class="wrap bar">
-      <a class="brand" href={`${base}/`} aria-label="Mene home">MENE</a>
-      <button class="menu-btn icon-btn" id="menu-btn" aria-expanded="false" aria-controls="nav" aria-label="Menu">☰</button>
+    <div class="pill status-pill">
+      <span class="net" id="net" title="Connection to the Arkiv Tiramisu network"><i></i><span>Connecting to Arkiv</span></span>
+    </div>
+    <div class="pill nav-pill">
+      <a class="brand" href={`${base}/`} aria-label="Mene home"><Logo mark class="mark" /><Logo class="lockup" /></a>
       <nav class="main" id="nav" aria-label="Main">
-        {links.map(([href, label]) => <a href={`${base}${href}`} aria-current={active === href ? "page" : undefined}>{label}</a>)}
+        {links.map(([href, label]) => (
+          <a href={`${base}${href}`} aria-current={active === href ? "page" : undefined}>
+            {label}{href === "/wall" && <span class="count" id="nav-count" hidden title="Active advisories"></span>}
+          </a>
+        ))}
         <a href={REPO}>Docs</a>
       </nav>
-      <div class="tools">
-        <span class="net" id="net" title="Connection to the Arkiv Tiramisu network"><i></i><span>Arkiv</span></span>
-        <button class="btn wallet-btn" id="wallet-btn">Connect wallet</button>
-        <button class="icon-btn" id="theme" aria-label="Toggle colour theme" title="Toggle theme">◐</button>
-      </div>
+      <button class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="nav" aria-label="Menu"><span></span><span></span></button>
+    </div>
+    <div class="pill tools-pill">
+      <button class="wallet-btn" id="wallet-btn">Connect wallet</button>
     </div>
   </header>
   {preview && (
@@ -60,24 +74,60 @@ const links = [
       <div class="wrap"><strong>Preview with sample data.</strong> These advisories and witnesses are examples, not live Arkiv records. Lockfile checks run for real against them. Wallet actions need the live site.</div>
     </div>
   )}
-  <main id="main" class="wrap"><slot /></main>
+  <main id="main"><slot /></main>
   <footer class="site">
-    <div class="wrap foot">
-      <div>
-        <p class="triad">MENE · TEKEL · UPHARSIN</p>
-        <p>Advisories live on Arkiv, the Web3 database. This site reads them straight from your browser. There is no Mene server.</p>
+    <div class="foot-card">
+      <div class="foot-grid">
+        <div class="foot-ci">
+          <h4>Check every build</h4>
+          <div class="ci-field">
+            <code id="ci-line">uses: andrew1234-arch/Mene/action@main</code>
+            <button type="button" class="ci-copy" data-copy-from="ci-line" aria-label="Copy the Action line">Copy</button>
+          </div>
+          <p class="small muted">Add one step to your workflow. <span class="hi">No server, no account, no data shared.</span></p>
+        </div>
+        <nav aria-label="Explore">
+          <h4>Explore</h4>
+          <ul>
+            <li><a href={`${base}/`}>Home</a></li>
+            <li><a href={`${base}/wall`}>The Wall</a></li>
+            <li><a href={`${base}/check`}>Check a lockfile</a></li>
+            <li><a href={`${base}/witnesses`}>Witnesses</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Developers">
+          <h4>Developers</h4>
+          <ul>
+            <li><a href={DOCS.cli}>CLI</a></li>
+            <li><a href={DOCS.action}>GitHub Action</a></li>
+            <li><a href={DOCS.schema}>Data contract</a></li>
+            <li><a href={`${REPO}/blob/main/LICENSE`}>MIT licence</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Trust">
+          <h4>Trust</h4>
+          <ul>
+            <li><a href={DOCS.trust}>Trust model</a></li>
+            <li><a href={DOCS.threats}>Threat model</a></li>
+            <li><a href={TIRAMISU.explorer}>Arkiv explorer</a></li>
+          </ul>
+        </nav>
+        <div class="foot-social">
+          <h4>Source &amp; settings</h4>
+          <div class="icons">
+            <a class="icon" href={REPO} aria-label="Mene on GitHub" title="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg></a>
+            <a class="icon" href={TIRAMISU.explorer} aria-label="Arkiv explorer" title="Arkiv explorer"><svg viewBox="4 4 40 40" aria-hidden="true"><rect x="7" y="8" width="9" height="32" fill="currentColor"/><rect x="19.5" y="8" width="9" height="21" fill="currentColor"/><rect x="33.25" y="9.25" width="7.5" height="29.5" fill="none" stroke="currentColor" stroke-width="2.5"/></svg></a>
+            <button class="icon" id="theme" aria-label="Toggle colour theme" title="Toggle theme"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 1.5v11a5.5 5.5 0 0 1 0-11Z"/></svg></button>
+          </div>
+          <p class="small muted">Tiramisu testnet · there is no Mene server</p>
+        </div>
       </div>
-      <nav aria-label="Footer">
-        <a href={DOCS.trust}>Trust model</a>
-        <a href={DOCS.schema}>Data contract (schema.md)</a>
-        <a href={DOCS.action}>GitHub Action</a>
-        <a href={REPO}>Source (MIT)</a>
-        <span class="muted">Tiramisu testnet</span>
-      </nav>
+      <p class="disclaimer">“Mene, Mene, Tekel, Upharsin.” Numbered, weighed, divided. Advisories live on Arkiv, the Web3 database, and this site reads them straight from your browser. Package names are trademarks of their owners and appear here only to identify affected software.</p>
+      <a class="giant" href={`${base}/`} aria-label="Mene home"><Logo class="giant-logo" /></a>
     </div>
   </footer>
   <script>
-    import { pub, onConnection, setConnection, short, isTrusted, toast } from "../scripts/mene"
+    import { pub, onConnection, setConnection, short, isTrusted, toast, loadWall } from "../scripts/mene"
     import { connect, disconnect, hasWallet, onWallet } from "../scripts/wallet"
 
     document.getElementById("theme")!.addEventListener("click", () => {
@@ -97,13 +147,25 @@ const links = [
     const net = document.getElementById("net")!
     onConnection((c) => {
       net.className = `net ${c.ok ? "ok" : "down"}`
-      net.querySelector("span")!.textContent = c.ok ? `Arkiv · #${c.block}` : "Arkiv offline"
+      net.querySelector("span")!.textContent = c.ok ? `Live on Arkiv · #${c.block}` : "Arkiv offline"
       net.title = c.ok ? `Connected to Arkiv Tiramisu, block ${c.block}` : "Can't reach Arkiv — retrying"
     })
     const ping = () =>
       pub().getBlockNumber().then((b) => setConnection({ ok: true, block: b.toString() }), () => setConnection({ ok: false }))
     void ping()
     setInterval(() => { if (!document.hidden) void ping() }, 15_000)
+
+    // Active-advisory count on the Wall link (shares the page's 20 s wall cache).
+    const count = document.getElementById("nav-count")
+    if (count)
+      loadWall().then(
+        (w) => {
+          const n = w.statuses.filter((s) => s.status === "ACTIVE").length
+          count.textContent = String(n)
+          count.hidden = n === 0
+        },
+        () => {},
+      )
 
     const wb = document.getElementById("wallet-btn") as HTMLButtonElement
     if (!hasWallet()) {
