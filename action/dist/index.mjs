@@ -12136,13 +12136,16 @@ async function readAdvisory(pub, key2) {
     throw err;
   }
 }
+var READ_CONCURRENCY = 4;
 async function readLive(pub, issuers) {
   const { attestations, blockNumber } = await readAttestations(pub, issuers);
   const keys = [...new Set(attestations.map((a) => a.advisory))];
   const advisories = {};
   const invalid = {};
-  await Promise.all(
-    keys.map(async (k) => {
+  let next = 0;
+  const worker = async () => {
+    while (next < keys.length) {
+      const k = keys[next++];
       try {
         const a = await readAdvisory(pub, k);
         if (a) advisories[k] = a;
@@ -12151,8 +12154,9 @@ async function readLive(pub, issuers) {
           invalid[k] = err.message;
         } else throw err;
       }
-    })
-  );
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, keys.length) }, worker));
   return { attestations, advisories, invalid, blockNumber };
 }
 
