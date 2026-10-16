@@ -13,6 +13,7 @@ import {
   explorer,
   publicClient,
   publishAdvisory,
+  readAttestations,
   readLive,
   resolveStatus,
   walletClient,
@@ -105,11 +106,20 @@ const forged = await within(
 say(
   `- Keeper wallet ${F.account!.address} (not a witness) publishes a fake advisory ${forged.advisoryKey} with its own confirmation: [\`${forged.txHash}\`](${explorer.tx(forged.txHash)})`,
 )
-// This read stalled once (run 38955011111); try it up to three times before giving up.
+// In this process every read after the forger's publish stalled (runs 38955011111, 38958424463,
+// 38959370561) while a fresh process read the same data in ~1 s. So the check pauses, then reads
+// with a brand-new client, and logs which stage answers, up to three times.
 let visible: boolean | undefined
 for (let i = 1; i <= 3 && visible === undefined; i++) {
+  await new Promise((r) => setTimeout(r, 30_000))
+  const fresh = publicClient()
   try {
-    visible = (await status()).statuses.some((s) => s.key === forged.advisoryKey.toLowerCase())
+    const t = Date.now()
+    const atts = await within("read attestations (fresh client)", readAttestations(fresh, issuers))
+    console.log(`  attempt ${i}: ${atts.attestations.length} attestations in ${Date.now() - t} ms`)
+    const live = await within("read advisories (fresh client)", readLive(fresh, issuers))
+    console.log(`  attempt ${i}: ${Object.keys(live.advisories).length} advisories in ${Date.now() - t} ms`)
+    visible = Object.hasOwn(live.advisories, forged.advisoryKey.toLowerCase())
   } catch (e) {
     console.log(`visibility check attempt ${i} failed: ${(e as Error).message}`)
   }
