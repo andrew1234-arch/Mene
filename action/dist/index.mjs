@@ -12189,7 +12189,20 @@ import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 
 // ../packages/cli/src/witnesses.ts
-var DEMO_WITNESSES = [];
+var DEMO_WITNESSES = [
+  {
+    "name": "Witness A",
+    "address": "0x9bEBE1512c9f4E9F04B7DC45824b116985013238"
+  },
+  {
+    "name": "Witness B",
+    "address": "0x15d88D1614BAE54b8306AF59D829E653F473A112"
+  },
+  {
+    "name": "Witness C",
+    "address": "0xf3D23647131f4c5002b6b60C137b69222512f771"
+  }
+];
 
 // ../packages/cli/src/config.ts
 var ADDRESS = /^0x[0-9a-fA-F]{40}$/;
