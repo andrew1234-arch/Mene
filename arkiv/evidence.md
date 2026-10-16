@@ -81,3 +81,14 @@ Copied from the CI log of [run 38955011111](https://github.com/andrew1234-arch/M
 ## Live read check 2026-10-16T19:35:37Z ([arkiv-smoke run 38956007391](https://github.com/andrew1234-arch/Mene/actions/runs/38956007391))
 
 Read-only, trusting witnesses A, B and C, at block 664784: 20 advisories and 44 attestations. All 19 mirrored qix-incident records are **ACTIVE** (chalk included, after the attack above); `MENE-2026-0001` is **WITHDRAWN**. Forged advisories visible: **0** (neither the seed-run nor the attack-run forgery from the keeper wallet).
+
+## Attack demo 2026-10-16T19:55:33.426Z
+
+- Before: chalk 0x15c28217c86582c6d0b1c1c223a1e80841534d47e01dbabeb12cd36489fb4adf is **ACTIVE** (confirmed by 2 witnesses)
+- A's key tries to delete the sealed advisory: **reverted** (Transaction failed: entity 0x15c28217…fb4adf is owned by 0x000000000000000000000000000000000000dEaD, not 0x9bEBE1512c9f4E9F04B7DC45824b116985013238)
+- A's key deletes A's own confirmation 0x0f40819b77cabbedf66064b8b614c62cf6d2ff71ba7e32fdb16069548edfcdb7: [`0xfda9ecab7128270b226a307c681e0fc11eeb6259f69969c1d608008be23f7999`](https://tiramisu.explorer.arkiv.network/tx/0xfda9ecab7128270b226a307c681e0fc11eeb6259f69969c1d608008be23f7999)
+- Mene with memory of the confirmation: **ACTIVE**, 1 vanished confirmation(s) still counted
+- A fresh reader with no memory: **ACTIVE** (chain history still holds the deleted confirmation's creation tx)
+- A's key withdraws chalk: [`0x85d9a30e886f3aee864e827a800934893db2d4333d42b8a0fff98c3a855ece14`](https://tiramisu.explorer.arkiv.network/tx/0x85d9a30e886f3aee864e827a800934893db2d4333d42b8a0fff98c3a855ece14)
+- After one withdrawal: **ACTIVE** (a withdrawal needs a quorum too)
+- Keeper wallet 0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42 (not a witness) publishes a fake advisory 0xa66fb0217e28a60c625d86881c8a7351decf1013a83a9e1e844d602f82b5dee2 with its own confirmation: [`0x187d5ccb3f35f5931bdbe230e50f31eb759fba94f99231fc44b2265667c0c604`](https://tiramisu.explorer.arkiv.network/tx/0x187d5ccb3f35f5931bdbe230e50f31eb759fba94f99231fc44b2265667c0c604)
