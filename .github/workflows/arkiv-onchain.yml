@@ -20,6 +20,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       MENE_ISSUER_A_KEY: ${{ secrets.MENE_ISSUER_A_KEY }}
       MENE_ISSUER_B_KEY: ${{ secrets.MENE_ISSUER_B_KEY }}
