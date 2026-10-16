@@ -6,7 +6,6 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "build:preview": "PUBLIC_MENE_PREVIEW=1 astro build && node tools/relativize-preview.mjs",
     "check": "astro check"
   },
   "dependencies": {

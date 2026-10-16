@@ -13,7 +13,6 @@ const {
   active,
 } = Astro.props
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
-const preview = import.meta.env.PUBLIC_MENE_PREVIEW === "1"
 const links = [
   ["/check", "Check"],
   ["/advisories", "Advisories"],
@@ -72,11 +71,6 @@ const links = [
     <button class="pill menu-btn" id="menu-btn" aria-expanded="false" aria-controls="nav-pill" aria-label="Menu"><span></span><span></span></button>
     </div>
   </header>
-  {preview && (
-    <div class="preview-bar" role="note">
-      <div class="wrap"><strong>Preview with sample data.</strong> These advisories are examples, not live records. Lockfile checks run for real against them.</div>
-    </div>
-  )}
   <main id="main"><slot /></main>
   <footer class="site">
     <div class="foot-card">

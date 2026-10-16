@@ -131,7 +131,6 @@ packages/
 action/          @mene/action: GitHub Action (action.yml + committed bundle in dist/)
 site/            Astro static site → Vercel (vercel.json)
   src/pages/     landing · wall · advisory · check · witnesses
-  tools/         preview-build helpers
 arkiv/           schema.md · friction.md · evidence.md (hackathon deliverables)
 docs/            SPEC · DESIGN · TASKS · SUBMISSION (Devfolio answers) · VIDEO (demo script)
 scripts/         on-chain tooling: keys · spike · mirror · seed · attack · smoke
