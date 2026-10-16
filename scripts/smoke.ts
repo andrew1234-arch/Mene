@@ -96,7 +96,11 @@ if (process.env.MENE_SNAPSHOT === "1") {
   const json = JSON.stringify({ statuses, blockNumber: live.blockNumber }, (_k, v) =>
     typeof v === "bigint" ? v.toString() : v,
   )
-  console.log(`SNAPSHOT ${Buffer.from(json).toString("base64")}`)
+  // GitHub truncates log lines at 64 KB, so the base64 is printed in numbered chunks.
+  const b64 = Buffer.from(json).toString("base64")
+  const size = 60_000
+  const n = Math.ceil(b64.length / size)
+  for (let i = 0; i < n; i++) console.log(`SNAPSHOT ${i + 1}/${n} ${b64.slice(i * size, (i + 1) * size)}`)
 }
 console.log(`done in ${Date.now() - t0} ms`)
 process.exit()
