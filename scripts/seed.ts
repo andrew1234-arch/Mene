@@ -1,6 +1,6 @@
 /**
  * Seeds the Mene-original demo flows on Tiramisu and records every address/tx in arkiv/evidence.md.
- * Run `npm run mirror` first: chalk and debug come from the OpenSSF mirror (docs/TASKS.md, Task 4).
+ * Run `npm run mirror` first: chalk and debug come from the OpenSSF mirror.
  *   C inscribes MENE-2026-0001 (synthetic package) → A confirms → A and C withdraw → WITHDRAWN
  *   The keeper (an untrusted wallet) publishes a forged advisory → never appears for trusted readers
  * Then writes the witness addresses into the CLI defaults and the site, and rebuilds the Action.

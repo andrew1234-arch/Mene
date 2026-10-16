@@ -132,7 +132,6 @@ action/          @mene/action: GitHub Action (action.yml + committed bundle in d
 site/            Astro static site → Vercel (vercel.json)
   src/pages/     landing · wall · advisory · check · witnesses
 arkiv/           schema.md · friction.md · evidence.md (hackathon deliverables)
-docs/            SPEC · DESIGN · TASKS · SUBMISSION (Devfolio answers) · VIDEO (demo script)
 scripts/         on-chain tooling: keys · spike · mirror · seed · attack · smoke
 advisories/      Mene-original advisories (the synthetic false alarm)
 examples/        demo lockfiles: scanned, never installed

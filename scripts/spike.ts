@@ -1,5 +1,5 @@
 /**
- * On-chain spikes from docs/TASKS.md Task 1. Run: `npm run spike` (needs funded MENE_ISSUER_A_KEY and
+ * On-chain spikes. Run: `npm run spike` (needs funded MENE_ISSUER_A_KEY and
  * MENE_KEEPER_KEY). Prints PASS/FAIL, evidence (tx hash / revert reason) and GLM spent per
  * operation, then appends a markdown summary to arkiv/friction.md.
  */
