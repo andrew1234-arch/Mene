@@ -77,3 +77,7 @@ Reverted before any write: the attribute name `advisoryId` was rejected (frictio
 - Keeper wallet 0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42 (not a witness) publishes a fake advisory 0x319b9d1fc3de0a56d584e830ab378cff650c9a5048e762bb9d01c767467954ef with its own confirmation: [`0xbe339a38aeae42257e7708b498bfd6ccdd10ea2ece23c3b10bb659ff5d922373`](https://tiramisu.explorer.arkiv.network/tx/0xbe339a38aeae42257e7708b498bfd6ccdd10ea2ece23c3b10bb659ff5d922373)
 
 Copied from the CI log of [run 38955011111](https://github.com/andrew1234-arch/Mene/actions/runs/38955011111): the script's last read (is the forgery visible?) stalled and the run was cancelled, so the workflow could not commit this section itself. That check now runs read-only in `scripts/smoke.ts` ("forged advisories stay invisible"); see the arkiv-smoke workflow.
+
+## Live read check 2026-10-16T19:35:37Z ([arkiv-smoke run 38956007391](https://github.com/andrew1234-arch/Mene/actions/runs/38956007391))
+
+Read-only, trusting witnesses A, B and C, at block 664784: 20 advisories and 44 attestations. All 19 mirrored qix-incident records are **ACTIVE** (chalk included, after the attack above); `MENE-2026-0001` is **WITHDRAWN**. Forged advisories visible: **0** (neither the seed-run nor the attack-run forgery from the keeper wallet).
