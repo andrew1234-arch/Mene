@@ -11,13 +11,13 @@ Flags: `readonly`, `permissionlessExtension` · Entity Expiration 365 d (renewab
 |---|---|---|
 | project | str | namespace |
 | type | str | `"advisory"` |
-| schemaVersion | i32 | `1` |
-| advisoryId | str | OSV id: `MAL-2025-46974` (OpenSSF mirror) or `MENE-2026-0001` (Mene original) |
+| schema_version | i32 | `1` |
+| advisory_id | str | OSV id: `MAL-2025-46974` (OpenSSF mirror) or `MENE-2026-0001` (Mene original) |
 | ecosystem | str | `"npm"` |
 | pkg | str | package name (omitted if > 128 bytes) |
-| pkgId | bytes32 | `keccak256("npm:" + name)`, always set |
+| pkg_id | bytes32 | `keccak256("npm:" + name)`, always set |
 | severity | i32 | 1 low · 2 moderate · 3 high · 4 critical |
-| publishedAt | u64 | unix seconds of OSV `published` |
+| published_at | u64 | unix seconds of OSV `published` |
 
 Payload: OSV JSON (≤ 128 KB). Mene's fields live under `database_specific.mene`:
 ```json
@@ -48,7 +48,7 @@ Flags: `readonly`, `permissionlessExtension` · 365 d · contentType `applicatio
 | type | str | `"attestation"` |
 | advisory | key | advisory entity key |
 | verdict | str | `"confirm"` or `"withdraw"` |
-| attestedAt | u64 | unix seconds; tie-break within a block |
+| attested_at | u64 | unix seconds; tie-break within a block |
 
 ## Writes
 - **Publish** = one atomic `executeBatch`: create the advisory (salted; key predicted with `pub.predictEntityKeys`) + create the publisher's `confirm` attestation pointing at that predicted key + `ownershipChanges` of the advisory to the burn address. Code: `publishAdvisory` in [`arkiv.ts`](../packages/sdk/src/arkiv.ts).
@@ -61,8 +61,8 @@ Flags: `readonly`, `permissionlessExtension` · 365 d · contentType `applicatio
    → `project = str('mene-v1') AND type = str('attestation') AND $creator = addr(W)`
 2. Advisory by key: `getEntity(key)` (`NoEntityFoundError` = deleted, expired or never existed).
 3. Wall range filters, pinned per witness:
-   `select({ key: true }).where(and(eq("project","mene-v1"), eq("type","advisory"), gte("severity", i32(N)), gte("publishedAt", u64(T)))).createdBy(W)`
-4. Mirror idempotency (scripts only): `eq("advisoryId", id)` + `createdBy(A)`.
+   `select({ key: true }).where(and(eq("project","mene-v1"), eq("type","advisory"), gte("severity", i32(N)), gte("published_at", u64(T)))).createdBy(W)`
+4. Mirror idempotency (scripts only): `eq("advisory_id", id)` + `createdBy(A)`.
 5. Live feed: `watchEntityEvents` over `webSocket()` without `fromBlock`, filtered client-side.
 
 No query ever contains a package name. Raw JSON-RPC equivalent of query 1:

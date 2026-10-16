@@ -1,7 +1,7 @@
 # Mene — Web pages, design and references
 
 ## Framework (decided)
-- **Astro** (static multi-page, islands), deployed to **GitHub Pages** via Actions. There is no backend; every page reads Arkiv directly from the browser. This is the Censorship Resistance proof.
+- **Astro** (static multi-page, islands), deployed to **Vercel** as static files (`vercel.json`; the site can be served from any static host). There is no backend; every page reads Arkiv directly from the browser. This is the Censorship Resistance proof.
 - No docs site: the README and `arkiv/schema.md` are the docs (judges read those).
 - Interactive pieces (wall, check, live feed) are vanilla TS islands, or Preact if state grows. Shared logic is imported from `@mene/sdk`.
 - **SPIKE S7:** bundle `@arkiv-network/sdk` in the browser (it depends on `brotli-wasm`).

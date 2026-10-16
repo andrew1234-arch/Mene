@@ -4,10 +4,6 @@
     ".": {
       "entry": ["scripts/*.ts"]
     },
-    "site": {
-      "entry": ["src/preview/sample.ts", "src/preview/empty.ts"],
-      "ignoreDependencies": ["mene"]
-    },
     "packages/cli": {
       "ignoreDependencies": ["@arkiv-network/sdk", "semver", "viem"]
     }

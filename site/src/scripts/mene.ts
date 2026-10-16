@@ -1,5 +1,3 @@
-// Resolves to src/preview/sample.ts in preview builds and to an empty module in production.
-import { SAMPLE_WITNESSES } from "mene:preview"
 import {
   type AdvisoryStatus,
   DEFAULT_THRESHOLD,
@@ -13,17 +11,13 @@ import {
 } from "@mene/sdk"
 import defaultWitnessesJson from "../data/witnesses.json"
 
-const PREVIEW = import.meta.env.PUBLIC_MENE_PREVIEW === "1"
+const defaultWitnesses = defaultWitnessesJson
 
-const defaultWitnesses = PREVIEW ? SAMPLE_WITNESSES : defaultWitnessesJson
+/** Site root ("" at a domain root, "/sub" when served from a sub-path). */
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 
-/** Site root. Preview builds use relative files, so the root is found from this chunk's URL. */
-const BASE = PREVIEW
-  ? new URL("../", import.meta.url).pathname.replace(/\/$/, "")
-  : import.meta.env.BASE_URL.replace(/\/$/, "")
-
-/** URL of a site page: "/check" in production, "check.html" in preview builds. */
-const route = (page: string) => (PREVIEW ? `${BASE}/${page || "home"}.html` : `${BASE}/${page}`)
+/** URL of a site page, e.g. "/check". */
+const route = (page: string) => `${BASE}/${page}`
 
 export interface Trust {
   issuers: { name: string; address: string }[]
@@ -282,21 +276,13 @@ export function blocksToHuman(blocks: bigint | number): string {
   return h >= 1 ? `${h} h` : `${Math.ceil(s / 60)} min`
 }
 
-/**
- * Shareable page links. Production uses query strings (/advisories/?id=…); preview bundles are plain
- * files, so they carry the same parameters in the hash (advisories.html#id=…).
- */
+/** Shareable page links with query strings, e.g. /advisories/?id=MAL-2025-46974. */
 export function link(page: string, params: Record<string, string> = {}): string {
   const q = new URLSearchParams(params).toString()
-  if (PREVIEW) return `${route(page)}${q ? `#${q}` : ""}`
   return `${BASE}/${page}${page ? "/" : ""}${q ? `?${q}` : ""}`
 }
-/** Page parameters from the query string or, in preview bundles, the hash. */
-export function params(): URLSearchParams {
-  const p = new URLSearchParams(location.search)
-  for (const [k, v] of new URLSearchParams(location.hash.slice(1))) if (!p.has(k)) p.set(k, v)
-  return p
-}
+/** Page parameters from the query string. */
+export const params = () => new URLSearchParams(location.search)
 
 type Osv = NonNullable<AdvisoryStatus["advisory"]>["osv"]
 /** Advisory pages are addressed by their OSV id; the entity key works too. */

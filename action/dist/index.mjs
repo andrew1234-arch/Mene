@@ -12052,8 +12052,9 @@ var logger2 = getLogger("actions:wallet:patch-entity");
 var chainMap = new Map(Object.entries(chains_exports).map(([key$1, value]) => [key$1.toLowerCase(), value]));
 
 // ../packages/sdk/src/arkiv.ts
+var RETRY = { retryCount: 6, retryDelay: 400 };
 function publicClient(opts = {}) {
-  const transport = opts.ws ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl) : http(opts.rpcUrl ?? TIRAMISU.rpcUrl);
+  const transport = opts.ws ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl, RETRY) : http(opts.rpcUrl ?? TIRAMISU.rpcUrl, RETRY);
   return createPublicClient({ chain: tiramisu, transport });
 }
 var PAGE = 200;
@@ -12080,7 +12081,7 @@ function toAttestationRecord(e) {
     issuer: e.creator.toLowerCase(),
     verdict,
     createdAt: Number(e.createdAt ?? 0n),
-    attestedAt: Number(attr(e, "attestedAt") ?? 0n),
+    attestedAt: Number(attr(e, "attested_at") ?? 0n),
     reason
   };
 }
@@ -12188,7 +12189,20 @@ import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 
 // ../packages/cli/src/witnesses.ts
-var DEMO_WITNESSES = [];
+var DEMO_WITNESSES = [
+  {
+    name: "Witness A",
+    address: "0x9bEBE1512c9f4E9F04B7DC45824b116985013238"
+  },
+  {
+    name: "Witness B",
+    address: "0x15d88D1614BAE54b8306AF59D829E653F473A112"
+  },
+  {
+    name: "Witness C",
+    address: "0xf3D23647131f4c5002b6b60C137b69222512f771"
+  }
+];
 
 // ../packages/cli/src/config.ts
 var ADDRESS = /^0x[0-9a-fA-F]{40}$/;

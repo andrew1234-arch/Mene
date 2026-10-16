@@ -40,7 +40,7 @@ From day one, a judge's own lockfile is checked against the real qix-incident re
 ## Arkiv questions
 
 ### 1. Live app URL *
-TODO: https://andrew1234-arch.github.io/Mene/ (after merging to `main` and setting GitHub Pages → Source: GitHub Actions)
+TODO: the Vercel production URL (after the first deploy)
 
 ### 2. Does any team member hold Indian nationality? *
 TODO
@@ -64,25 +64,25 @@ Arkiv also gives us, in one layer:
 **Deliberately off Arkiv:** lockfiles, dependency lists, which packages anyone uses, trust settings, CI results and keys. Queries carry only Mene's labels and witness addresses, never a package name.
 
 ### 4. How do you use Arkiv? * (feature → how and why → code)
-- **Attributes vs payload.** OSV JSON in the payload. Everything we filter on is a typed attribute: `severity` i32 and `publishedAt` u64 for ranges; `advisory` key and `verdict` str on attestations. → [arkiv.ts#L186](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L184 "export function advisoryAttributes"), [schema.md](https://github.com/andrew1234-arch/Mene/blob/main/arkiv/schema.md)
-- **`createdBy()` on every read.** Attestations are read per trusted witness, so forged look-alikes never appear. → [arkiv.ts#L51](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L49 "export function attestationQuery")
-- **Cursor pagination.** Each witness's attestations are paged until `hasNextPage()` is false. → [arkiv.ts#L102](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L100 "export async function readAttestations")
-- **Range queries.** The Advisories page's minimum-severity and published-since filters run `gte("severity", i32)` and `gte("publishedAt", u64)` on Arkiv, also pinned per witness. → [advisories/index.astro](https://github.com/andrew1234-arch/Mene/blob/main/site/src/pages/advisories/index.astro)
-- **Creation flags.** `readonly`: witnesses confirm text that can never change ("Content frozen" badge). `permissionlessExtension`: anyone can extend ("Keep alive", `mene keepalive`). → [arkiv.ts#L214](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L212 "flags: { readonly: true, permissionlessExtension: true }")
-- **`$owner` transfer (seal).** In the publish batch, ownership moves to `0x…dEaD` ("Sealed" badge; the stolen-key delete reverts). → [arkiv.ts#L256](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L254 "ownershipChanges: sealMode")
-- **Atomic batch + `predictEntityKeys`.** Advisory, the publisher's confirmation pointing at the predicted key, and the seal land in one transaction. → [arkiv.ts#L234](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L232 "export async function publishAdvisory")
-- **Entity Expiration + permissionless Lifetime Extension.** Advisories and attestations live 365 days; any wallet can renew them. Keepalive skips entities that already live longer, so one can't revert the batch. Each advisory's Verify panel shows the countdown and who last paid. → [arkiv.ts#L279](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L277 "export async function keepalive")
+- **Attributes vs payload.** OSV JSON in the payload. Everything we filter on is a typed attribute: `severity` i32 and `published_at` u64 for ranges; `advisory` key and `verdict` str on attestations. → [arkiv.ts#L186](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L193 "export function advisoryAttributes"), [schema.md](https://github.com/andrew1234-arch/Mene/blob/main/arkiv/schema.md)
+- **`createdBy()` on every read.** Attestations are read per trusted witness, so forged look-alikes never appear. → [arkiv.ts#L51](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L58 "export function attestationQuery")
+- **Cursor pagination.** Each witness's attestations are paged until `hasNextPage()` is false. → [arkiv.ts#L102](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L109 "export async function readAttestations")
+- **Range queries.** The Advisories page's minimum-severity and published-since filters run `gte("severity", i32)` and `gte("published_at", u64)` on Arkiv, also pinned per witness. → [advisories/index.astro](https://github.com/andrew1234-arch/Mene/blob/main/site/src/pages/advisories/index.astro)
+- **Creation flags.** `readonly`: witnesses confirm text that can never change ("Content frozen" badge). `permissionlessExtension`: anyone can extend ("Keep alive", `mene keepalive`). → [arkiv.ts#L214](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L221 "flags: { readonly: true, permissionlessExtension: true }")
+- **`$owner` transfer (seal).** In the publish batch, ownership moves to `0x…dEaD` ("Sealed" badge; the stolen-key delete reverts). → [arkiv.ts#L256](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L263 "ownershipChanges: sealMode")
+- **Atomic batch + `predictEntityKeys`.** Advisory, the publisher's confirmation pointing at the predicted key, and the seal land in one transaction. → [arkiv.ts#L234](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L241 "export async function publishAdvisory")
+- **Entity Expiration + permissionless Lifetime Extension.** Advisories and attestations live 365 days; any wallet can renew them. Keepalive skips entities that already live longer, so one can't revert the batch. Each advisory's Verify panel shows the countdown and who last paid. → [arkiv.ts#L279](https://github.com/andrew1234-arch/Mene/blob/main/packages/sdk/src/arkiv.ts#L286 "export async function keepalive")
 - **WebSocket entity events.** The Advisories page's live activity panel uses `watchEntityEvents` over `webSocket()` with no `fromBlock`. It shows new advisories, confirmations, seals and extensions as they land, raises red deletion alarms, and re-reads the list without a refresh. → [advisories/index.astro](https://github.com/andrew1234-arch/Mene/blob/main/site/src/pages/advisories/index.astro)
 
 ### 5. Friction report *
 https://github.com/andrew1234-arch/Mene/blob/main/arkiv/friction.md
 
 ### 6. Wallet addresses that create your Arkiv entities *
-TODO, from [arkiv/evidence.md](https://github.com/andrew1234-arch/Mene/blob/main/arkiv/evidence.md) after the mirror and seed runs:
-- **Witness A:** inscribes the mirrored OpenSSF records; confirms then withdraws the false alarm.
-- **Witness B:** confirms every mirrored record.
-- **Witness C:** confirms chalk and debug; inscribes and withdraws the synthetic false alarm.
-- **Keeper (untrusted):** permissionless Lifetime Extension; publishes the forged advisory that must never appear.
+Every transaction is listed in [arkiv/evidence.md](https://github.com/andrew1234-arch/Mene/blob/main/arkiv/evidence.md).
+- **Witness A** `0x9bEBE1512c9f4E9F04B7DC45824b116985013238`: inscribes (and seals) the 19 mirrored OpenSSF records; confirms then withdraws the false alarm; runs the spikes.
+- **Witness B** `0x15d88D1614BAE54b8306AF59D829E653F473A112`: confirms every mirrored record.
+- **Witness C** `0xf3D23647131f4c5002b6b60C137b69222512f771`: confirms chalk and debug; inscribes and withdraws the synthetic false alarm `MENE-2026-0001`.
+- **Keeper (untrusted)** `0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42`: permissionless Lifetime Extensions; publishes the forged advisory that never appears in Mene.
 
 ### 7. Link to /arkiv/schema.md *
 https://github.com/andrew1234-arch/Mene/blob/main/arkiv/schema.md

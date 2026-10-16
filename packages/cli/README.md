@@ -20,7 +20,7 @@ Advisories are confirmed by independent witnesses (2 of 3 by default) and stored
 { "issuers": ["0x…", "0x…", "0x…"], "threshold": 2, "minSeverity": "low" }
 ```
 
-- Check a project in the browser, browse advisories and set up CI: https://andrew1234-arch.github.io/Mene/
+- Check a project in the browser, browse advisories and set up CI: see the web app linked from the repository
 - GitHub Action: `uses: andrew1234-arch/mene@v1`
 - Source, trust model and threat model: https://github.com/andrew1234-arch/Mene
 

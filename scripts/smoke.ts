@@ -14,7 +14,11 @@ const t0 = Date.now()
 const step = async (name: string, fn: () => Promise<unknown>) => {
   const s = Date.now()
   try {
-    const r = await fn()
+    // A hung request must fail the step, not the whole job (the attack demo once stalled here).
+    const r = await Promise.race([
+      fn(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timed out after 90 s")), 90_000)),
+    ])
     console.log(
       `PASS ${name} (${Date.now() - s} ms): ${JSON.stringify(r, (_k, v) => (typeof v === "bigint" ? v.toString() : v))}`,
     )
@@ -44,7 +48,7 @@ await step("query: wall range filter (severity i32 + publishedAt u64)", async ()
         eq("project", PROJECT),
         eq("type", "advisory"),
         gte("severity", i32(3)),
-        gte("publishedAt", u64(1_700_000_000n)),
+        gte("published_at", u64(1_700_000_000n)),
       ),
     )
     .createdBy(ws[0]!)
@@ -74,4 +78,11 @@ await step("readLive + resolveStatus end to end", async () => {
     statuses: statuses.map((s) => `${s.advisory?.osv.id ?? s.key}:${s.label}`),
   }
 })
+await step("forged advisories stay invisible (keeper wallet is not a witness)", async () => {
+  const live = await readLive(pub, ws)
+  const forged = Object.values(live.advisories).filter((a) => a.osv.id.startsWith("FORGED"))
+  if (forged.length) throw new Error(`forged advisory visible: ${forged.map((a) => a.key).join(", ")}`)
+  return { advisoriesRead: Object.keys(live.advisories).length, forgedVisible: 0 }
+})
 console.log(`done in ${Date.now() - t0} ms`)
+process.exit()

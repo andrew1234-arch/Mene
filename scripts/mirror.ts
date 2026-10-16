@@ -107,7 +107,7 @@ const note = (s: string) => {
 for (const p of prepared) {
   const existing = await pub
     .select({ key: true })
-    .where(and(eq("project", PROJECT), eq("type", "advisory"), eq("advisoryId", p.osv.id)))
+    .where(and(eq("project", PROJECT), eq("type", "advisory"), eq("advisory_id", p.osv.id)))
     .createdBy(A.account!.address)
     .limit(1)
     .fetch()

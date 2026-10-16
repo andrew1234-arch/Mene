@@ -41,7 +41,9 @@ describe("OpenSSF mirror", () => {
     const attrs = advisoryAttributes(osv)
     expect(Object.keys(attrs).length).toBeLessThanOrEqual(32)
     expect(attrs.pkg?.value).toBe("debug")
-    expect(attrs.pkgId.value).toMatch(/^0x[0-9a-f]{64}$/)
+    expect(attrs.pkg_id.value).toMatch(/^0x[0-9a-f]{64}$/)
+    // Tiramisu rejects upper-case bytes in attribute names (Ident32InvalidByte; friction.md #10).
+    for (const name of Object.keys(attrs)) expect(name).toMatch(/^[a-z][a-z0-9._-]{0,31}$/)
   })
   it("selects records by the curated compromised version", () => {
     expect(coversVersion(raw, "debug", "4.4.2")).toBe(true)

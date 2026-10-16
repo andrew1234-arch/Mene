@@ -1121,19 +1121,6 @@ button:hover:not(:disabled) {
   padding: .25rem .6rem;
 }
 
-.preview-bar {
-  max-width: 1040px;
-  margin: 8px auto 0;
-  background: color-mix(in srgb, var(--link) 8%, var(--surface));
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  font-size: .8rem;
-  padding: .45rem 0;
-  color: var(--muted);
-}
-.preview-bar strong {
-  color: var(--text);
-}
 .withdraw-form {
   display: grid;
   gap: .5rem;

@@ -51,7 +51,7 @@ out(`| Keeper (untrusted: Lifetime Extension, forgery demo) | [\`${addr(K)}\`]($
 async function inscribed(w: typeof A, id: string) {
   const page = await pub
     .select({ key: true })
-    .where(and(eq("project", PROJECT), eq("type", "advisory"), eq("advisoryId", id)))
+    .where(and(eq("project", PROJECT), eq("type", "advisory"), eq("advisory_id", id)))
     .createdBy(addr(w))
     .limit(1)
     .fetch()

@@ -27,8 +27,17 @@ import type { AdvisoryRecord, AttestationRecord, Verdict } from "./quorum"
 export type MenePublicClient = PublicArkivClient
 export type MeneWalletClient = WalletArkivClient
 
+/**
+ * Tiramisu answers bursts with JSON-RPC -32005 "Request exceeds defined limit" (rate limiting;
+ * see arkiv/friction.md). viem retries that code, but its default backoff (3 tries from 150 ms)
+ * gives up within a second, so reads and writes back off for up to ~25 s instead.
+ */
+const RETRY = { retryCount: 6, retryDelay: 400 } as const
+
 export function publicClient(opts: { rpcUrl?: string; ws?: boolean } = {}): MenePublicClient {
-  const transport = opts.ws ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl) : http(opts.rpcUrl ?? TIRAMISU.rpcUrl)
+  const transport = opts.ws
+    ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl, RETRY)
+    : http(opts.rpcUrl ?? TIRAMISU.rpcUrl, RETRY)
   return createPublicClient({ chain: tiramisu, transport }) as MenePublicClient
 }
 
@@ -36,7 +45,7 @@ export function walletClient(privateKey: string, opts: { rpcUrl?: string } = {})
   const pk = (privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`) as Hex
   return createWalletClient({
     chain: tiramisu,
-    transport: http(opts.rpcUrl ?? TIRAMISU.rpcUrl),
+    transport: http(opts.rpcUrl ?? TIRAMISU.rpcUrl, RETRY),
     account: privateKeyToAccount(pk),
   }) as MeneWalletClient
 }
@@ -91,7 +100,7 @@ export function toAttestationRecord(e: AnyEntity): AttestationRecord | null {
     issuer: e.creator.toLowerCase(),
     verdict,
     createdAt: Number(e.createdAt ?? 0n),
-    attestedAt: Number((attr(e, "attestedAt") as bigint | undefined) ?? 0n),
+    attestedAt: Number((attr(e, "attested_at") as bigint | undefined) ?? 0n),
     reason,
   }
 }
@@ -186,14 +195,14 @@ export function advisoryAttributes(osv: OsvAdvisory) {
   return {
     project: str(PROJECT),
     type: str("advisory"),
-    schemaVersion: i32(SCHEMA_VERSION),
-    advisoryId: str(osv.id),
+    schema_version: i32(SCHEMA_VERSION),
+    advisory_id: str(osv.id),
     ecosystem: str("npm"),
-    // str is capped at 128 bytes; pkgId always identifies the package.
+    // str is capped at 128 bytes; pkg_id always identifies the package.
     ...(utf8Len(name) <= 128 ? { pkg: str(name) } : {}),
-    pkgId: bytes32(keccak256(toBytes(`npm:${name}`))),
+    pkg_id: bytes32(keccak256(toBytes(`npm:${name}`))),
     severity: i32(severityToInt(severityOf(osv))),
-    publishedAt: u64(BigInt(Math.floor(Date.parse(osv.published) / 1000))),
+    published_at: u64(BigInt(Math.floor(Date.parse(osv.published) / 1000))),
   }
 }
 
@@ -207,7 +216,7 @@ function attestationCreate(advisoryKey: Hex, verdict: Verdict, reason?: string, 
       type: str("attestation"),
       advisory: keyAttr(advisoryKey),
       verdict: str(verdict),
-      attestedAt: u64(BigInt(Math.floor(Date.now() / 1000))),
+      attested_at: u64(BigInt(Math.floor(Date.now() / 1000))),
     },
     flags: { readonly: true, permissionlessExtension: true },
     ...(salt !== undefined ? { salt } : {}),

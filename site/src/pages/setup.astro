@@ -51,20 +51,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
       </div>
 
       <h2>What a failing run looks like</h2>
-      <p class="muted">The job fails with an error on the lockfile, and the job summary lists each hijacked package and its fix. This is the summary for the <a href={`${base}/check?example=chalk-attack`} id="ex-link">example project</a>:</p>
-      <figure class="gh-summary" aria-label="Example GitHub Actions job summary">
-        <div class="gh-bar"><span class="x">✗</span> mene <span class="muted">· failed in 9s</span></div>
+      <p class="muted">This is a real run of the Action against the <a href={`${base}/check?example=chalk-attack`}>example project</a>, a lockfile that installed the hijacked chalk and debug. The job fails and each hijacked package is annotated with its fix. <a href="https://github.com/andrew1234-arch/Mene/actions/runs/38955033056">See the run on GitHub →</a></p>
+      <figure class="gh-summary" aria-label="GitHub Actions annotations from a real failing run">
+        <div class="gh-bar"><span class="x">✗</span> mene · chalk-attack <span class="muted">· 2 errors</span></div>
         <div class="gh-body">
-          <h4>Mene · <code>package-lock.json</code></h4>
-          <p class="small muted">2 advisories enforced · quorum 2/3 · source: live</p>
-          <p>❌ <strong>2 hijacked packages</strong></p>
-          <div class="table-wrap"><table>
-            <thead><tr><th>Package</th><th>Installed</th><th>Safe version</th><th>Severity</th></tr></thead>
-            <tbody>
-              <tr><td><code>chalk</code></td><td><code>5.6.1</code></td><td><code>5.6.0</code></td><td>critical</td></tr>
-              <tr><td><code>debug</code></td><td><code>4.4.2</code></td><td><code>4.4.1</code></td><td>critical</td></tr>
-            </tbody>
-          </table></div>
+<pre class="annot"><code><span class="x">Error:</span> debug@4.4.2 is flagged by MAL-2025-46974 (ACTIVE); use 4.4.1
+<span class="x">Error:</span> chalk@5.6.1 is flagged by MAL-2025-46969 (ACTIVE); use 5.6.0</code></pre>
+          <p class="small muted">The same run with a clean lockfile passes. The job summary lists the same packages as a table with their safe versions.</p>
         </div>
       </figure>
     </section>
@@ -136,11 +129,13 @@ npx mene-check check --json                              # machine-readable</cod
   .gh-bar .x { color: var(--red); }
   .gh-body { padding: 1rem 1.2rem; }
   .gh-body h4 { margin: 0 0 .2rem; }
+  .annot { margin: 0 0 .6rem; font-size: .8rem; white-space: pre-wrap; }
+  .annot .x { color: var(--red); font-weight: 600; }
   .tabpanel h2 { font-size: 1.5rem; margin-top: 2.5rem; }
 </style>
 
 <script>
-  import { getTrust, link } from "../scripts/mene"
+  import { getTrust } from "../scripts/mene"
   // Tabs
   const tabs = [...document.querySelectorAll<HTMLButtonElement>(".tabs [role=tab]")]
   const show = (t: HTMLButtonElement) => {
@@ -156,7 +151,6 @@ npx mene-check check --json                              # machine-readable</cod
   })
   const fromHash = tabs.find((t) => `#${t.id.slice(2)}` === location.hash)
   if (fromHash) show(fromHash)
-  ;(document.getElementById("ex-link") as HTMLAnchorElement).href = link("check", { example: "chalk-attack" })
 
   // Live workflow builder
   const form = document.getElementById("opts") as HTMLFormElement
