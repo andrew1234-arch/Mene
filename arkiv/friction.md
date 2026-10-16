@@ -82,3 +82,19 @@ Format: **Surface · Version · Expected · Actual · Repro · Suggested fix**. 
 | S6 365-day Entity Expiration cost | ✅ | accepted; cost compared with 30 days | 30 d: 0.000095784000191568 GLM (gas 95784) · 365 d: 0.000095784000191568 GLM (gas 95784) |
 
 Repro: `npm run spike` (scripts/spike.ts). S7 (browser bundle) is covered in entry 4.
+
+## Spike results 2026-10-16T19:09:59.396Z (@arkiv-network/sdk 0.8.1, Tiramisu)
+
+| Spike | Result | Expected | Actual (evidence, GLM spent) |
+|---|---|---|---|
+| S0 chain | ✅ | chain id 7738577 | chain 7738577 |
+| S1 seal in one batch | ✅ | create advisory + attestation + ownership → burn in one executeBatch; owner = 0x…dEaD | tx 0xed6f6d92a9ad573ab4f956763cd7ebd3c6ad55175c2b2b398a332ebc7d089354, owner burn, 0.000206568000413136 GLM (gas 206568) |
+| S1b original key deletes sealed entity | ✅ | revert | reverted: Transaction failed: entity 0x6ab8ee7c…9a29aa is owned by 0x000000000000000000000000000000000000dEaD, not 0x9bEBE1512c9f4E9F04B7DC45824b116985013238 |
+| S2a keeper extends permissionless entity | ✅ | success | tx 0x6b63d9ed520f8365cc37437f235d3edab3b2e577e0d1176d62c9bf2fd415f64d, 0.00002524000005048 GLM (gas 25240) |
+| S2b keeper extends a normal entity | ✅ | revert | reverted: Transaction failed: entity 0x49c6b575…12f15f is owned by 0x9bEBE1512c9f4E9F04B7DC45824b116985013238, not 0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42 |
+| S3 patch readonly entity | ✅ | revert | reverted: Transaction failed: entity 0x90d4fa69…f023ce was created readonly, so its contents can never change. Its expiry can still be extended, and it can be transferred or deleted |
+| S4 createdBy, range, cursor | ✅ | look-alike from keeper excluded; gte(severity, i32(3)) matches; cursor pages | 5 rows over 5 pages (limit 1), all created by A |
+| S5 WebSocket events | ✅ | watchEntityEvents over webSocket(), no fromBlock, receives create + delete | created + deleted |
+| S6 365-day Entity Expiration cost | ✅ | accepted; cost compared with 30 days | 30 d: 0.000095784000191568 GLM (gas 95784) · 365 d: 0.000095784000191568 GLM (gas 95784) |
+
+Repro: `npm run spike` (scripts/spike.ts). S7 (browser bundle) is covered in entry 4.
