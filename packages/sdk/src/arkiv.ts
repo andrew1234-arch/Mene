@@ -164,14 +164,20 @@ export async function readAdvisory(pub: MenePublicClient, key: string): Promise<
   }
 }
 
+const READ_CONCURRENCY = 4
+
 /** One full read: trusted attestations, then every advisory they point at. */
 export async function readLive(pub: MenePublicClient, issuers: string[]) {
   const { attestations, blockNumber } = await readAttestations(pub, issuers)
   const keys = [...new Set(attestations.map((a) => a.advisory))]
   const advisories: Record<string, AdvisoryRecord> = {}
   const invalid: Record<string, string> = {}
-  await Promise.all(
-    keys.map(async (k) => {
+  // At most READ_CONCURRENCY reads in flight: a burst of one request per advisory trips the node's
+  // rate limit, and every throttled request then retries in lockstep (friction.md #8).
+  let next = 0
+  const worker = async () => {
+    while (next < keys.length) {
+      const k = keys[next++]!
       try {
         const a = await readAdvisory(pub, k)
         if (a) advisories[k] = a
@@ -180,8 +186,9 @@ export async function readLive(pub: MenePublicClient, issuers: string[]) {
           invalid[k] = (err as Error).message
         } else throw err
       }
-    }),
-  )
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, keys.length) }, worker))
   return { attestations, advisories, invalid, blockNumber }
 }
 
