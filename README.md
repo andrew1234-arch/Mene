@@ -54,7 +54,7 @@ node packages/cli/dist/index.js check --lockfile path/to/package-lock.json
 node packages/cli/dist/index.js check --lockfile examples/chalk-attack/package-lock.json   # exit 1
 node packages/cli/dist/index.js check --lockfile examples/clean/package-lock.json          # exit 0
 ```
-Or open the web app's **Check** page and drop your lockfile. It is parsed in the page and never uploaded.
+Or open the web app's [**Check** page](https://getmene.vercel.app/check/) and drop your lockfile. It is parsed in the page and never uploaded.
 
 ## CLI
 ```
