@@ -64,3 +64,16 @@ Reverted before any write: the attribute name `advisoryId` was rejected (frictio
 - A withdraws MENE-2026-0001: [`0xb119da22bdf48a565c207605e0d014b3253c2ea24baaeb46ba428595f66112c3`](https://tiramisu.explorer.arkiv.network/tx/0xb119da22bdf48a565c207605e0d014b3253c2ea24baaeb46ba428595f66112c3)
 - C withdraws MENE-2026-0001: [`0x7b66877fbfe1d19a8c35506ab36c92d810c0e90d350a1e5af77bc30ee13ad41a`](https://tiramisu.explorer.arkiv.network/tx/0x7b66877fbfe1d19a8c35506ab36c92d810c0e90d350a1e5af77bc30ee13ad41a)
 - Keeper (untrusted) publishes a forged advisory `0x7890174ed7329c0c8fecefe06e2b33b9d492ae99c3bad45ce25dce7676caf3cf` (must never appear): [`0x3afd4c71b85dd4dac51db8c552720c048d502021c2d113ccf311f61e6a0ad20c`](https://tiramisu.explorer.arkiv.network/tx/0x3afd4c71b85dd4dac51db8c552720c048d502021c2d113ccf311f61e6a0ad20c)
+
+## Attack demo 2026-10-16T19:27:37Z
+
+- Before: chalk 0x15c28217c86582c6d0b1c1c223a1e80841534d47e01dbabeb12cd36489fb4adf is **ACTIVE** (confirmed by 3 witnesses)
+- A's key tries to delete the sealed advisory: **reverted** (Transaction failed: entity 0x15c28217…fb4adf is owned by 0x000000000000000000000000000000000000dEaD, not 0x9bEBE1512c9f4E9F04B7DC45824b116985013238)
+- A's key deletes A's own confirmation 0x793202a791c385872b3cc6ffd4a8c9fcf63f93bf48da00196af0cbea032bb6c1: [`0x3a952c61262edfcc20f2dd84aa995bd51f65a2a2955da0c302a5aa2a2b2cb6f2`](https://tiramisu.explorer.arkiv.network/tx/0x3a952c61262edfcc20f2dd84aa995bd51f65a2a2955da0c302a5aa2a2b2cb6f2)
+- Mene with memory of the confirmation: **ACTIVE**, 1 vanished confirmation(s) still counted
+- A fresh reader with no memory: **ACTIVE** (chain history still holds the deleted confirmation's creation tx)
+- A's key withdraws chalk: [`0x0419096b82a45d651c5a6d1be340db67793f988b1f455784de89aa82d3191b39`](https://tiramisu.explorer.arkiv.network/tx/0x0419096b82a45d651c5a6d1be340db67793f988b1f455784de89aa82d3191b39)
+- After one withdrawal: **ACTIVE** (a withdrawal needs a quorum too)
+- Keeper wallet 0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42 (not a witness) publishes a fake advisory 0x319b9d1fc3de0a56d584e830ab378cff650c9a5048e762bb9d01c767467954ef with its own confirmation: [`0xbe339a38aeae42257e7708b498bfd6ccdd10ea2ece23c3b10bb659ff5d922373`](https://tiramisu.explorer.arkiv.network/tx/0xbe339a38aeae42257e7708b498bfd6ccdd10ea2ece23c3b10bb659ff5d922373)
+
+Copied from the CI log of [run 38955011111](https://github.com/andrew1234-arch/Mene/actions/runs/38955011111): the script's last read (is the forgery visible?) stalled and the run was cancelled, so the workflow could not commit this section itself. That check now runs read-only in `scripts/smoke.ts` ("forged advisories stay invisible"); see the arkiv-smoke workflow.
