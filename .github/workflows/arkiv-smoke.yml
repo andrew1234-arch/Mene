@@ -6,6 +6,10 @@ on:
       witnesses:
         description: "Witness addresses to read (space-separated). Default: the configured demo witnesses."
         required: false
+      snapshot:
+        description: "Also print the resolved advisories as a base64 JSON line (for offline site screenshots)"
+        type: boolean
+        default: false
   push:
     paths: ["packages/sdk/src/**", "scripts/smoke.ts", ".github/workflows/arkiv-smoke.yml"]
 jobs:
@@ -20,6 +24,7 @@ jobs:
         shell: bash
         env:
           WITNESSES: ${{ github.event.inputs.witnesses }}
+          MENE_SNAPSHOT: ${{ github.event.inputs.snapshot == 'true' && '1' || '' }}
         run: |
           set -o pipefail
           W="$WITNESSES"

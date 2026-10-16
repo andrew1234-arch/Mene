@@ -84,5 +84,19 @@ await step("forged advisories stay invisible (keeper wallet is not a witness)", 
   if (forged.length) throw new Error(`forged advisory visible: ${forged.map((a) => a.key).join(", ")}`)
   return { advisoriesRead: Object.keys(live.advisories).length, forgedVisible: 0 }
 })
+// MENE_SNAPSHOT=1 prints the resolved statuses as one JSON line, for offline screenshots of the site.
+if (process.env.MENE_SNAPSHOT === "1") {
+  const live = await readLive(pub, ws)
+  const { statuses } = resolveStatus({
+    issuers: ws,
+    threshold: Math.min(2, ws.length),
+    liveAttestations: live.attestations,
+    liveAdvisories: live.advisories,
+  })
+  const json = JSON.stringify({ statuses, blockNumber: live.blockNumber }, (_k, v) =>
+    typeof v === "bigint" ? v.toString() : v,
+  )
+  console.log(`SNAPSHOT ${Buffer.from(json).toString("base64")}`)
+}
 console.log(`done in ${Date.now() - t0} ms`)
 process.exit()
