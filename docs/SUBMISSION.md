@@ -78,11 +78,11 @@ Arkiv also gives us, in one layer:
 https://github.com/andrew1234-arch/Mene/blob/main/arkiv/friction.md
 
 ### 6. Wallet addresses that create your Arkiv entities *
-TODO, from [arkiv/evidence.md](https://github.com/andrew1234-arch/Mene/blob/main/arkiv/evidence.md) after the mirror and seed runs:
-- **Witness A:** inscribes the mirrored OpenSSF records; confirms then withdraws the false alarm.
-- **Witness B:** confirms every mirrored record.
-- **Witness C:** confirms chalk and debug; inscribes and withdraws the synthetic false alarm.
-- **Keeper (untrusted):** permissionless Lifetime Extension; publishes the forged advisory that must never appear.
+Every transaction is listed in [arkiv/evidence.md](https://github.com/andrew1234-arch/Mene/blob/main/arkiv/evidence.md).
+- **Witness A** `0x9bEBE1512c9f4E9F04B7DC45824b116985013238`: inscribes (and seals) the 19 mirrored OpenSSF records; confirms then withdraws the false alarm; runs the spikes.
+- **Witness B** `0x15d88D1614BAE54b8306AF59D829E653F473A112`: confirms every mirrored record.
+- **Witness C** `0xf3D23647131f4c5002b6b60C137b69222512f771`: confirms chalk and debug; inscribes and withdraws the synthetic false alarm `MENE-2026-0001`.
+- **Keeper (untrusted)** `0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42`: permissionless Lifetime Extensions; publishes the forged advisory that never appears in Mene.
 
 ### 7. Link to /arkiv/schema.md *
 https://github.com/andrew1234-arch/Mene/blob/main/arkiv/schema.md
