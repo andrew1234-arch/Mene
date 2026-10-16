@@ -2,16 +2,10 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     ".": {
-      "entry": [
-        "scripts/*.ts"
-      ]
+      "entry": ["scripts/*.ts"]
     },
     "packages/cli": {
-      "ignoreDependencies": [
-        "@arkiv-network/sdk",
-        "semver",
-        "viem"
-      ]
+      "ignoreDependencies": ["@arkiv-network/sdk", "semver", "viem"]
     }
   }
 }
