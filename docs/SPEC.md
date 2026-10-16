@@ -59,7 +59,7 @@ The advisory payload follows the OpenSSF **OSV schema** (the format used by osv.
 ### Arkiv features → what the user sees
 | Feature | Use | Visible as |
 |---|---|---|
-| Typed attributes vs payload | Filters in attributes (`severity` i32, `publishedAt` u64), OSV JSON in the payload | Severity and date range filters |
+| Typed attributes vs payload | Filters in attributes (`severity` i32, `published_at` u64), OSV JSON in the payload | Severity and date range filters |
 | `createdBy()` | Every query pinned to a trusted issuer | Untrusted forgeries never appear; witness badges show creator addresses |
 | readonly | An attestation commits to an advisory whose content can never change | "Inscribed — content frozen" badge |
 | permissionlessExtension | Anyone runs `mene keepalive` | Expiry countdown and "kept alive by 0x…" |

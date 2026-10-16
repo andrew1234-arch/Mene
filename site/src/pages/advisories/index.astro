@@ -141,7 +141,7 @@ import Base from "../../layouts/Base.astro"
     rangeSev = sev
     rangeSince = since
     const preds = [eq("project", PROJECT), eq("type", "advisory"), gte("severity", i32(rangeSev))]
-    if (rangeSince) preds.push(gte("publishedAt", u64(BigInt(rangeSince))))
+    if (rangeSince) preds.push(gte("published_at", u64(BigInt(rangeSince))))
     const keys = new Set<string>()
     for (const w of wall.trust.issuers) {
       let page = await pub().select({ key: true }).where(and(preds)).createdBy(w.address as `0x${string}`).limit(200).fetch()
@@ -245,7 +245,7 @@ import Base from "../../layouts/Base.astro"
         const e = await pub().getEntity(key as `0x${string}`)
         const a = e.attributes ?? {}
         if (a.project?.value !== PROJECT) return null
-        return { type: String(a.type?.value), creator: e.creator.toLowerCase(), verdict: a.verdict?.value as string | undefined, advisory: (a.advisory?.value as string | undefined)?.toLowerCase(), id: a.advisoryId?.value as string | undefined }
+        return { type: String(a.type?.value), creator: e.creator.toLowerCase(), verdict: a.verdict?.value as string | undefined, advisory: (a.advisory?.value as string | undefined)?.toLowerCase(), id: a.advisory_id?.value as string | undefined }
       } catch {
         const st = getState()
         if (st?.advisories[k]) return { type: "advisory", creator: st.advisories[k]!.creator, id: st.advisories[k]!.osv.id }

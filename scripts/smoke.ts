@@ -44,7 +44,7 @@ await step("query: wall range filter (severity i32 + publishedAt u64)", async ()
         eq("project", PROJECT),
         eq("type", "advisory"),
         gte("severity", i32(3)),
-        gte("publishedAt", u64(1_700_000_000n)),
+        gte("published_at", u64(1_700_000_000n)),
       ),
     )
     .createdBy(ws[0]!)

@@ -12081,7 +12081,7 @@ function toAttestationRecord(e) {
     issuer: e.creator.toLowerCase(),
     verdict,
     createdAt: Number(e.createdAt ?? 0n),
-    attestedAt: Number(attr(e, "attestedAt") ?? 0n),
+    attestedAt: Number(attr(e, "attested_at") ?? 0n),
     reason
   };
 }

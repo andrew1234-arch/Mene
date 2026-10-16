@@ -10,7 +10,7 @@ export interface AttestationRecord {
   verdict: Verdict
   /** Block the attestation entity was created at. */
   createdAt: number
-  /** Unix seconds, from the `attestedAt` attribute; tie-breaker within a block. */
+  /** Unix seconds, from the `attested_at` attribute; tie-breaker within a block. */
   attestedAt: number
   reason?: string
 }

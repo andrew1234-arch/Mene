@@ -80,6 +80,14 @@ Format: **Surface · Version · Expected · Actual · Repro · Suggested fix**. 
 - **Repro:** `npm run spike`; see S1, S2a and S6 in the tables below.
 - **Why it matters:** Mene can give every advisory and confirmation a 365-day Entity Expiration without a cost trade-off, and `mene keepalive` is cheap enough for any user to run.
 
+## 10. Upper-case attribute names are rejected on write, accepted in queries
+- **Surface:** `executeBatch` / `createEntity` attributes, `@arkiv-network/sdk` 0.8.1, Tiramisu, 16 Oct 2026
+- **Expected:** camelCase attribute names such as `advisoryId` to be valid: the SDK's own error text lists the allowed charset as `"A"-"Z", "a"-"z", "0"-"9", ".", "-" and "_", with a letter first`.
+- **Actual:** the first mirror write reverted with `Ident32InvalidByte(8, 0x49)`, i.e. the upper-case `I` of `advisoryId`, and the SDK reported `an attribute name holds "I" (0x49) at byte 8, which is outside the name charset ("A"-"Z", …)`, contradicting itself. Queries naming the same attribute (`publishedAt >= u64(…)`, entry 3) are accepted and simply match nothing, so a read-only smoke test cannot catch it. The spikes passed because their attribute names were lower-case.
+- **Repro:** `createEntity({ attributes: { advisoryId: str("x") }, … })` on Tiramisu → revert; `advisory_id` succeeds.
+- **Fix in Mene:** all attribute names are lower-case snake_case (`advisory_id`, `published_at`, `schema_version`, `pkg_id`, `attested_at`); a unit test checks every advisory attribute name against `^[a-z][a-z0-9._-]{0,31}$`.
+- **Fix (SDK/node):** make the error message match the node's real charset, and validate names client-side before sending, so the mistake fails fast instead of costing a reverted transaction.
+
 <!-- Spike results S0–S7 below -->
 
 ## Spike results 2026-10-16T19:07:31.580Z (@arkiv-network/sdk 0.8.1, Tiramisu)

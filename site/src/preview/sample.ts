@@ -71,12 +71,12 @@ function advEntity(a: (typeof advs)[number]) {
     attributes: [
       S("project", "mene-v1"),
       S("type", "advisory"),
-      { name: "schemaVersion", type: "i32", value: 1 },
-      S("advisoryId", a.osv.id),
+      { name: "schema_version", type: "i32", value: 1 },
+      S("advisory_id", a.osv.id),
       S("ecosystem", "npm"),
       S("pkg", a.osv.affected[0]!.package.name),
       { name: "severity", type: "i32", value: severityToInt(severityOf(a.osv as never)) },
-      { name: "publishedAt", type: "u64", value: String(Math.floor(Date.parse(a.osv.published) / 1000)) },
+      { name: "published_at", type: "u64", value: String(Math.floor(Date.parse(a.osv.published) / 1000)) },
     ],
   }
 }
@@ -96,7 +96,7 @@ function attEntity(t: (typeof atts)[number]) {
       S("type", "attestation"),
       { name: "advisory", type: "key", value: t.adv },
       S("verdict", t.verdict),
-      { name: "attestedAt", type: "u64", value: String(t.at) },
+      { name: "attested_at", type: "u64", value: String(t.at) },
     ],
   }
 }
@@ -129,7 +129,7 @@ function answer({ id, method, params = [] }: Req) {
           .filter(
             (e) =>
               (e.attributes.find((x) => x.name === "severity")!.value as number) >= sev &&
-              Number(e.attributes.find((x) => x.name === "publishedAt")!.value) >= since,
+              Number(e.attributes.find((x) => x.name === "published_at")!.value) >= since,
           )
       }
       return ok({ data, blockNumber: blk(HEAD) })

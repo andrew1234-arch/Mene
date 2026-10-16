@@ -100,7 +100,7 @@ export function toAttestationRecord(e: AnyEntity): AttestationRecord | null {
     issuer: e.creator.toLowerCase(),
     verdict,
     createdAt: Number(e.createdAt ?? 0n),
-    attestedAt: Number((attr(e, "attestedAt") as bigint | undefined) ?? 0n),
+    attestedAt: Number((attr(e, "attested_at") as bigint | undefined) ?? 0n),
     reason,
   }
 }
@@ -195,14 +195,14 @@ export function advisoryAttributes(osv: OsvAdvisory) {
   return {
     project: str(PROJECT),
     type: str("advisory"),
-    schemaVersion: i32(SCHEMA_VERSION),
-    advisoryId: str(osv.id),
+    schema_version: i32(SCHEMA_VERSION),
+    advisory_id: str(osv.id),
     ecosystem: str("npm"),
-    // str is capped at 128 bytes; pkgId always identifies the package.
+    // str is capped at 128 bytes; pkg_id always identifies the package.
     ...(utf8Len(name) <= 128 ? { pkg: str(name) } : {}),
-    pkgId: bytes32(keccak256(toBytes(`npm:${name}`))),
+    pkg_id: bytes32(keccak256(toBytes(`npm:${name}`))),
     severity: i32(severityToInt(severityOf(osv))),
-    publishedAt: u64(BigInt(Math.floor(Date.parse(osv.published) / 1000))),
+    published_at: u64(BigInt(Math.floor(Date.parse(osv.published) / 1000))),
   }
 }
 
@@ -216,7 +216,7 @@ function attestationCreate(advisoryKey: Hex, verdict: Verdict, reason?: string, 
       type: str("attestation"),
       advisory: keyAttr(advisoryKey),
       verdict: str(verdict),
-      attestedAt: u64(BigInt(Math.floor(Date.now() / 1000))),
+      attested_at: u64(BigInt(Math.floor(Date.now() / 1000))),
     },
     flags: { readonly: true, permissionlessExtension: true },
     ...(salt !== undefined ? { salt } : {}),
