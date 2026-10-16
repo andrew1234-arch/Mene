@@ -17,7 +17,7 @@
     lockfile: package-lock.json
 ```
 
-**From the terminal:**
+**From the terminal** ([`mene-check` on npm](https://www.npmjs.com/package/mene-check)):
 ```bash
 npx mene-check check        # exit 0 clean · 1 hijacked package found · 2 can't verify (fails closed)
 ```
