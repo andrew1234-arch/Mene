@@ -103,3 +103,14 @@ Read-only, trusting witnesses A, B and C, at block 664784: 20 advisories and 44 
 - A's key withdraws chalk: [`0xc3a056376ab26def58cb999faeae8e48f4b6ee81818ef9cc4b9532c7464f13bf`](https://tiramisu.explorer.arkiv.network/tx/0xc3a056376ab26def58cb999faeae8e48f4b6ee81818ef9cc4b9532c7464f13bf)
 - After one withdrawal: **ACTIVE** (a withdrawal needs a quorum too)
 - Keeper wallet 0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42 (not a witness) publishes a fake advisory 0x020c2783b6d11e21190bc0117de5eb4faec114f0c5487b9a0755e49f6351674e with its own confirmation: [`0xdc3d3d8b863db82f53b8b856493c95aa76d6b36cc86565f109dc08c3e3d563c3`](https://tiramisu.explorer.arkiv.network/tx/0xdc3d3d8b863db82f53b8b856493c95aa76d6b36cc86565f109dc08c3e3d563c3)
+
+## Attack demo 2026-10-16T20:09:59.519Z
+
+- Before: chalk 0x15c28217c86582c6d0b1c1c223a1e80841534d47e01dbabeb12cd36489fb4adf is **ACTIVE** (confirmed by 2 witnesses)
+- A's key tries to delete the sealed advisory: **reverted** (Transaction failed: entity 0x15c28217…fb4adf is owned by 0x000000000000000000000000000000000000dEaD, not 0x9bEBE1512c9f4E9F04B7DC45824b116985013238)
+- A's key deletes A's own confirmation 0x11388aee4db33d67ddfdde48b37551c15f298ecddeab52d8e5fc8d6e7d6916d2: [`0xbe906816cf5c5873956e553e93e77d18270c54873ff0513b144f4d5a17d2a7b6`](https://tiramisu.explorer.arkiv.network/tx/0xbe906816cf5c5873956e553e93e77d18270c54873ff0513b144f4d5a17d2a7b6)
+- Mene with memory of the confirmation: **ACTIVE**, 1 vanished confirmation(s) still counted
+- A fresh reader with no memory: **ACTIVE** (chain history still holds the deleted confirmation's creation tx)
+- A's key withdraws chalk: [`0xde296aa3ab57a1cb415b5ad74a0b3fc58a0b2b14780a8b7e97f3666482944032`](https://tiramisu.explorer.arkiv.network/tx/0xde296aa3ab57a1cb415b5ad74a0b3fc58a0b2b14780a8b7e97f3666482944032)
+- After one withdrawal: **ACTIVE** (a withdrawal needs a quorum too)
+- Keeper wallet 0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42 (not a witness) publishes a fake advisory 0x5d099f8293c713efb77c443ea592de3025bddddf1020c30bfee1d65d5a4e4298 with its own confirmation: [`0x471634fe8b86241e875157d0daed2af5d4ba047959fc102847c11d6aaa92f6e1`](https://tiramisu.explorer.arkiv.network/tx/0x471634fe8b86241e875157d0daed2af5d4ba047959fc102847c11d6aaa92f6e1)
