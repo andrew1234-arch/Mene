@@ -32,8 +32,12 @@ jobs:
           echo "--- request (POST)"
           curl -sS -D - "$RPC" -H "Origin: $ORIGIN" -H "content-type: application/json" \
             -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' | tee post.txt
-          grep -qi "^access-control-allow-origin: \(\*\|$ORIGIN\)" pre.txt && grep -qi "^access-control-allow-origin" post.txt \
-            && echo "CORS: browsers on any origin can read Arkiv" || { echo "::error::RPC does not allow cross-origin requests"; exit 1; }
+          if grep -qi "^access-control-allow-origin: \(\*\|$ORIGIN\)" pre.txt && grep -qi "^access-control-allow-origin" post.txt; then
+            echo "CORS: browsers on any origin can read Arkiv"
+          else
+            echo "::error::RPC does not allow cross-origin requests"
+            exit 1
+          fi
       - name: Query Tiramisu
         shell: bash
         env:
