@@ -103,4 +103,5 @@ if (process.env.MENE_SNAPSHOT === "1") {
   for (let i = 0; i < n; i++) console.log(`SNAPSHOT ${i + 1}/${n} ${b64.slice(i * size, (i + 1) * size)}`)
 }
 console.log(`done in ${Date.now() - t0} ms`)
-process.exit()
+// Exit once stdout has drained: process.exit() alone can cut off piped output.
+process.stdout.write("", () => process.exit())

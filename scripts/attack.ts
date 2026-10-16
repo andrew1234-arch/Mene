@@ -112,4 +112,5 @@ say(
   '- Visibility to readers who trust A, B, C: checked by the separate `verify` job (`scripts/smoke.ts`, "forged advisories stay invisible")',
 )
 // Exit explicitly: an idle transport must not keep the run alive after the last step.
-process.exit()
+// Exit once stdout has drained: process.exit() alone can cut off piped output.
+process.stdout.write("", () => process.exit())
