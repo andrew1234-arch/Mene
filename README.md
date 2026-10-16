@@ -7,7 +7,7 @@
 
 **Warnings that can't be erased.** Mene tells you if your project uses a hijacked npm package, and blocks it in CI.
 
-**Check your project now:** the web app's `/check` page (drop `package-lock.json` or paste a GitHub repo URL; nothing is uploaded)
+**Check your project now:** https://getmene.vercel.app/check/ (drop `package-lock.json` or paste a GitHub repo URL; nothing is uploaded)
 
 **Protect CI** (add to any workflow job):
 ```yaml
@@ -30,7 +30,7 @@ Tracks: **Security** · **Censorship Resistance** · **Open Source**
 
 | | |
 |---|---|
-| Web app | Vercel: URL added after the first deploy (static; reads Arkiv straight from the browser) |
+| Web app | https://getmene.vercel.app (static, on Vercel; reads Arkiv straight from the browser) |
 | Network | Arkiv Tiramisu testnet, chain `7738577` · [explorer](https://tiramisu.explorer.arkiv.network) |
 | Data contract | [`arkiv/schema.md`](arkiv/schema.md) |
 | Friction report | [`arkiv/friction.md`](arkiv/friction.md) |
