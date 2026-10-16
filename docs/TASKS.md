@@ -53,7 +53,7 @@ All SPEC commands, a pretty table and `--json`, exit codes per SPEC. Done when `
 
 ## Task 6 — Site (DESIGN.md, every page)
 - Build all 5 pages with the drafted copy, both themes, responsive.
-- Deploy to GitHub Pages via an Actions workflow.
+- Deploy to Vercel (static output, `vercel.json`).
 - Done when the public URL works with no backend, `/check` works offline after load, and the Wall's live strip updates on a new attestation.
 
 ## Task 7 — Docs, README, submission kit

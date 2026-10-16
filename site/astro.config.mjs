@@ -1,10 +1,15 @@
 import { defineConfig } from "astro/config"
 
-// GitHub Pages: https://<owner>.github.io/<repo>/
+// Hosted on Vercel at the domain root. Vercel sets VERCEL_PROJECT_PRODUCTION_URL at build time;
+// SITE_URL overrides it (e.g. a custom domain). SITE_BASE serves the site from a sub-path instead.
 const PREVIEW = process.env.PUBLIC_MENE_PREVIEW === "1"
-const site = process.env.SITE_URL ?? "https://andrew1234-arch.github.io"
+const site =
+  process.env.SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:4321")
 // Preview builds are a bundle of relative files (see tools/relativize-preview.mjs).
-const base = PREVIEW ? "/" : (process.env.SITE_BASE ?? "/Mene")
+const base = PREVIEW ? "/" : (process.env.SITE_BASE ?? "/")
 
 export default defineConfig({
   site,

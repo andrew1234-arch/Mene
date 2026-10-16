@@ -35,7 +35,7 @@ npm workspaces, TypeScript strict, Node ≥ 20, vitest, tsup.
 packages/sdk     @mene/sdk  — OSV payload types, attributes, Arkiv read/write, quorum, lockfile, matcher
 packages/cli     mene-check — bin: mene (npm: `npx mene-check`)
 action/          GitHub Action (action.yml + bundled dist/, node20)
-site/            Astro static site → GitHub Pages (see DESIGN.md)
+site/            Astro static site → Vercel (see DESIGN.md)
 examples/chalk-attack/package-lock.json   fixture, never installed
 examples/clean/package-lock.json          control fixture
 arkiv/           schema.md, friction.md, evidence.md

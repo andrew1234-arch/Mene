@@ -40,7 +40,7 @@ From day one, a judge's own lockfile is checked against the real qix-incident re
 ## Arkiv questions
 
 ### 1. Live app URL *
-TODO: https://andrew1234-arch.github.io/Mene/ (after merging to `main` and setting GitHub Pages → Source: GitHub Actions)
+TODO: the Vercel production URL (after the first deploy)
 
 ### 2. Does any team member hold Indian nationality? *
 TODO
