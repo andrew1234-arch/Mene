@@ -114,3 +114,15 @@ Read-only, trusting witnesses A, B and C, at block 664784: 20 advisories and 44 
 - A's key withdraws chalk: [`0xde296aa3ab57a1cb415b5ad74a0b3fc58a0b2b14780a8b7e97f3666482944032`](https://tiramisu.explorer.arkiv.network/tx/0xde296aa3ab57a1cb415b5ad74a0b3fc58a0b2b14780a8b7e97f3666482944032)
 - After one withdrawal: **ACTIVE** (a withdrawal needs a quorum too)
 - Keeper wallet 0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42 (not a witness) publishes a fake advisory 0x5d099f8293c713efb77c443ea592de3025bddddf1020c30bfee1d65d5a4e4298 with its own confirmation: [`0x471634fe8b86241e875157d0daed2af5d4ba047959fc102847c11d6aaa92f6e1`](https://tiramisu.explorer.arkiv.network/tx/0x471634fe8b86241e875157d0daed2af5d4ba047959fc102847c11d6aaa92f6e1)
+
+## Attack demo 2026-10-16T20:22:01.649Z
+
+- Before: chalk 0x15c28217c86582c6d0b1c1c223a1e80841534d47e01dbabeb12cd36489fb4adf is **ACTIVE** (confirmed by 2 witnesses)
+- A's key tries to delete the sealed advisory: **reverted** (Transaction failed: entity 0x15c28217…fb4adf is owned by 0x000000000000000000000000000000000000dEaD, not 0x9bEBE1512c9f4E9F04B7DC45824b116985013238)
+- A's key deletes A's own confirmation 0x46727ee0643253c3e156bae60db3d0de0ca4ec076a5c44643a5b713eb04db0ff: [`0x5ed2390a23801369befcdf0491518c92b76f3113863b92f64254b5758f25cc5c`](https://tiramisu.explorer.arkiv.network/tx/0x5ed2390a23801369befcdf0491518c92b76f3113863b92f64254b5758f25cc5c)
+- Mene with memory of the confirmation: **ACTIVE**, 1 vanished confirmation(s) still counted
+- A fresh reader with no memory: **ACTIVE** (chain history still holds the deleted confirmation's creation tx)
+- A's key withdraws chalk: [`0x2a2ca9189201b735c75cb59f1ace721c8db614af902cf7d812a6a86a47170467`](https://tiramisu.explorer.arkiv.network/tx/0x2a2ca9189201b735c75cb59f1ace721c8db614af902cf7d812a6a86a47170467)
+- After one withdrawal: **ACTIVE** (a withdrawal needs a quorum too)
+- Keeper wallet 0xf1b10AdC2eE7946998E86D390d14e2460C4C7b42 (not a witness) publishes a fake advisory 0xfb8a5a4e00860126dc5daf4d11e02488076823d6f75a6629366e59c6a4b8057c with its own confirmation: [`0x9044ca4786f57132eb200705d96d8cea30d519710986b58358fb02ad287b86b7`](https://tiramisu.explorer.arkiv.network/tx/0x9044ca4786f57132eb200705d96d8cea30d519710986b58358fb02ad287b86b7)
+- Visibility to readers who trust A, B, C: checked by the separate `verify` job (`scripts/smoke.ts`, "forged advisories stay invisible")
