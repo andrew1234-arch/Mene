@@ -20,6 +20,20 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 22, cache: npm }
       - run: npm ci
+      - name: Browser access (CORS)
+        # The site calls the RPC straight from the browser, so the node must allow cross-origin requests.
+        shell: bash
+        run: |
+          RPC=https://rpc.tiramisu.db-chain.testnet.arkiv.network
+          ORIGIN=https://mene-demo.vercel.app
+          echo "--- preflight (OPTIONS)"
+          curl -sS -o /dev/null -D - -X OPTIONS "$RPC" -H "Origin: $ORIGIN" \
+            -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" | tee pre.txt
+          echo "--- request (POST)"
+          curl -sS -D - "$RPC" -H "Origin: $ORIGIN" -H "content-type: application/json" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' | tee post.txt
+          grep -qi "^access-control-allow-origin: \(\*\|$ORIGIN\)" pre.txt && grep -qi "^access-control-allow-origin" post.txt \
+            && echo "CORS: browsers on any origin can read Arkiv" || { echo "::error::RPC does not allow cross-origin requests"; exit 1; }
       - name: Query Tiramisu
         shell: bash
         env:
