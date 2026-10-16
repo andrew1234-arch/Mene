@@ -27,8 +27,17 @@ import type { AdvisoryRecord, AttestationRecord, Verdict } from "./quorum"
 export type MenePublicClient = PublicArkivClient
 export type MeneWalletClient = WalletArkivClient
 
+/**
+ * Tiramisu answers bursts with JSON-RPC -32005 "Request exceeds defined limit" (rate limiting;
+ * see arkiv/friction.md). viem retries that code, but its default backoff (3 tries from 150 ms)
+ * gives up within a second, so reads and writes back off for up to ~25 s instead.
+ */
+const RETRY = { retryCount: 6, retryDelay: 400 } as const
+
 export function publicClient(opts: { rpcUrl?: string; ws?: boolean } = {}): MenePublicClient {
-  const transport = opts.ws ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl) : http(opts.rpcUrl ?? TIRAMISU.rpcUrl)
+  const transport = opts.ws
+    ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl, RETRY)
+    : http(opts.rpcUrl ?? TIRAMISU.rpcUrl, RETRY)
   return createPublicClient({ chain: tiramisu, transport }) as MenePublicClient
 }
 
@@ -36,7 +45,7 @@ export function walletClient(privateKey: string, opts: { rpcUrl?: string } = {})
   const pk = (privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`) as Hex
   return createWalletClient({
     chain: tiramisu,
-    transport: http(opts.rpcUrl ?? TIRAMISU.rpcUrl),
+    transport: http(opts.rpcUrl ?? TIRAMISU.rpcUrl, RETRY),
     account: privateKeyToAccount(pk),
   }) as MeneWalletClient
 }

@@ -65,6 +65,21 @@ Format: **Surface · Version · Expected · Actual · Repro · Suggested fix**. 
 - **Repro:** `curl -s https://raw.githubusercontent.com/ossf/malicious-packages/main/osv/malicious/npm/debug/MAL-2025-46974.json | jq .credits`
 - **Fix (Arkiv docs):** a short "what never to put in a payload" checklist, since immutable public storage makes this mistake permanent.
 
+## 8. Rate limiting surfaces as a "cursor" error
+- **Surface:** `arkiv_query` over HTTP via `@arkiv-network/sdk` 0.8.1 (viem 2.x transport), Tiramisu, 16 Oct 2026
+- **Expected:** a burst of requests that hits a node limit to fail as a rate-limit error, and a cursor page (`page.next()`) to fail as a cursor error only when the cursor itself is bad.
+- **Actual:** spike S4 failed on its first run with `QueryError (cursor, -32005): Request exceeds defined limit`, right after S1–S3 sent ~15 requests in a few seconds. The identical query passed on a re-run two minutes later (5 pages at `limit(1)`). `-32005` is EIP-1474's "limit exceeded", but the SDK's `QUERY_ERROR_KINDS` maps it to `"cursor"` because `arkiv_query`'s own codes overlap EIP-1474's numbering, so the SDK's documented advice ("the page is gone — start the query over") points the wrong way. viem does retry `-32005`, but its default backoff (3 tries from 150 ms) gives up in under a second.
+- **Repro:** both runs are in the spike tables below (19:07 ❌, 19:09 ✅). Run `npm run spike` twice in quick succession.
+- **Workaround in Mene:** every client is created with `retryCount: 6, retryDelay: 400` (exponential, ~25 s), in `publicClient()` and `walletClient()` ([`arkiv.ts`](../packages/sdk/src/arkiv.ts)).
+- **Fix (SDK/docs):** distinguish node rate limiting from a stale cursor (a separate code, or `data.reason`), document the node's limits, and set a longer default backoff in the SDK's clients.
+
+## 9. ✅ Entity Expiration costs the same for 30 and 365 days
+- **Surface:** `createEntity({ expires })`, Tiramisu, 16 Oct 2026
+- **Expected:** a longer lifetime to cost more gas, which would make 365-day advisories expensive to keep.
+- **Actual:** identical: 95,784 gas (0.000095784 GLM) for `ExpirationTime.fromDays(30)` and `fromDays(365)` (spike S6, both runs). Lifetime Extension by an untrusted keeper cost 25,240 gas (S2a). Sealing in the same batch as the create added nothing that needed a second transaction: 206,568 gas for advisory + attestation + ownership transfer (S1).
+- **Repro:** `npm run spike`; see S1, S2a and S6 in the tables below.
+- **Why it matters:** Mene can give every advisory and confirmation a 365-day Entity Expiration without a cost trade-off, and `mene keepalive` is cheap enough for any user to run.
+
 <!-- Spike results S0–S7 below -->
 
 ## Spike results 2026-10-16T19:07:31.580Z (@arkiv-network/sdk 0.8.1, Tiramisu)

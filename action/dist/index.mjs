@@ -12052,8 +12052,9 @@ var logger2 = getLogger("actions:wallet:patch-entity");
 var chainMap = new Map(Object.entries(chains_exports).map(([key$1, value]) => [key$1.toLowerCase(), value]));
 
 // ../packages/sdk/src/arkiv.ts
+var RETRY = { retryCount: 6, retryDelay: 400 };
 function publicClient(opts = {}) {
-  const transport = opts.ws ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl) : http(opts.rpcUrl ?? TIRAMISU.rpcUrl);
+  const transport = opts.ws ? webSocket(opts.rpcUrl ?? TIRAMISU.wsUrl, RETRY) : http(opts.rpcUrl ?? TIRAMISU.rpcUrl, RETRY);
   return createPublicClient({ chain: tiramisu, transport });
 }
 var PAGE = 200;
