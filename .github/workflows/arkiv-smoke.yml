@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: |
           RPC=https://rpc.tiramisu.db-chain.testnet.arkiv.network
-          ORIGIN=https://mene-demo.vercel.app
+          ORIGIN=https://getmene.vercel.app
           echo "--- preflight (OPTIONS)"
           curl -sS -o /dev/null -D - -X OPTIONS "$RPC" -H "Origin: $ORIGIN" \
             -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" | tee pre.txt
