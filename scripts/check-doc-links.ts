@@ -9,7 +9,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs"
 
-const DOCS = ["README.md", "docs/SUBMISSION.md", "arkiv/schema.md", "arkiv/friction.md"]
+const DOCS = ["README.md", "arkiv/schema.md", "arkiv/friction.md"]
 const LINK = /\((https:\/\/github\.com\/andrew1234-arch\/Mene\/blob\/main\/([^)#\s]+)#L(\d+)) "([^"]+)"\)/g
 const fix = process.argv.includes("--fix")
 let bad = 0

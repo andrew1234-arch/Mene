@@ -89,6 +89,13 @@ Format: **Surface · Version · Expected · Actual · Repro · Suggested fix**. 
 - **Fix in Mene:** all attribute names are lower-case snake_case (`advisory_id`, `published_at`, `schema_version`, `pkg_id`, `attested_at`); a unit test checks every advisory attribute name against `^[a-z][a-z0-9._-]{0,31}$`.
 - **Fix (SDK/node):** make the error message match the node's real charset, and validate names client-side before sending, so the mistake fails fast instead of costing a reverted transaction.
 
+## 11. ✅ The public RPC allows browser (cross-origin) requests
+- **Surface:** `https://rpc.tiramisu.db-chain.testnet.arkiv.network`, HTTP JSON-RPC, 16 Oct 2026
+- **Expected:** a public RPC to block cross-origin requests, so that a static site with no server would need a proxy to read Arkiv.
+- **Actual:** the CORS preflight (`OPTIONS` with `Origin` and `Access-Control-Request-Headers: content-type`) and the `POST` both answer with `Access-Control-Allow-Origin`, so the site reads advisories straight from the browser with no backend. The `arkiv-smoke` workflow checks this on every run (step "Browser access (CORS)"; first passing run: arkiv-smoke #26).
+- **Repro:** `curl -sS -D - -o /dev/null -X OPTIONS <rpc> -H "Origin: https://example.com" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type"`.
+- **Caveat:** pages embedded in a sandbox with a strict `connect-src` Content Security Policy (for example a hosted preview frame) cannot reach the RPC; the site then shows the last saved results with "Arkiv unreachable · retrying".
+
 <!-- Spike results S0–S7 below -->
 
 ## Spike results 2026-10-16T19:07:31.580Z (@arkiv-network/sdk 0.8.1, Tiramisu)

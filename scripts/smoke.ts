@@ -84,5 +84,24 @@ await step("forged advisories stay invisible (keeper wallet is not a witness)", 
   if (forged.length) throw new Error(`forged advisory visible: ${forged.map((a) => a.key).join(", ")}`)
   return { advisoriesRead: Object.keys(live.advisories).length, forgedVisible: 0 }
 })
+// MENE_SNAPSHOT=1 prints the resolved statuses as one JSON line, for offline screenshots of the site.
+if (process.env.MENE_SNAPSHOT === "1") {
+  const live = await readLive(pub, ws)
+  const { statuses } = resolveStatus({
+    issuers: ws,
+    threshold: Math.min(2, ws.length),
+    liveAttestations: live.attestations,
+    liveAdvisories: live.advisories,
+  })
+  const json = JSON.stringify({ statuses, blockNumber: live.blockNumber }, (_k, v) =>
+    typeof v === "bigint" ? v.toString() : v,
+  )
+  // GitHub truncates log lines at 64 KB, so the base64 is printed in numbered chunks.
+  const b64 = Buffer.from(json).toString("base64")
+  const size = 60_000
+  const n = Math.ceil(b64.length / size)
+  for (let i = 0; i < n; i++) console.log(`SNAPSHOT ${i + 1}/${n} ${b64.slice(i * size, (i + 1) * size)}`)
+}
 console.log(`done in ${Date.now() - t0} ms`)
-process.exit()
+// Exit once stdout has drained: process.exit() alone can cut off piped output.
+process.stdout.write("", () => process.exit())

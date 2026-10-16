@@ -1,4 +1,5 @@
 ---
+import { NPM } from "../config"
 import Base from "../layouts/Base.astro"
 const base = import.meta.env.BASE_URL.replace(/\/$/, "")
 ---
@@ -63,7 +64,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "")
     </section>
 
     <section id="p-cli" role="tabpanel" aria-labelledby="t-cli" class="tabpanel" hidden>
-      <p>Run it in any project folder that has a <code>package-lock.json</code>:</p>
+      <p>Run it in any project folder that has a <code>package-lock.json</code>. Nothing to install: <code>npx</code> fetches <a href={NPM}><code>mene-check</code> from npm</a>.</p>
       <div class="snip"><div class="snip-head"><code>terminal</code><button class="btn" data-copy-from="cli1">Copy</button></div><pre><code id="cli1">npx mene-check check</code></pre></div>
       <h3>Exit codes</h3>
       <div class="table-wrap"><table>
@@ -92,7 +93,7 @@ npx mene-check check --json                              # machine-readable</cod
   ],
   "source": "live"
 }`}</code></pre></div>
-      <p class="small muted">Choose your own witnesses with a <code>mene.config.json</code> in the project; see the <a href="https://github.com/andrew1234-arch/Mene#cli">CLI docs</a>.</p>
+      <p class="small muted">Choose your own witnesses with a <code>mene.config.json</code> in the project; see the <a href="https://github.com/andrew1234-arch/Mene#cli">CLI docs</a> or the <a href={NPM}>npm page</a>.</p>
     </section>
 
     <section id="p-other" role="tabpanel" aria-labelledby="t-other" class="tabpanel" hidden>

@@ -17,7 +17,7 @@
     lockfile: package-lock.json
 ```
 
-**From the terminal:**
+**From the terminal** ([`mene-check` on npm](https://www.npmjs.com/package/mene-check)):
 ```bash
 npx mene-check check        # exit 0 clean · 1 hijacked package found · 2 can't verify (fails closed)
 ```
@@ -132,7 +132,6 @@ action/          @mene/action: GitHub Action (action.yml + committed bundle in d
 site/            Astro static site → Vercel (vercel.json)
   src/pages/     landing · wall · advisory · check · witnesses
 arkiv/           schema.md · friction.md · evidence.md (hackathon deliverables)
-docs/            SPEC · DESIGN · TASKS · SUBMISSION (Devfolio answers) · VIDEO (demo script)
 scripts/         on-chain tooling: keys · spike · mirror · seed · attack · smoke
 advisories/      Mene-original advisories (the synthetic false alarm)
 examples/        demo lockfiles: scanned, never installed
