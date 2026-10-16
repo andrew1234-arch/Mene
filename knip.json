@@ -1,5 +1,6 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": ["action/dist/**"],
   "workspaces": {
     ".": {
       "entry": ["scripts/*.ts"]
