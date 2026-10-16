@@ -22,7 +22,7 @@ const program = new Command()
 program
   .name("mene")
   .description("Warnings that can't be erased: check package-lock.json for hijacked npm packages.")
-  .version("0.1.0")
+  .version("0.1.1")
   .option("--config <path>", "path to mene.config.json")
 
 const json = (v: unknown) => JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x), 2)

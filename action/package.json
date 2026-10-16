@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "@mene/sdk": "0.1.0",
-    "mene-check": "0.1.0"
+    "mene-check": "0.1.1"
   }
 }

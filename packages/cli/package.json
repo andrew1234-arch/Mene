@@ -1,6 +1,6 @@
 {
   "name": "mene-check",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Check package-lock.json for hijacked npm package versions confirmed by independent witnesses on Arkiv. Fails CI on a match.",
   "keywords": [
     "npm",
