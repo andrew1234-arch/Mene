@@ -50,8 +50,9 @@ jobs:
         if: always()
         shell: bash
         run: |
-          git config user.name "mene-seed"
-          git config user.email "mene-seed@users.noreply.github.com"
+          # Recorded as the repository owner, like every other commit in this repo.
+          git config user.name "Cmg"
+          git config user.email "157548721+andrew1234-arch@users.noreply.github.com"
           git add -A arkiv/evidence.md arkiv/friction.md packages/cli/src/witnesses.ts site/src/data/witnesses.json action/dist
           if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
           git commit -m "chore: record $TASK run (evidence)"
