@@ -28,7 +28,7 @@ const toc = [
     <div class="qs">
       <section id="who" class="q">
         <h2>Who confirms a warning?</h2>
-        <p>Independent <a href={`${base}/witnesses`}>witnesses</a>. One witness publishes an advisory; it only starts blocking installs when <strong>2 of the 3</strong> witnesses have confirmed it. Each confirmation is counted by the wallet that signed it, which nobody can fake.</p>
+        <p>Independent <a href={`${base}/witnesses`}>witnesses</a>. One witness publishes an advisory; it only starts failing builds when <strong>2 of the 3</strong> witnesses have confirmed it. Each confirmation is counted by the wallet that signed it, which nobody can fake.</p>
         <figure class="card diagram">
           <svg viewBox="0 0 760 210" role="img" aria-labelledby="qd-t">
             <title id="qd-t">Witness A publishes an advisory; witness B confirms; with 2 of 3 witnesses confirming, the advisory is confirmed and CI fails on a match.</title>
@@ -93,10 +93,10 @@ const toc = [
         <h2>Where is the data?</h2>
         <p>On Arkiv, a public Web3 database (Tiramisu testnet). Anyone can read it without this website, so the warnings outlive Mene itself.</p>
         <details class="vy" open><summary>Read it from any RPC</summary>
-<pre><code>{`# every advisory published by one witness
+<pre><code>{`# every advisory published by Witness A (swap in any witness address)
 curl -s ${TIRAMISU.rpcUrl} -H 'content-type: application/json' -d '{
   "jsonrpc":"2.0","id":1,"method":"arkiv_query",
-  "params":["project = str(\'"\'"\'mene-v1\'"\'"\') AND type = str(\'"\'"\'advisory\'"\'"\') AND $creator = addr(0xWITNESS)",
+  "params":["project = str(\'"\'"\'mene-v1\'"\'"\') AND type = str(\'"\'"\'advisory\'"\'"\') AND $creator = addr(0x9bEBE1512c9f4E9F04B7DC45824b116985013238)",
             {"select":{"key":true,"creator":true,"attributes":true,"payload":true},"limit":"0xc8"}]}'`}</code></pre>
           <p class="small">The full data contract (attributes, queries and why each Arkiv feature is used) is in <a href={DOCS.schema}>arkiv/schema.md</a>. Explorer: <a href={TIRAMISU.explorer}>{TIRAMISU.explorer.replace("https://", "")}</a>.</p>
         </details>

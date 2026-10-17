@@ -1,6 +1,20 @@
 # Friction report — Mene
 Format: **Surface · Version · Expected · Actual · Repro · Suggested fix**. Added throughout the build; smooth paths are documented with the same rigour.
 
+| # | Surface | Kind | One line |
+|---|---|---|---|
+| 1 | TypeScript SDK | Issue | `predictEntityKeys` exists on the public client only |
+| 2 | SDK flags/docs | Issue | `readonly` still allows the owner to delete; we seal via ownership transfer |
+| 3 | JSON-RPC `arkiv_query` | ✅ Smooth | every Mene query parses on the live node |
+| 4 | SDK in a browser build | ✅ Smooth | no wasm plugin needed |
+| 5 | SDK + injected wallet | Issue | chain mismatch surfaces as a generic execution error |
+| 6 | `watchEntityEvents` | Issue | extension events don't say who paid |
+| 7 | Data hygiene | Issue | mirrored OSV records carry personal emails; stripped before inscribing |
+| 8 | Node rate limiting | Issue | `-32005` limit errors are labelled as cursor errors |
+| 9 | Entity Expiration cost | ✅ Smooth | 30 d and 365 d cost the same gas |
+| 10 | Attribute names | Issue | upper-case names revert on write but are accepted in queries |
+| 11 | Public RPC CORS | ✅ Smooth | a static site can read Arkiv with no backend |
+
 ## 1. `predictEntityKeys` lives on the public client, not the wallet client
 - **Surface:** TypeScript SDK
 - **Version:** @arkiv-network/sdk 0.8.1, viem 2.x, TS 5.x
@@ -13,7 +27,7 @@ Format: **Surface · Version · Expected · Actual · Repro · Suggested fix**. 
 - **Surface:** SDK types/docs (`CreationFlags`)
 - **Version:** 0.8.1
 - **Expected (from the name):** immutable for the entity's lifetime.
-- **Actual (type docs, `entity/flags.ts`):** "The entity's attributes and payload can never be changed — only its expiry extended, its ownership transferred, and the entity deleted." Tamper-evident apps must handle deletion separately (we seal via ownership transfer; SPIKE S1).
+- **Actual (type docs, `entity/flags.ts`):** "The entity's attributes and payload can never be changed — only its expiry extended, its ownership transferred, and the entity deleted." Tamper-evident apps must handle deletion separately. We seal by transferring ownership to `0x…dEaD` in the same `executeBatch` as the create; verified on Tiramisu: the original key's delete then reverts (spike S1b below, and the stolen-key demo in evidence.md).
 - **Fix:** state "readonly ≠ undeletable" prominently, and document whether transfer to an unspendable address is a supported sealing pattern.
 
 ## 3. ✅ Live node accepts every Mene query (read-only smoke test)

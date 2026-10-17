@@ -5,7 +5,7 @@ Namespace on every entity: `project = "mene-v1"` (str).
 Trust: entities are trusted **only** via `$creator` matched against the reader's witness list. Attribute values are never trusted on their own, because anyone can write our labels.
 
 ## advisory
-Flags: `readonly`, `permissionlessExtension` · Entity Expiration 365 d (renewable by anyone) · owner after publish: `0x000000000000000000000000000000000000dEaD` (SPIKE S1) · contentType `application/json`
+Flags: `readonly`, `permissionlessExtension` · Entity Expiration 365 d (renewable by anyone) · owner after publish: `0x000000000000000000000000000000000000dEaD` (verified on chain: friction.md S1/S1b; the stolen-key delete reverts in evidence.md) · contentType `application/json`
 
 | attribute | type | purpose |
 |---|---|---|
@@ -69,7 +69,7 @@ No query ever contains a package name. Raw JSON-RPC equivalent of query 1:
 ```bash
 curl -s https://rpc.tiramisu.db-chain.testnet.arkiv.network -H 'content-type: application/json' -d '{
   "jsonrpc":"2.0","id":1,"method":"arkiv_query",
-  "params":["project = str('"'"'mene-v1'"'"') AND type = str('"'"'attestation'"'"') AND $creator = addr(0xWITNESS)",
+  "params":["project = str('"'"'mene-v1'"'"') AND type = str('"'"'attestation'"'"') AND $creator = addr(0x9bEBE1512c9f4E9F04B7DC45824b116985013238)",
             {"select":{"key":true,"creator":true,"createdAt":true,"attributes":true,"payload":true},"limit":"0xc8"}]}'
 ```
 

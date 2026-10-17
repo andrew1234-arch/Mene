@@ -76,7 +76,7 @@ The CLI remembers every advisory and confirmation it has seen in `~/.cache/mene/
 - uses: actions/checkout@v4
 - uses: actions/cache@v4            # keeps Mene's memory between runs
   with: { path: "${{ runner.temp }}/mene-cache", key: "mene-${{ github.run_id }}", restore-keys: "mene-" }
-- uses: andrew1234-arch/Mene/action@main
+- uses: andrew1234-arch/mene@v1
   with:
     lockfile: package-lock.json
     # issuers: 0xA…,0xB…,0xC…      # defaults to mene.config.json, then the demo witnesses
@@ -130,7 +130,7 @@ packages/
   cli/           mene-check (npm): the `mene` binary, plus `mene-check/lib` (check + config) used by the Action
 action/          @mene/action: GitHub Action (action.yml + committed bundle in dist/)
 site/            Astro static site → Vercel (vercel.json)
-  src/pages/     landing · wall · advisory · check · witnesses
+  src/pages/     home · check · advisories · packages · setup · trust · witnesses
 arkiv/           schema.md · friction.md · evidence.md (hackathon deliverables)
 scripts/         on-chain tooling: keys · spike · mirror · seed · attack · smoke
 advisories/      Mene-original advisories (the synthetic false alarm)
