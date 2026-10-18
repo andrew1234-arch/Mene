@@ -14,6 +14,7 @@ Format: **Surface · Version · Expected · Actual · Repro · Suggested fix**. 
 | 9 | Entity Expiration cost | ✅ Smooth | 30 d and 365 d cost the same gas |
 | 10 | Attribute names | Issue | upper-case names revert on write but are accepted in queries |
 | 11 | Public RPC CORS | ✅ Smooth | a static site can read Arkiv with no backend |
+| 12 | Query metering | Issue | `getEntity` costs a full `arkiv_query`; one read per advisory adds up fast |
 
 ## 1. `predictEntityKeys` lives on the public client, not the wallet client
 - **Surface:** TypeScript SDK
@@ -109,6 +110,14 @@ Format: **Surface · Version · Expected · Actual · Repro · Suggested fix**. 
 - **Actual:** the CORS preflight (`OPTIONS` with `Origin` and `Access-Control-Request-Headers: content-type`) and the `POST` both answer with `Access-Control-Allow-Origin`, so the site reads advisories straight from the browser with no backend. The `arkiv-smoke` workflow checks this on every run (step "Browser access (CORS)"; first passing run: arkiv-smoke #26).
 - **Repro:** `curl -sS -D - -o /dev/null -X OPTIONS <rpc> -H "Origin: https://example.com" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type"`.
 - **Caveat:** pages embedded in a sandbox with a strict `connect-src` Content Security Policy (for example a hosted preview frame) cannot reach the RPC; the site then shows the last saved results with "Arkiv unreachable · retrying".
+
+## 12. `getEntity` is a full metered `arkiv_query`, so per-key reads add up
+- **Surface:** public RPC metering, `@arkiv-network/sdk` 0.8.1 `getEntity`, Tiramisu, 18 Oct 2026
+- **Expected:** reading one entity by key to be a cheap lookup, so loading each advisory with `getEntity(key)` would be fine.
+- **Actual:** `getEntity` is implemented as `arkiv_query` with `$key = …` and `limit: 1` (SDK `dist/index.js`), and the node prices queries in a response header: our advisory select came back with `arkiv-cost: 100` and `ratelimit: limit=600, remaining=581, reset=53`. Mene's full read was 1 attestation query per witness plus 1 `getEntity` per advisory: 3 + 20 = 23 queries for today's data, on every page load. Other teams in this hackathon report HTTP 429 and temporary lockouts once the keyless budget is spent, so a judge clicking around our site could have run out after a handful of pages.
+- **Fix in Mene:** advisories are read in one paged `select("*")` per witness (`advisoryQuery`), with `getEntity` only as a fallback for attested advisories a witness didn't create. Measured on the live node by `scripts/budget.ts` in [arkiv-smoke run 39139418271](https://github.com/andrew1234-arch/Mene/actions/runs/39139418271): one full read of 20 advisories and 44 attestations = **6 `arkiv_query` calls** (was 23). The site also reuses a read for 60 s across pages, backs off retries from 10 s to 2 min, and pings the block number once a minute instead of every 30 s. A unit test (`packages/sdk/test/read.test.ts`) pins the query count.
+- **Repro:** `npx tsx scripts/budget.ts 0x9bEBE1512c9f4E9F04B7DC45824b116985013238 0x15d88D1614BAE54b8306AF59D829E653F473A112 0xf3D23647131f4c5002b6b60C137b69222512f771` prints every RPC call one full read makes and the rate-limit headers of the last response. The SDK source shows `getEntity` building the same `arkiv_query` as a select with `limit: 1`.
+- **Fix (SDK/docs):** document the cost of each RPC method and that `getEntity` is a query; add a batched `getEntities(keys)` (one `OR` query) so per-key reads don't cost N queries.
 
 <!-- Spike results S0–S7 below -->
 
