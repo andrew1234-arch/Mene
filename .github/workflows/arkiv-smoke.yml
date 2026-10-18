@@ -11,7 +11,7 @@ on:
         type: boolean
         default: false
   push:
-    paths: ["packages/sdk/src/**", "scripts/smoke.ts", ".github/workflows/arkiv-smoke.yml"]
+    paths: ["packages/sdk/src/**", "scripts/smoke.ts", "scripts/budget.ts", ".github/workflows/arkiv-smoke.yml"]
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -51,5 +51,7 @@ jobs:
           ARGS=()
           for a in $W; do [[ "$a" =~ ^0x[0-9a-fA-F]{40}$ ]] && ARGS+=("$a") || echo "skipping invalid address: $a"; done
           npx tsx scripts/smoke.ts "${ARGS[@]}" | tee smoke.log
+          echo "--- query budget of one full read"
+          npx tsx scripts/budget.ts "${ARGS[@]}" | tee -a smoke.log
       - uses: actions/upload-artifact@v6
         with: { name: smoke-log, path: smoke.log }

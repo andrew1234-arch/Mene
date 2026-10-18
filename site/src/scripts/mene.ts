@@ -89,11 +89,17 @@ export function savedWall(): Wall | undefined {
 }
 export const forgetWall = () => store.del(WALL_KEY)
 
-/** Reads Arkiv and resolves quorum. The snapshot is saved in localStorage and reused for 20 s. */
+/**
+ * How long a snapshot counts as current. The public RPC meters queries per IP (friction.md #12),
+ * so moving between pages reuses a recent read instead of querying Arkiv again.
+ */
+const FRESH_MS = 60_000
+
+/** Reads Arkiv and resolves quorum. The snapshot is saved in localStorage and reused for FRESH_MS. */
 export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
   if (!opts.fresh) {
     const cached = savedWall()
-    if (cached && Date.now() - cached.at < 20_000) return cached
+    if (cached && Date.now() - cached.at < FRESH_MS) return cached
   }
   inflight ??= (async () => {
     try {
@@ -135,26 +141,36 @@ export async function loadWall(opts: { fresh?: boolean } = {}): Promise<Wall> {
 export type Freshness = "saved" | "live" | "stale"
 
 /**
- * Renders the saved snapshot at once (if any), then refreshes live from Arkiv and renders again.
- * When Arkiv is unreachable it keeps the saved data and reports it as stale; it retries every 10 s.
+ * Renders the saved snapshot at once (if any), then refreshes from Arkiv and renders again; a
+ * snapshot younger than FRESH_MS is shown as current without a new read. When Arkiv is unreachable
+ * it keeps the saved data, reports it as stale and retries with backoff (10 s, doubling to 2 min),
+ * so a throttled browser doesn't keep spending its query budget.
  */
 export function watchWall(render: (w: Wall, f: Freshness) => void, onError: (err: unknown, retry: () => void) => void) {
   const cached = savedWall()
-  if (cached) render(cached, "saved")
+  const current = cached && Date.now() - cached.at < FRESH_MS
+  if (cached && !current) render(cached, "saved")
   let timer: ReturnType<typeof setTimeout> | undefined
-  const run = () => {
+  let delay = 10_000
+  const run = (fresh = true) => {
     clearTimeout(timer)
-    loadWall({ fresh: true })
-      .then((w) => render(w, "live"))
+    loadWall({ fresh })
+      .then((w) => {
+        delay = 10_000
+        render(w, "live")
+      })
       .catch((err) => {
         const saved = savedWall()
         if (saved) render(saved, "stale")
-        else onError(err, run)
-        if (!(err instanceof NoWitnessesError)) timer = setTimeout(run, 10_000)
+        else onError(err, () => run())
+        if (!(err instanceof NoWitnessesError)) {
+          timer = setTimeout(run, delay)
+          delay = Math.min(delay * 2, 120_000)
+        }
       })
   }
-  run()
-  return run
+  run(!current)
+  return () => run()
 }
 
 /** "Updated just now" / "Showing saved data from 14:02; Arkiv unreachable" line for data views. */
@@ -163,7 +179,7 @@ export function freshnessHtml(w: Wall, f: Freshness): string {
   if (f === "stale")
     return `<p class="fresh is-stale" role="status">Showing saved data from ${esc(t)}; Arkiv unreachable. Retrying…</p>`
   if (f === "saved") return `<p class="fresh" role="status">Saved at ${esc(t)} · updating…</p>`
-  return `<p class="fresh is-live" role="status">Updated just now · block ${esc(w.blockNumber)}</p>`
+  return `<p class="fresh is-live" role="status">Updated ${Date.now() - w.at < 5_000 ? "just now" : `at ${esc(t)}`} · block ${esc(w.blockNumber)}</p>`
 }
 
 class NoWitnessesError extends Error {

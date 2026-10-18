@@ -59,7 +59,9 @@ Flags: `readonly`, `permissionlessExtension` · 365 d · contentType `applicatio
 1. Attestations per witness (repeated per trusted witness, paged with the cursor):
    `select("*").where(and(eq("project","mene-v1"), eq("type","attestation"))).createdBy(W).limit(200)`
    → `project = str('mene-v1') AND type = str('attestation') AND $creator = addr(W)`
-2. Advisory by key: `getEntity(key)` (`NoEntityFoundError` = deleted, expired or never existed).
+2. Advisories per witness, payloads included (one paged query per trusted witness; friction.md #12):
+   `select("*").where(and(eq("project","mene-v1"), eq("type","advisory"))).createdBy(W).limit(200)`
+   An attested key this doesn't return falls back to `getEntity(key)` (`NoEntityFoundError` = deleted, expired or never existed); the advisory page also reads its own advisory by key.
 3. Wall range filters, pinned per witness:
    `select({ key: true }).where(and(eq("project","mene-v1"), eq("type","advisory"), gte("severity", i32(N)), gte("published_at", u64(T)))).createdBy(W)`
 4. Mirror idempotency (scripts only): `eq("advisory_id", id)` + `createdBy(A)`.

@@ -157,8 +157,9 @@ const links = [
     })
     const ping = () =>
       pub().getBlockNumber().then((b) => setConnection({ ok: true, block: b.toString() }), () => setConnection({ ok: false }))
+    // Data loads report the connection too; the ping only covers idle pages, once a minute.
     void ping()
-    setInterval(() => { if (!document.hidden) void ping() }, 30_000)
+    setInterval(() => { if (!document.hidden) void ping() }, 60_000)
   </script>
 </body>
 </html>
