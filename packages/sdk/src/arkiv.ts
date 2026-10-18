@@ -63,6 +63,15 @@ export function attestationQuery(pub: MenePublicClient, issuer: string) {
     .limit(PAGE)
 }
 
+/** The exact filter used to read one issuer's advisories, payloads included. Contains no package name. */
+export function advisoryQuery(pub: MenePublicClient, issuer: string) {
+  return pub
+    .select("*")
+    .where(and(eq("project", PROJECT), eq("type", "advisory")))
+    .createdBy(issuer as Hex)
+    .limit(PAGE)
+}
+
 // ---------------------------------------------------------------- reads
 
 type AnyEntity = {
@@ -166,29 +175,56 @@ export async function readAdvisory(pub: MenePublicClient, key: string): Promise<
 
 const READ_CONCURRENCY = 4
 
-/** One full read: trusted attestations, then every advisory they point at. */
+/**
+ * One full read: trusted attestations, then every advisory they point at.
+ *
+ * `getEntity` is itself an `arkiv_query`, and the public RPC meters every query the same
+ * (friction.md #12), so advisories are read in one paged query per witness rather than one read
+ * per advisory: 2 queries per witness instead of 1 + one per advisory. An attested key that query
+ * doesn't return (written by a non-witness, deleted or expired) falls back to `getEntity`.
+ */
 export async function readLive(pub: MenePublicClient, issuers: string[]) {
   const { attestations, blockNumber } = await readAttestations(pub, issuers)
-  const keys = [...new Set(attestations.map((a) => a.advisory))]
+  const keys = new Set(attestations.map((a) => a.advisory))
   const advisories: Record<string, AdvisoryRecord> = {}
   const invalid: Record<string, string> = {}
+  const add = (k: string, read: () => AdvisoryRecord) => {
+    try {
+      advisories[k] = read()
+    } catch (err) {
+      if (err instanceof InvalidAdvisoryError) invalid[k] = err.message
+      else throw err
+    }
+  }
+  for (const issuer of issuers) {
+    let page = await advisoryQuery(pub, issuer).fetch()
+    for (;;) {
+      for (const entity of page.entities) {
+        const e = entity as AnyEntity
+        const k = e.key?.toLowerCase()
+        if (k && keys.has(k) && !(k in advisories)) add(k, () => toAdvisoryRecord(e))
+      }
+      if (!page.hasNextPage()) break
+      page = await page.next()
+    }
+  }
+  const missing = [...keys].filter((k) => !(k in advisories) && !(k in invalid))
   // At most READ_CONCURRENCY reads in flight: a burst of one request per advisory trips the node's
   // rate limit, and every throttled request then retries in lockstep (friction.md #8).
   let next = 0
   const worker = async () => {
-    while (next < keys.length) {
-      const k = keys[next++]!
+    while (next < missing.length) {
+      const k = missing[next++]!
       try {
         const a = await readAdvisory(pub, k)
         if (a) advisories[k] = a
       } catch (err) {
-        if (err instanceof InvalidAdvisoryError) {
-          invalid[k] = (err as Error).message
-        } else throw err
+        if (err instanceof InvalidAdvisoryError) invalid[k] = err.message
+        else throw err
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, keys.length) }, worker))
+  await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, missing.length) }, worker))
   return { attestations, advisories, invalid, blockNumber }
 }
 

@@ -12061,6 +12061,9 @@ var PAGE = 200;
 function attestationQuery(pub, issuer) {
   return pub.select("*").where(and(eq("project", PROJECT), eq("type", "attestation"))).createdBy(issuer).limit(PAGE);
 }
+function advisoryQuery(pub, issuer) {
+  return pub.select("*").where(and(eq("project", PROJECT), eq("type", "advisory"))).createdBy(issuer).limit(PAGE);
+}
 function attr(e, name) {
   return e.attributes?.[name]?.value;
 }
@@ -12139,24 +12142,44 @@ async function readAdvisory(pub, key2) {
 var READ_CONCURRENCY = 4;
 async function readLive(pub, issuers) {
   const { attestations, blockNumber } = await readAttestations(pub, issuers);
-  const keys = [...new Set(attestations.map((a) => a.advisory))];
+  const keys = new Set(attestations.map((a) => a.advisory));
   const advisories = {};
   const invalid = {};
+  const add = (k, read) => {
+    try {
+      advisories[k] = read();
+    } catch (err) {
+      if (err instanceof InvalidAdvisoryError) invalid[k] = err.message;
+      else throw err;
+    }
+  };
+  for (const issuer of issuers) {
+    let page = await advisoryQuery(pub, issuer).fetch();
+    for (; ; ) {
+      for (const entity of page.entities) {
+        const e = entity;
+        const k = e.key?.toLowerCase();
+        if (k && keys.has(k) && !(k in advisories)) add(k, () => toAdvisoryRecord(e));
+      }
+      if (!page.hasNextPage()) break;
+      page = await page.next();
+    }
+  }
+  const missing = [...keys].filter((k) => !(k in advisories) && !(k in invalid));
   let next = 0;
   const worker = async () => {
-    while (next < keys.length) {
-      const k = keys[next++];
+    while (next < missing.length) {
+      const k = missing[next++];
       try {
         const a = await readAdvisory(pub, k);
         if (a) advisories[k] = a;
       } catch (err) {
-        if (err instanceof InvalidAdvisoryError) {
-          invalid[k] = err.message;
-        } else throw err;
+        if (err instanceof InvalidAdvisoryError) invalid[k] = err.message;
+        else throw err;
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, keys.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, missing.length) }, worker));
   return { attestations, advisories, invalid, blockNumber };
 }
 
