@@ -35,7 +35,7 @@ Tracks: **Security** · **Censorship Resistance** · **Open Source**
 | Data contract | [`arkiv/schema.md`](arkiv/schema.md) |
 | Friction report | [`arkiv/friction.md`](arkiv/friction.md) |
 | Wallets & transactions | [`arkiv/evidence.md`](arkiv/evidence.md) |
-| Demo video | TODO |
+| Demo video | https://youtu.be/t71fEgwJiDg (2:10) |
 
 ## Why
 On 8 September 2025, the npm maintainer `qix` was phished through a fake `npmjs.help` 2FA email. Malicious versions of 18 packages with more than 2.6 billion weekly downloads followed, including `chalk@5.6.1` and `debug@4.4.2`, which redirected crypto transactions in browsers. The warnings lived on websites that one operator, one takedown or one more hacked account can edit or delete.
